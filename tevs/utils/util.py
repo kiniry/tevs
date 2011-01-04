@@ -44,6 +44,7 @@ def get_args():
 def get_config():
      config = ConfigParser.ConfigParser()
      config.read("tevs.cfg")
+     print "mark"
 
      # first, get log file name so log can be opened
      const.logfilename = config.get("Paths","logfilename")

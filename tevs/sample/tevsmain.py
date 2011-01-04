@@ -62,10 +62,9 @@ if __name__ == "__main__":
      logger = get_config()
 
      # connect to db and open cursor
-     conn = psycopg2.connect("dbname=mitch user=mitch")
+     conn = psycopg2.connect("dbname=mitch user=jimmy")
      cur = conn.cursor()
      cur.execute("select current_date;")
-     cur.execute("select * from test;")
      print cur.fetchall()
      conn.commit()
      # read templates
@@ -77,7 +76,7 @@ if __name__ == "__main__":
 
      #for dirnum in range(1,2):
      for dirnum in range(610,650):
-          fullpath = "/media/VANCOUVER1/Batches/Batch%03d/" % (dirnum,)
+          fullpath = "/media/VANCOUVER1/Batches/Batch%03d/" % (dirnum,) #XXX hardcoded path
           #fullpath = "/home/mitch/" 
           try:
                batches = os.listdir(fullpath)

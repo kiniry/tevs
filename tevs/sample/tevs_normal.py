@@ -1,8 +1,9 @@
 import sys
+import pdb
 import os
 import site
 site.addsitedir("/usr/local/lib/python2.6/site-packages")
-
+pdb.set_trace()
 # modified Python Image Library, with B for Ballot
 from PILB import Image, ImageStat
 from PILB import ImageDraw
@@ -132,7 +133,7 @@ if __name__ == "__main__":
      logger = get_config()
 
      # connect to db and open cursor
-     conn = psycopg2.connect("dbname=mitch user=mitch")
+     conn = psycopg2.connect("dbname=mitch user=jimmy")
      cur = conn.cursor()
      #cur.execute("select current_date;")
      #cur.execute("select * from test;")
