@@ -1,16 +1,18 @@
 import sys
-import pdb
 import os
+import os.path
+import errno
+import gc
+import string
+
+#XXX this must go
 import site
 site.addsitedir("/usr/local/lib/python2.6/site-packages")
-pdb.set_trace()
+
 # modified Python Image Library, with B for Ballot
 from PILB import Image, ImageStat
 from PILB import ImageDraw
-import gc
 import const
-import pdb
-import string
 
 # ballot processing python
 from tevs.utils.util import *
@@ -81,15 +83,17 @@ def build_dirs(n):
                   resultsfilename, 
                   masksfilename1,
                   masksfilename2):
-          this_path = os.path.split(item)[0]
-          if not os.path.exists(this_path):
-               try:
-                    os.makedirs(this_path)
-               except Exception, e:
-                    print "Could not create directory %s; %s" % (
-                         this_path,e)
-                    logger.error("Could not create directory %s; %s" % 
-                                 (this_path,e))
+          try:
+              item = os.path.dirname(item)
+              os.makedirs(item)
+          except Exception, e:
+              if e.errno == errno.EEXIST:
+                  continue #fake mkdir -p
+              print "Could not create directory %s; %s" % (
+                    item,e)
+              logger.error("Could not create directory %s; %s" % 
+                     (item,e))
+              sys.exit(1)
 
      return name1, name2, procname1, procname2, resultsfilename
 
@@ -125,7 +129,6 @@ def get_nextnum(numlist):
 
 
 if __name__ == "__main__":
-
      # get command line arguments
      get_args()
 
@@ -133,14 +136,10 @@ if __name__ == "__main__":
      logger = get_config()
 
      # connect to db and open cursor
-     conn = psycopg2.connect("dbname=mitch user=jimmy")
+     conn = psycopg2.connect("dbname=jimmy user=jimmy")
      cur = conn.cursor()
-     #cur.execute("select current_date;")
-     #cur.execute("select * from test;")
-     #print cur.fetchall()
-     conn.commit()
+
      # read templates
-     
      initialize_from_templates()
      
      # a BallotHatchery's "ballotfrom" inspects images 
@@ -153,68 +152,59 @@ if __name__ == "__main__":
           for numline in numlistfile.readlines():
                num = int(numline)
                numlist.append(num)
-     except:
-          pass
+     except IOError:
+          pass #no numlist.txt
 
      # While ballot images exist in the directory specified in tevs.cfg,
      # create ballot from images, get landmarks, get layout code, get votes.
      # Write votes to database and results directory.  Repeat.
-     while(1):
-          gc.collect()
+     while True:
           n = get_nextnum(numlist)
-          print n
           name1, name2, procname1, procname2, resultsfilename = build_dirs(n)
-          print name1,name2
-          pdb.set_trace()
+          print "Processing:\n", n, "\n", name1, name2
+
           try:
                newballot = bh.ballotfrom(name1,name2)
           except Exception, e:
                print e
                logger.error("Exception %s at ballot creation, [A|B]%s\n" 
                             % (e,name1)) 
-               continue
+               sys.exit(1) #continue
+
           try:
                tiltinfo = newballot.GetLandmarks()
           except Exception, e:
                print e
                logger.error("Exception %s at GetLandmarks, [A|B]%s\n" % (e,name1)) 
-               continue
+               sys.exit(1) #continue
+
           try:
                layout_codes = newballot.GetLayoutCode()
           except Exception, e:
                print e
                logger.error("Exception %s at GetLayoutCode, [A|B]%s\n" % (e,name1)) 
-               continue
+               sys.exit(1) #continue
 
           search_key = "%07d%07d" % (layout_codes[0][0],layout_codes[0][1])
-          #search_key = layout_codes[0]
+
           if search_key not in Ballot.front_dict:
                print search_key, "not in front_dict"
+
           try:
                front_layout = newballot.GetFrontLayout()
           except Exception, e:
                print e
                logger.error("Exception %s at GetFrontLayout, [A|B]%s\n" % (e,name1)) 
-               continue
+               sys.exit(1) #continue
+
           try:
                back_layout = newballot.GetBackLayout()
           except Exception, e:
                print e
                logger.error("Exception %s at GetBackLayout, [A|B]%s\n" % (e,name1)) 
-               continue
+               sys.exit(1) #continue
 
-          # the ballots table was created with this SQL
-          """
-          create table ballots (
-           ballot_id serial PRIMARY KEY,
-           processed_at timestamp,
-           code_string char(14),
-           layout_code bigint,
-           file1 varchar(80),
-           file2 varchar(80)
-          );
-          """
-          #if we get this far, create a db record for the ballot
+         #if we get this far, create a db record for the ballot
 
           cur.execute("""INSERT INTO ballots (
                          processed_at, 
@@ -229,8 +219,10 @@ if __name__ == "__main__":
           except:
                ballot_id = "ERROR"
           conn.commit()
+
           # we now need to retrieve the newly created serial ballot id 
           try:
+               print "Storing results"
                newballot.CaptureVoteInfo()
                boximage = Image.new("RGB",(1650,1200),color="white")
                counter = 0
@@ -286,60 +278,20 @@ vd.was_voted)
                     conn.commit()
                     # open the results file and write the results
 
-          except Exception, e:
+          except Exception as e:
                print e
                logger.error("Exception %s at Capture or WriteVoteInfo, %s, %s\n" % (e,name1,name2)) 
-               continue
+               sys.exit(1) #continue
 
           # move the images from unproc to proc
           try:
                os.rename(name1,procname1)
-          except:
+          except IOError:
                logger.error("Could not rename %s" % name1)
+               sys.exit(1)
           try:
                os.rename(name2,procname2)
-          except:
+          except IOError:
                logger.error("Could not rename %s" % name2)
+               sys.exit(1)
           n = save_nextnum(n)
-
-# the ballots table was created with this SQL
-"""
-               create table ballots (
-                ballot_id serial PRIMARY KEY,
-                processed_at timestamp,
-                code_string char(14),
-                layout_code bigint,
-                file1 varchar(80),
-                file2 varchar(80)
-               );
-"""
-
-# the voteops table was created with this SQL
-"""
-create table voteops (
-       voteop_id serial PRIMARY KEY,
-       ballot_id int REFERENCES ballots (ballot_id),
-       contest_text varchar(80),
-       choice_text varchar(80),
-       original_x smallint,
-       original_y smallint,
-       adjusted_x smallint,
-       adjusted_y smallint,
-       red_mean_intensity smallint,
-       red_darkest_pixels smallint,
-       red_darkish_pixels smallint,
-       red_lightish_pixels smallint,
-       red_lightest_pixels smallint,
-       green_mean_intensity smallint,
-       green_darkest_pixels smallint,
-       green_darkish_pixels smallint,
-       green_lightish_pixels smallint,
-       green_lightest_pixels smallint,
-       blue_mean_intensity smallint,
-       blue_darkest_pixels smallint,
-       blue_darkish_pixels smallint,
-       blue_lightish_pixels smallint,
-       blue_lightest_pixels smallint,
-       was_voted boolean
-);
-"""

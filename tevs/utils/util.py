@@ -6,6 +6,7 @@ import logging
 import const
 import pdb
 from tevs.ballottypes.Ballot import Ballot
+
 def get_args():
      """Get command line arguments"""
      try:
@@ -44,7 +45,6 @@ def get_args():
 def get_config():
      config = ConfigParser.ConfigParser()
      config.read("tevs.cfg")
-     print "mark"
 
      # first, get log file name so log can be opened
      const.logfilename = config.get("Paths","logfilename")
@@ -54,6 +54,7 @@ def get_config():
           logging.basicConfig(filename=const.logfilename,level=logging.INFO)
 
      logger = logging.getLogger("extraction")
+     logger.addHandler(logging.StreamHandler(sys.stderr))
      const.logger = logger
 
      # then both log and print other config info for this run
@@ -97,8 +98,7 @@ def get_config():
      const.writeins = config.get("Paths","writeins")
      const.boxes_root = config.get("Paths","boxes_root")
      save_vops = config.get("Mode","save_vops")
-     if save_vops.strip()=="True": const.save_vops = True
-     else: const.save_vops = False
+     const.save_vops = save_vops.strip() == "True"
      pfs = config.get("Paths","procformatstring")
      ufs = config.get("Paths","unprocformatstring")
      rfs = config.get("Paths","resultsformatstring")
@@ -115,6 +115,7 @@ def get_config():
          "thousands","%03d").replace("units","%06d")
      const.templates_path = templates_path
      const.backtemplates_path = backtemplates_path
+
      print "Log file", const.logfilename
      print "Ballot width in inches", const.ballot_width_inches
      print "Ballot height in inches", const.ballot_height_inches

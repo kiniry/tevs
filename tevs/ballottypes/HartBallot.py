@@ -725,38 +725,27 @@ class HartBallot(Ballot):
                 scalefactor = float(self.dpi)/float(layout.dpi)
                 xoffset = self.xref[sidenum] - (layout.xref*scalefactor)
                 yoffset = self.yref[sidenum] - (layout.yref*scalefactor)
-                #print self.current_oval, self.current_coords
-                #print self.xref[0], self.yref[0], layout.xref*scalefactor, layout.yref*scalefactor
 
                 # the ballot region's dpi will typically be 300,
                 # while individual ballots will typically have 150
-                #print "Jurisdiction",self.current_jurisdiction
-                #print "Contest",self.current_contest
-                #print "VOP",self.current_oval,self.current_coords
-                #print "xoffset",xoffset,"yoffset",yoffset
-                #print "DPI",self.dpi,"LAYOUT DPI",layout.dpi
                 scalefactor = float(self.dpi)/float(layout.dpi)
                 # adjust oval location given in template 
                 # for tilt and offset of this ballot
                 startx = int(self.current_coords[0])
                 starty = int(self.current_coords[1])
-                #print "Startx,starty before offset",startx,starty
                 startx = startx + int(round(xoffset))
                 starty = starty + int(round(yoffset))
-                #print "Startx,starty before rotate",startx,starty
-                (startx,starty)=rotate_pt_by(startx,starty,self.tang[sidenum],
+                startx,starty=rotate_pt_by(startx,starty,self.tang[sidenum],
                                              self.xref[sidenum],
                                              self.yref[sidenum])
-                #print "Startx,starty after offset,rotate", startx, starty
                 # add in end points for oval
-                #pdb.set_trace()
                 startx = int(round(startx * scalefactor))
                 starty = int(round(starty * scalefactor))
                 ow = int(round(const.oval_width_inches * self.dpi ))
                 oh = int(round(const.oval_height_inches * self.dpi)) 
                 endx = startx + ow
                 endy = starty + oh
-                cs = im.cropstats(
+                cs = im.cropstats( #XXX throwing a deprecation warning, mustfix
                     self.dpi,
                     int(round(const.vote_target_horiz_offset_inches * self.dpi)),
                     int(round(startx)),
@@ -780,24 +769,7 @@ class HartBallot(Ballot):
                     greenintensity = cs[5]
                     blueintensity = cs[10]
                     self.vote_box_images[(side,cropx,cropy)] = crop
-                    #print "Save %s/%02d_%04d_%04d_%03d_%03d_%03d.tif" % (
-                    #              const.boxes_root + boxes_filename,
-                    #              seq,
-                    #              cropx,
-                    #              cropy,
-                    #              redintensity,
-                    #              greenintensity,
-                    #              blueintensity)
-                    #crop.save("%s/%02d_%04d_%04d_%03d_%03d_%03d.tif" % 
-                    #          (
-                    #              const.boxes_root + boxes_filename,
-                    #              seq,
-                    #              cropx,
-                    #              cropy,
-                    #              redintensity,
-                    #              greenintensity,
-                    #              blueintensity))
-                seq += 1
+                    seq += 1
                 maxv = 1
                 try:
                     #maxv = get_maxv_from_text(self.current_contest)
@@ -837,7 +809,7 @@ class HartBallot(Ballot):
                               starty+int(0.6*self.dpi)
                               )
                              )
-                        if not os.path.exists(const.writeins):
+                        if not os.path.exists(const.writeins): #XXX need to refactor out mkdir -p into a utility func (in tev_normal)
                             try:
                                 os.makedirs(const.writeins)
                             except Exception, e:
