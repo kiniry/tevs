@@ -1,5 +1,6 @@
 import sys
 import os
+#XXX suspect
 imaging_dir = os.path.expanduser("~/Imaging-1.1.7")
 sys.path = [imaging_dir]+sys.path[:]
 import time
@@ -37,16 +38,14 @@ class BallotHatchery(object):
         """
         self.im1 = Image.open(im1).convert("RGB")
         self.im1.filename = im1
-        try:
+        try: 
             self.im2 = Image.open(im2).convert("RGB")
             self.im2.filename = im2
         except:
             self.im2 = None
-        for (func,cls) in BallotHatchery.ImageIsToBallotList:
+        print "Ballot kinds:", BallotHatchery.ImageIsToBallotList
+        for func, cls in BallotHatchery.ImageIsToBallotList:
             isa = func(self.im1)
-            #print "Function",func
-            #print "Return value", isa
-            #print "Class", cls
             try:
                  fn1 = self.im1.filename
                  fn2 = self.im2.filename
@@ -66,13 +65,13 @@ class BallotHatchery(object):
                                     fn1,
                                     fn2,
                                     time.asctime()))
-                 const.logger.debug("Flipping %s" % (self.im1.filename,))
+                 const.logger.debug("Flipping %s" % self.im1.filename)
                  self.im1 = self.im1.rotate(180)
                  self.im1.filename = im1
                  try:
                       self.im2 = self.im2.rotate(180)
                       self.im2.filename = im2
-                      const.logger.debug("Flipping %s" % (self.im2.filename,))
+                      const.logger.debug("Flipping %s" % self.im2.filename)
                  except:
                       pass
                  return cls(self.im1,self.im2,flipped=True)

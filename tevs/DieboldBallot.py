@@ -3,14 +3,16 @@ import sys
 import subprocess
 import xml.dom.minidom
 import pdb
+#XXX suspect
 imaging_dir = os.path.expanduser("~/Imaging-1.1.7")
-sys.path = [imaging_dir]+sys.path[:]
+sys.path = [imaging_dir]+sys.path[:] #XXX
 from PILB import Image, ImageStat
 from Ballot import Ballot, BallotHatchery, BallotException, BtRegion, VoteData
 import const
-from tevs.utils.ocr import ocr
-from tevs.utils.adjust import rotate_pt_by
-from tevs.utils.util import alnumify
+from ocr import ocr
+from adjust import rotate_pt_by
+from util import alnumify
+
 # "IsA" function, registered below with BallotHatchery,
 # must return 1 if the image is a usable representation 
 # of this module's ballot type, rightside up,
@@ -251,10 +253,9 @@ class DieboldBallot(Ballot):
         for im in (self.im1, self.im2):
             # don't pass negative x,y into getbarcode
             if im is not None:
-                ddc = im.diebolddashcode(128,
+                ddc = "%x" % im.diebolddashcode(128,
                                          self.dpi,
                                          im.size[1]-(self.dpi*0.3))
-                ddc = "%x" % ddc 
                 self.layout_code[n] = ddc.replace("-","0") 
             n = n+1
         im = self.im1
@@ -316,9 +317,6 @@ class DieboldBallot(Ballot):
         except:
             return self.BuildBackLayout()
 
-
-        pass
-
     def BuildFrontLayout(self):
         self.regionlists = [[],[]]
         self.need_to_pickle = True
@@ -339,7 +337,8 @@ class DieboldBallot(Ballot):
 
         front_xml = self.front_layout.toXML(self.code_string)
         Ballot.front_dict[self.layout_code[0]] = front_xml
-        template_outfile = open("templates/"+self.code_string,"w")
+        templatef = os.path.join(const.templates_path, self.code_string)
+        template_outfile = open(templatef,"w")
         template_outfile.write(front_xml)
         template_outfile.close()
         # if you need to build the front layout, you need to build
@@ -361,7 +360,7 @@ class DieboldBallot(Ballot):
             print "Length of self.regionlists[1]",len(self.regionlists[1])
         self.back_layout = []
         try:filename = self.im2.filename
-        except: filename = "UNKNOWN"
+        except: filename = "UNKNOWN" #XXX redflag
         self.im2 = self.im2.rotate(-self.tang[1] * (180./3.14))
         self.im2.filename = filename
         self.tang[1] = 0.0
@@ -374,7 +373,8 @@ class DieboldBallot(Ballot):
 
         back_xml = self.back_layout.toXML(self.code_string)
         Ballot.back_dict[self.layout_code[0]] = back_xml
-        template_outfile = open("backtemplates/"+self.code_string,"w")
+        templatef = os.path.join(const.backtemplates_path, self.code_string)
+        template_outfile = open(templatef, "w")
         template_outfile.write(back_xml)
         template_outfile.close()
         print "Length of self.regionlists[1]",len(self.regionlists[1])
@@ -404,7 +404,7 @@ class DieboldBallot(Ballot):
             if (x - lastx) > (dpi/4):
                 columnstart_list.append(x)
                 pot_hlines = im.getpotentialhlines(x,1,dpi)
-                hlinelistlist.append( pot_hlines)
+                hlinelistlist.append(pot_hlines)
             lastx = x
         lastel2 = 0
 
@@ -627,26 +627,17 @@ class DieboldBallot(Ballot):
 
                 # the ballot region's dpi will typically be 300,
                 # while individual ballots will typically have 150
-                #print "Jurisdiction",self.current_jurisdiction
-                #print "Contest",self.current_contest
-                #print "VOP",self.current_oval,self.current_coords
-                #print "xoffset",xoffset,"yoffset",yoffset
-                #print "DPI",self.dpi,"LAYOUT DPI",layout.dpi
                 scalefactor = float(self.dpi)/float(layout.dpi)
                 # adjust oval location given in template 
                 # for tilt and offset of this ballot
                 startx = int(self.current_coords[0])
                 starty = int(self.current_coords[1])
-                #print "Startx,starty before offset",startx,starty
                 startx = startx + int(round(xoffset))
                 starty = starty + int(round(yoffset))
-                #print "Startx,starty before rotate",startx,starty
-                (startx,starty)=rotate_pt_by(startx,starty,self.tang[0],
+                startx, starty =rotate_pt_by(startx,starty,self.tang[0],
                                              self.xref[0],
                                              self.yref[0])
-                #print "Startx,starty after offset,rotate", startx, starty
                 # add in end points for oval
-                #pdb.set_trace()
                 startx = int(round(startx * scalefactor))
                 starty = int(round(starty * scalefactor))
                 ow = int(round(const.oval_width_inches * self.dpi ))
@@ -694,7 +685,7 @@ class DieboldBallot(Ballot):
                               )
                              )
                    if not os.path.exists("./writeins"):
-                        try:
+                        try: #XXX we need to have everything created and then not worry about it
                              os.makedirs("./writeins")
                         except Exception, e:
                              print "Could not create directory %s\n%s" % (
@@ -764,10 +755,10 @@ class BallotSide(object):
             self.precinct)
 
     def append(self,region):
-        if type(region)<>BtRegion:
+        if type(region)!=BtRegion:
             raise Exception
         # don't append regions with (0,0) location, they're artifacts
-        if (region.coord[0] <> 0) and (region.coord[1] <> 0):
+        if (region.coord[0] != 0) and (region.coord[1] != 0):
             self.regionlist.append(region)
 
 
@@ -845,7 +836,6 @@ class BallotSide(object):
                 self.current_choice = region.text
 
             elif region.purpose == BtRegion.PROP:
-                # close existing
                 # close existing contest
                 if contest_open:
                     contestlist.append("</Contest>")

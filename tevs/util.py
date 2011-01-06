@@ -4,8 +4,7 @@ import getopt
 import ConfigParser
 import logging
 import const
-import pdb
-from tevs.ballottypes.Ballot import Ballot
+from Ballot import Ballot
 
 def get_args():
      """Get command line arguments"""
@@ -146,7 +145,6 @@ def get_config():
      logger.info( const.resultsformatstring % (123456/1000,123456))
      logger.info( const.masksformatstring)
      logger.info( const.masksformatstring % (123456/1000,123456))
-     print logger
      return logger
 
 def initialize_from_templates():

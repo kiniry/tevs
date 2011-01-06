@@ -7,8 +7,6 @@
 
 import os
 import sys
-#imaging_dir = os.path.expanduser("~/Imaging-1.1.7")
-#sys.path = [imaging_dir]+sys.path[:]
 import subprocess
 import xml.dom.minidom
 import pdb
@@ -16,8 +14,8 @@ from PILB import Image, ImageStat
 from Ballot import Ballot, BallotHatchery, BallotException, BtRegion, VoteData
 import const
 import time
-from tevs.utils.ocr import ocr
-from tevs.utils.adjust import rotate_pt_by
+from ocr import ocr
+from adjust import rotate_pt_by
 
 # "IsA" function, registered below with BallotHatchery,
 # must return 1 if the image is a usable representation 
@@ -692,8 +690,6 @@ class HartBallot(Ballot):
                     #print "Skipping",region.bbox,region.text
                 else:
                     region_valid = True
-                #if self.current_contest.find("SHER")>-1:
-                #     pdb.set_trace()
                 if self.current_contest.find("Count")>=0:
                     self.current_jurisdiction = self.current_contest
                 if self.current_contest.find("State")>=0:
@@ -835,7 +831,6 @@ class HartBallot(Ballot):
             except Exception, e:
                 print e
                 const.logger.debug("Problem appending vote at %s, %s" % (self.im1,self.im2))
-                #pdb.set_trace()
         return retstr
 
 class BallotSide(object):
@@ -985,7 +980,6 @@ class BallotSide(object):
                 self.current_oval = region.text
                 contest_ovalcount += 1
                 self.current_coords = region.coord
-                #pdb.set_trace()
                 contestlist.append("<oval x='%d' y='%d' text='%s' />" 
                                % (self.current_coords[0], 
                                   self.current_coords[1], 

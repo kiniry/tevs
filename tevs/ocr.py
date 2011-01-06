@@ -4,7 +4,7 @@ import sys
 import subprocess
 import re
 import const
-from tevs.ballottypes.Ballot import BtRegion
+from Ballot import BtRegion
 
 # splits argument is conf_hll[x] from HartBallot, 
 # a confirmed horizontal line list containing entries 

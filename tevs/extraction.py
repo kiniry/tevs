@@ -9,6 +9,7 @@
 # also: need to check whether box-less sides cause problems
 import sys
 import os
+#XXX suspect
 imaging_dir = os.path.expanduser("~/Imaging-1.1.7")
 sys.path = [imaging_dir]+sys.path[:]
 from PIL import Image, ImageStat

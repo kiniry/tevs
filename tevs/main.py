@@ -5,20 +5,17 @@ import errno
 import gc
 import string
 
-#XXX this must go
-import site
-site.addsitedir("/usr/local/lib/python2.6/site-packages")
-
 # modified Python Image Library, with B for Ballot
 from PILB import Image, ImageStat
 from PILB import ImageDraw
 import const
 
 # ballot processing python
-from tevs.utils.util import *
-from tevs.ballottypes.Ballot import *
-from tevs.ballottypes.HartBallot import *
-from tevs.ballottypes.DieboldBallot import *
+#XXX * imports are bad news
+from util import *
+from Ballot import *
+from HartBallot import *
+from DieboldBallot import *
 
 # for database
 # we initially assume dbname and dbuser mitch in postgresql
@@ -65,17 +62,13 @@ def build_dirs(n):
      # generate filenames using the new image number(s)
      # create additional subdirectories as needed 
      # in proc, results, masks directories
-     name1 = const.unprocformatstring % (n/1000,n)
-     name2 = const.unprocformatstring % ((n+1)/1000,(n+1))
-     procname1 = const.procformatstring % (n/1000,n)
-     procname2 = const.procformatstring % ((n+1)/1000,(n+1))
-     resultsfilename = const.resultsformatstring % (n/1000,n)
-     masksfilename1 = const.masksformatstring % (n/1000,n)
-     masksfilename2 = const.masksformatstring % ((n+1)/1000,(n+1))
-     resultspath = os.path.split(resultsfilename)[0]
-     maskspath = os.path.split(masksfilename1)[0]
-     procpath = os.path.split(procname1)[0]
-     procpath2 = os.path.split(procname2)[0]
+     name1 = const.unprocformatstring % (n/1000, n)
+     name2 = const.unprocformatstring % ((n+1)/1000, n+1)
+     procname1 = const.procformatstring % (n/1000, n)
+     procname2 = const.procformatstring % ((n+1)/1000, n+1)
+     resultsfilename = const.resultsformatstring % (n/1000, n)
+     masksfilename1 = const.masksformatstring % (n/1000, n)
+     masksfilename2 = const.masksformatstring % ((n+1)/1000, n+1)
      for item in (name1,
                   name2,
                   procname1,
@@ -84,9 +77,8 @@ def build_dirs(n):
                   masksfilename1,
                   masksfilename2):
           try:
-              item = os.path.dirname(item)
-              os.makedirs(item)
-          except Exception, e:
+              os.makedirs(os.path.dirname(item))
+          except Exception as e:
               if e.errno == errno.EEXIST:
                   continue #fake mkdir -p
               print "Could not create directory %s; %s" % (
@@ -94,17 +86,16 @@ def build_dirs(n):
               logger.error("Could not create directory %s; %s" % 
                      (item,e))
               sys.exit(1)
-
      return name1, name2, procname1, procname2, resultsfilename
 
 def save_nextnum(n):
      """Save number in nexttoprocess.txt"""
      try:
           n = n+2
-          hw = open("nexttoprocess.txt","w")
+          hw = open("nexttoprocess.txt","w")#XXX needs to not be in cwd
           hw.write("%d"%n)
           hw.close()
-     except Exception, e:
+     except Exception as e:
           logger.debug("Could not write %d to nexttoprocess.txt %s\n" % 
                        (n,e))
      return n
@@ -165,7 +156,8 @@ if __name__ == "__main__":
 
           try:
                newballot = bh.ballotfrom(name1,name2)
-          except Exception, e:
+               print "Ballot class:", bh.__class__.__name__
+          except Exception as e:
                print e
                logger.error("Exception %s at ballot creation, [A|B]%s\n" 
                             % (e,name1)) 
@@ -173,14 +165,14 @@ if __name__ == "__main__":
 
           try:
                tiltinfo = newballot.GetLandmarks()
-          except Exception, e:
+          except Exception as e:
                print e
                logger.error("Exception %s at GetLandmarks, [A|B]%s\n" % (e,name1)) 
                sys.exit(1) #continue
 
           try:
                layout_codes = newballot.GetLayoutCode()
-          except Exception, e:
+          except Exception as e:
                print e
                logger.error("Exception %s at GetLayoutCode, [A|B]%s\n" % (e,name1)) 
                sys.exit(1) #continue
@@ -192,14 +184,14 @@ if __name__ == "__main__":
 
           try:
                front_layout = newballot.GetFrontLayout()
-          except Exception, e:
+          except Exception as e:
                print e
                logger.error("Exception %s at GetFrontLayout, [A|B]%s\n" % (e,name1)) 
                sys.exit(1) #continue
 
           try:
                back_layout = newballot.GetBackLayout()
-          except Exception, e:
+          except Exception as e:
                print e
                logger.error("Exception %s at GetBackLayout, [A|B]%s\n" % (e,name1)) 
                sys.exit(1) #continue
@@ -247,34 +239,33 @@ if __name__ == "__main__":
                resultsfile.close()
                for vd in newballot.results:
                     cur.execute(voteop_insertion_string,
+                         (ballot_id,
+                          vd.contest,
+                          vd.choice,
+                          vd.coords[0],
+                          vd.coords[1],
+                          vd.adjusted_x,
+                          vd.adjusted_y, 
 
-(ballot_id,
-vd.contest,
-vd.choice,
-vd.coords[0],
-vd.coords[1],
-vd.adjusted_x,
-vd.adjusted_y, 
+                          vd.red_intensity,
+                          vd.red_darkestfourth,
+                          vd.red_secondfourth,
+                          vd.red_thirdfourth,
+                          vd.red_lightestfourth,
 
-vd.red_intensity,
-vd.red_darkestfourth,
-vd.red_secondfourth,
-vd.red_thirdfourth,
-vd.red_lightestfourth,
+                          vd.green_intensity,
+                          vd.green_darkestfourth,
+                          vd.green_secondfourth,
+                          vd.green_thirdfourth,
+                          vd.green_lightestfourth,
 
-vd.green_intensity,
-vd.green_darkestfourth,
-vd.green_secondfourth,
-vd.green_thirdfourth,
-vd.green_lightestfourth,
-
-vd.blue_intensity ,
-vd.blue_darkestfourth ,
-vd.blue_secondfourth ,
-vd.blue_thirdfourth ,
-vd.blue_lightestfourth ,
-vd.was_voted)
-)
+                          vd.blue_intensity ,
+                          vd.blue_darkestfourth ,
+                          vd.blue_secondfourth ,
+                          vd.blue_thirdfourth ,
+                          vd.blue_lightestfourth ,
+                          vd.was_voted)
+                     )
                     conn.commit()
                     # open the results file and write the results
 
