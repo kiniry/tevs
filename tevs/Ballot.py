@@ -43,7 +43,6 @@ class BallotHatchery(object):
             self.im2.filename = im2
         except:
             self.im2 = None
-        print "Ballot kinds:", BallotHatchery.ImageIsToBallotList
         for func, cls in BallotHatchery.ImageIsToBallotList:
             isa = func(self.im1)
             try:

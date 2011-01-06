@@ -156,7 +156,6 @@ if __name__ == "__main__":
 
           try:
                newballot = bh.ballotfrom(name1,name2)
-               print "Ballot class:", bh.__class__.__name__
           except Exception as e:
                print e
                logger.error("Exception %s at ballot creation, [A|B]%s\n" 
