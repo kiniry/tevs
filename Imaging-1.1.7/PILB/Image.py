@@ -1109,6 +1109,18 @@ class Image:
     #    return self.im.getesslandmarks(dpi, need_ovals)
 
     ##
+    # Sample func 
+    #
+    # @param dpi is the dots per inch of the image
+    # @param need_vops indicates whether we are also asking for vote ops
+    # @return list of four box corner coord pairs
+
+    def samplefunc(self, dpi, need_vops):
+        "Sample func"
+        self.load()
+	return self.im.samplefunc(dpi, need_vops)
+
+    ##
     # Returns hart landmarks list
     #
     # @param dpi is the dots per inch of the image

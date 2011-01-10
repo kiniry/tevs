@@ -30,6 +30,7 @@ create table voteops (
        blue_darkish_pixels smallint,
        blue_lightish_pixels smallint,
        blue_lightest_pixels smallint,
-       was_voted boolean
+       was_voted boolean,
+       suspicious boolean
 );
 

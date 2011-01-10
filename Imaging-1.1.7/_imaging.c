@@ -596,6 +596,36 @@ getchanges(Imaging im, int xtop, int xbottom, int dpi)
 
 /* BALLOT ANALYSIS (works with RGB only) */
 static inline PyObject*
+samplefunc(Imaging im, int dpi, int need_vops)
+{
+  printf("Sample function with %d, %d\n",dpi,need_vops);
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+/* BALLOT ANALYSIS (works with RGB only) */
+static PyObject* 
+_samplefunc(ImagingObject* self, PyObject* args)
+{
+    int dpi;
+    int need_vops;
+    int ok;
+    if (PyTuple_GET_SIZE(args) != 2) {
+        PyErr_SetString(
+            PyExc_TypeError,
+            "argument 1 must be an integer"
+            );
+        return NULL;
+    }
+
+    ok = PyArg_ParseTuple(args,"ii",&dpi,&need_vops);
+
+    if (!ok) return NULL;
+
+    return samplefunc(self->image, dpi, need_vops);
+}
+
+/* BALLOT ANALYSIS (works with RGB only) */
+static inline PyObject*
 gethartlandmarks(Imaging im, int dpi, int need_vops)
 {
   UINT8 *p,*p2;
@@ -7474,7 +7504,8 @@ static struct PyMethodDef methods[] = {
     {"getessheaderscodesovals", (PyCFunction)_getessheaderscodesovals, 1},
     {"getessheadersandcodes", (PyCFunction)_getessheadersandcodes, 1},
     //{"getesslandmarks", (PyCFunction)_getesslandmarks, 1},
-    {"gethartlandmarks", (PyCFunction)_gethartlandmarks, 1},
+    {"gethartlandmarks", (PyCFunction)_gethartlandmarks, 2},
+    {"samplefunc", (PyCFunction)_samplefunc, 2},
     {"getdieboldlandmarks", (PyCFunction)_getdieboldlandmarks, 1},
     {"getdarkextents", (PyCFunction)_getdarkextents, 1},
     {"getfirstdark", (PyCFunction)_getfirstdark, 1},

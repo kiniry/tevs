@@ -1,0 +1,4 @@
+#!/bin/sh
+
+mv ~/data/proc/* ~/data/unproc
+cp -r /home/jimmy/data/proc/* /home/jimmy/data/unproc/

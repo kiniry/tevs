@@ -1,23 +1,17 @@
-#!/usr/bin/env python
 import sys
 import os
-import os.path
-import errno
-import gc
-import string
-
-#XXX
 import site
-site.addsitedir("/home/jimmy/tevs")
-import pdb
-
+site.addsitedir("/home/jimmy/tevs/")
 
 # modified Python Image Library, with B for Ballot
 from PILB import Image, ImageStat
 from PILB import ImageDraw
+import gc
 import const
+import pdb
+import string
+
 # ballot processing python
-#XXX * imports are bad news
 from util import *
 from Ballot import *
 from HartBallot import *
@@ -26,7 +20,6 @@ from DieboldBallot import *
 # for database
 # we initially assume dbname and dbuser mitch in postgresql
 import psycopg2
-
 
 voteop_insertion_string = """INSERT INTO voteops (
  ballot_id,
@@ -51,7 +44,8 @@ voteop_insertion_string = """INSERT INTO voteops (
  blue_darkish_pixels,
  blue_lightish_pixels,
  blue_lightest_pixels,
- was_voted
+ was_voted,
+ suspicious
 ) VALUES (
 %s,  
 %s, %s,  
@@ -60,7 +54,7 @@ voteop_insertion_string = """INSERT INTO voteops (
 %s, %s, %s, %s, %s, 
 %s, %s, %s, %s, %s, 
 %s, %s, %s, %s, %s, 
-%s
+%s, %s
  )"""
 
 
@@ -69,13 +63,17 @@ def build_dirs(n):
      # generate filenames using the new image number(s)
      # create additional subdirectories as needed 
      # in proc, results, masks directories
-     name1 = const.unprocformatstring % (n/1000, n)
-     name2 = const.unprocformatstring % ((n+1)/1000, n+1)
-     procname1 = const.procformatstring % (n/1000, n)
-     procname2 = const.procformatstring % ((n+1)/1000, n+1)
-     resultsfilename = const.resultsformatstring % (n/1000, n)
-     masksfilename1 = const.masksformatstring % (n/1000, n)
-     masksfilename2 = const.masksformatstring % ((n+1)/1000, n+1)
+     name1 = const.unprocformatstring % (n/1000,n)
+     name2 = const.unprocformatstring % ((n+1)/1000,(n+1))
+     procname1 = const.procformatstring % (n/1000,n)
+     procname2 = const.procformatstring % ((n+1)/1000,(n+1))
+     resultsfilename = const.resultsformatstring % (n/1000,n)
+     masksfilename1 = const.masksformatstring % (n/1000,n)
+     masksfilename2 = const.masksformatstring % ((n+1)/1000,(n+1))
+     resultspath = os.path.split(resultsfilename)[0]
+     maskspath = os.path.split(masksfilename1)[0]
+     procpath = os.path.split(procname1)[0]
+     procpath2 = os.path.split(procname2)[0]
      for item in (name1,
                   name2,
                   procname1,
@@ -83,26 +81,32 @@ def build_dirs(n):
                   resultsfilename, 
                   masksfilename1,
                   masksfilename2):
-          try:
-              os.makedirs(os.path.dirname(item))
-          except Exception as e:
-              if e.errno == errno.EEXIST:
-                  continue #fake mkdir -p
-              print "Could not create directory %s; %s" % (
-                    item,e)
-              logger.error("Could not create directory %s; %s" % 
-                     (item,e))
-              sys.exit(1)
+          this_path = os.path.split(item)[0]
+          if not os.path.exists(this_path):
+               try:
+                    os.makedirs(this_path)
+               except Exception, e:
+                    print "Could not create directory %s; %s" % (
+                         this_path,e)
+                    logger.error("Could not create directory %s; %s" % 
+                                 (this_path,e))
+
      return name1, name2, procname1, procname2, resultsfilename
 
 def save_nextnum(n):
      """Save number in nexttoprocess.txt"""
      try:
           n = n+2
-          hw = open("nexttoprocess.txt","w")#XXX needs to not be in cwd
+          # skip bad files
+          #if n == 14000 or n == 14001:
+          #     n+= 12000
+          # stop after top file
+          if n > 101: 
+               pdb.set_trace()
+          hw = open("nexttoprocess.txt","w")
           hw.write("%d"%n)
           hw.close()
-     except Exception as e:
+     except Exception, e:
           logger.debug("Could not write %d to nexttoprocess.txt %s\n" % 
                        (n,e))
      return n
@@ -136,12 +140,17 @@ if __name__ == "__main__":
      # connect to db and open cursor
      conn = psycopg2.connect("dbname=jimmy user=jimmy")
      cur = conn.cursor()
-
+     #cur.execute("select current_date;")
+     #cur.execute("select * from test;")
+     #print cur.fetchall()
+     conn.commit()
      # read templates
+     
      initialize_from_templates()
      
      # a BallotHatchery's "ballotfrom" inspects images 
      # and creates ballots of the correct type
+     pdb.set_trace()
      bh = BallotHatchery()
 
      numlist = []
@@ -150,59 +159,113 @@ if __name__ == "__main__":
           for numline in numlistfile.readlines():
                num = int(numline)
                numlist.append(num)
-     except IOError:
-          pass #no numlist.txt
+     except:
+          pass
 
      # While ballot images exist in the directory specified in tevs.cfg,
      # create ballot from images, get landmarks, get layout code, get votes.
      # Write votes to database and results directory.  Repeat.
-     while True:
+     switch_files = False
+     files_switched = False
+     while(1):
+          gc.collect()
           n = get_nextnum(numlist)
+          print n
+          if len(numlist)>0: numlist = numlist[1:]
           name1, name2, procname1, procname2, resultsfilename = build_dirs(n)
-          print "Processing:\n", n, "\n", name1, name2
-
+          print name1,name2
+          #pdb.set_trace()
+          if (switch_files):
+               try:
+                    os.rename(name1,"tempfile")
+                    os.rename(name2,name1)
+                    os.rename("tempfile",name2)
+                    logger.warning("Switched %s with %s" % (name1, name2))
+               except:
+                    pass
+               files_switched = True
+          else:
+               files_switched = False
+          switch_files = False
+          
           try:
                newballot = bh.ballotfrom(name1,name2)
-          except Exception as e:
+          except Exception, e:
                print e
                logger.error("Exception %s at ballot creation, [A|B]%s\n" 
                             % (e,name1)) 
-               sys.exit(1) #continue
-
+               if not files_switched:
+                    switch_files = True
+               else:
+                    n = save_nextnum(n)
+                    files_switched = False
+               continue
           try:
                tiltinfo = newballot.GetLandmarks()
-          except Exception as e:
+          except Exception, e:
                print e
                logger.error("Exception %s at GetLandmarks, [A|B]%s\n" % (e,name1)) 
-               sys.exit(1) #continue
-
+               if not files_switched: 
+                    switch_files = True
+               else: 
+                    switch_files = False
+                    n = save_nextnum(n)
+               continue
           try:
                layout_codes = newballot.GetLayoutCode()
-          except Exception as e:
+          except Exception, e:
                print e
                logger.error("Exception %s at GetLayoutCode, [A|B]%s\n" % (e,name1)) 
-               sys.exit(1) #continue
+               # advance number if we fail at retrieving layout codes
+               if not files_switched:
+                    switch_files = True
+               else:
+                    switch_files = False
+                    n = save_nextnum(n)
+               continue
 
           search_key = "%07d%07d" % (layout_codes[0][0],layout_codes[0][1])
-
+          if search_key[8]=="2" or search_key[8]=="4":
+               #XXX
+               #reload the ballot with name1, name2 reversed
+               if not files_switched: 
+                    switch_files = True
+                    logger.warning("Switching files due to back face bar code on front, then reloading.")
+               else:
+                    switch_files = False
+                    n = save_nextnum(n)
+               # number should not be advanced
+               continue
+          # advance number if we reach this point
+          files_switched = False
+          n = save_nextnum(n)
           if search_key not in Ballot.front_dict:
                print search_key, "not in front_dict"
-
           try:
                front_layout = newballot.GetFrontLayout()
-          except Exception as e:
+          except Exception, e:
                print e
                logger.error("Exception %s at GetFrontLayout, [A|B]%s\n" % (e,name1)) 
-               sys.exit(1) #continue
-
+               continue
           try:
                back_layout = newballot.GetBackLayout()
-          except Exception as e:
+          except Exception, e:
                print e
                logger.error("Exception %s at GetBackLayout, [A|B]%s\n" % (e,name1)) 
-               sys.exit(1) #continue
+               continue
 
-         #if we get this far, create a db record for the ballot
+          # the ballots table was created with this SQL
+          """
+          create table ballots (
+           ballot_id serial PRIMARY KEY,
+           processed_at timestamp,
+           code_string char(14),
+           layout_code bigint,
+           file1 varchar(80),
+           file2 varchar(80)
+          );
+          """
+          #if we get this far, create a db record for the ballot
 
           cur.execute("""INSERT INTO ballots (
                          processed_at, 
@@ -217,10 +280,8 @@ if __name__ == "__main__":
           except:
                ballot_id = "ERROR"
           conn.commit()
-
           # we now need to retrieve the newly created serial ballot id 
           try:
-               print "Storing results"
                newballot.CaptureVoteInfo()
                boximage = Image.new("RGB",(1650,1200),color="white")
                counter = 0
@@ -244,51 +305,97 @@ if __name__ == "__main__":
                resultsfile.write(vi)
                resultsfile.close()
                for vd in newballot.results:
+                    if vd.suspicious:
+                         suspicious = True
+                    else:
+                         suspicious = False
                     cur.execute(voteop_insertion_string,
-                         (ballot_id,
-                          vd.contest,
-                          vd.choice,
-                          vd.coords[0],
-                          vd.coords[1],
-                          vd.adjusted_x,
-                          vd.adjusted_y, 
 
-                          vd.red_intensity,
-                          vd.red_darkestfourth,
-                          vd.red_secondfourth,
-                          vd.red_thirdfourth,
-                          vd.red_lightestfourth,
+(ballot_id,
+vd.contest[:40],
+vd.oval[:40],
+vd.coords[0],
+vd.coords[1],
+vd.adjusted_x,
+vd.adjusted_y, 
 
-                          vd.green_intensity,
-                          vd.green_darkestfourth,
-                          vd.green_secondfourth,
-                          vd.green_thirdfourth,
-                          vd.green_lightestfourth,
+vd.red_intensity,
+vd.red_darkestfourth,
+vd.red_secondfourth,
+vd.red_thirdfourth,
+vd.red_lightestfourth,
 
-                          vd.blue_intensity ,
-                          vd.blue_darkestfourth ,
-                          vd.blue_secondfourth ,
-                          vd.blue_thirdfourth ,
-                          vd.blue_lightestfourth ,
-                          vd.was_voted)
-                     )
+vd.green_intensity,
+vd.green_darkestfourth,
+vd.green_secondfourth,
+vd.green_thirdfourth,
+vd.green_lightestfourth,
+
+vd.blue_intensity ,
+vd.blue_darkestfourth ,
+vd.blue_secondfourth ,
+vd.blue_thirdfourth ,
+vd.blue_lightestfourth ,
+vd.was_voted,
+suspicious)
+)
                     conn.commit()
                     # open the results file and write the results
 
-          except Exception as e:
+          except Exception, e:
                print e
                logger.error("Exception %s at Capture or WriteVoteInfo, %s, %s\n" % (e,name1,name2)) 
-               sys.exit(1) #continue
+               continue
 
           # move the images from unproc to proc
           try:
                os.rename(name1,procname1)
-          except IOError:
+          except:
                logger.error("Could not rename %s" % name1)
-               sys.exit(1)
           try:
                os.rename(name2,procname2)
-          except IOError:
+          except:
                logger.error("Could not rename %s" % name2)
-               sys.exit(1)
-          n = save_nextnum(n)
+
+# the ballots table was created with this SQL
+"""
+               create table ballots (
+                ballot_id serial PRIMARY KEY,
+                processed_at timestamp,
+                code_string char(14),
+                layout_code bigint,
+                file1 varchar(80),
+                file2 varchar(80)
+               );
+"""
+
+# the voteops table was created with this SQL
+"""
+create table voteops (
+       voteop_id serial PRIMARY KEY,
+       ballot_id int REFERENCES ballots (ballot_id),
+       contest_text varchar(80),
+       choice_text varchar(80),
+       original_x smallint,
+       original_y smallint,
+       adjusted_x smallint,
+       adjusted_y smallint,
+       red_mean_intensity smallint,
+       red_darkest_pixels smallint,
+       red_darkish_pixels smallint,
+       red_lightish_pixels smallint,
+       red_lightest_pixels smallint,
+       green_mean_intensity smallint,
+       green_darkest_pixels smallint,
+       green_darkish_pixels smallint,
+       green_lightish_pixels smallint,
+       green_lightest_pixels smallint,
+       blue_mean_intensity smallint,
+       blue_darkest_pixels smallint,
+       blue_darkish_pixels smallint,
+       blue_lightish_pixels smallint,
+       blue_lightest_pixels smallint,
+       was_voted boolean,
+       suspicious boolean
+);
+"""

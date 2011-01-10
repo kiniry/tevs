@@ -741,6 +741,7 @@ class HartBallot(Ballot):
                 oh = int(round(const.oval_height_inches * self.dpi)) 
                 endx = startx + ow
                 endy = starty + oh
+                #pdb.set_trace()
                 cs = im.cropstats( #XXX throwing a deprecation warning, mustfix
                     self.dpi,
                     int(round(const.vote_target_horiz_offset_inches * self.dpi)),
