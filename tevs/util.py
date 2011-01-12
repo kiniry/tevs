@@ -1,10 +1,44 @@
 import sys
 import os
+import errno
 import getopt
 import ConfigParser
 import logging
 import const
 from Ballot import Ballot
+
+def writeto(fname, data):
+    "save data into fname"
+    try:
+        with open(fname, "w") as f:
+            f.write(str(data))
+    except OSError as e:
+        logger.error("Could not write to %s\n%s" % (fname, e))
+        sys.exit(1)
+
+def readfrom(fname, default=None):
+    "return contents of fname as string, if we can't read: returns default if not None, otherwise shuts down"
+    try:
+        with open(fname, "r") as f:
+            return f.read()
+    except Exception as e:
+        if default is not None:
+            return default
+        logger.error("Could not read from %s\n%s" % (fname, e))
+        sys.exit(1) 
+
+def mkdirp(*path):
+     "Copy of mkdir -p, joins all arguments as path elements"
+     if len(path) == 0:
+         return
+     path = os.path.join(*path)
+     try:
+         os.makedirs(path)
+     except Exception as e:
+         if e.errno == errno.EEXIST:
+            return # an ignorable error, dir already exists
+         logger.error("Could not create directory %s\n%s" % (path, e))
+         sys.exit(1)
 
 def get_args():
      """Get command line arguments"""
@@ -38,8 +72,6 @@ def get_args():
      const.debug = debug
      const.retry = retry
      const.question = question
-     print "OPTS", opts
-     print "ARGS", args
 
 def get_config():
      config = ConfigParser.ConfigParser()
@@ -115,21 +147,6 @@ def get_config():
      const.templates_path = templates_path
      const.backtemplates_path = backtemplates_path
 
-     print "Log file", const.logfilename
-     print "Ballot width in inches", const.ballot_width_inches
-     print "Ballot height in inches", const.ballot_height_inches
-     print "Voteop width in inches", const.oval_width_inches
-     print "Voteop height in inches", const.oval_height_inches
-     print "Format string for processed files:", const.procformatstring
-     print "substituted with 123456", const.procformatstring % (
-          123456/1000,123456)
-     print "Format string for unprocessed, results, and masks files:"
-     print const.unprocformatstring
-     print const.unprocformatstring % (123456/1000,123456)
-     print const.resultsformatstring
-     print const.resultsformatstring % (123456/1000,123456)
-     print const.masksformatstring
-     print const.masksformatstring % (123456/1000,123456)
      logger.info( "Ballot width in inches %f"%const.ballot_width_inches)
      logger.info( "Ballot height in inches %f"%const.ballot_height_inches)
      logger.info( "Voteop width in inches %f"%const.oval_width_inches)

@@ -11,7 +11,6 @@ import site
 site.addsitedir("/home/jimmy/tevs")
 import pdb
 
-
 # modified Python Image Library, with B for Ballot
 from PILB import Image, ImageStat
 from PILB import ImageDraw
@@ -26,7 +25,6 @@ from DieboldBallot import *
 # for database
 # we initially assume dbname and dbuser mitch in postgresql
 import psycopg2
-
 
 voteop_insertion_string = """INSERT INTO voteops (
  ballot_id,
@@ -63,7 +61,6 @@ voteop_insertion_string = """INSERT INTO voteops (
 %s
  )"""
 
-
 def build_dirs(n):
      """create any necessary new directories using paths from tevs.cfg"""
      # generate filenames using the new image number(s)
@@ -83,28 +80,13 @@ def build_dirs(n):
                   resultsfilename, 
                   masksfilename1,
                   masksfilename2):
-          try:
-              os.makedirs(os.path.dirname(item))
-          except Exception as e:
-              if e.errno == errno.EEXIST:
-                  continue #fake mkdir -p
-              print "Could not create directory %s; %s" % (
-                    item,e)
-              logger.error("Could not create directory %s; %s" % 
-                     (item,e))
-              sys.exit(1)
+          mkdirp(os.path.dirname(item))
      return name1, name2, procname1, procname2, resultsfilename
 
 def save_nextnum(n):
      """Save number in nexttoprocess.txt"""
-     try:
-          n = n+2
-          hw = open("nexttoprocess.txt","w")#XXX needs to not be in cwd
-          hw.write("%d"%n)
-          hw.close()
-     except Exception as e:
-          logger.debug("Could not write %d to nexttoprocess.txt %s\n" % 
-                       (n,e))
+     n += 2
+     writeto("nexttoprocess.txt", str(n))
      return n
 
 def get_nextnum(numlist):
@@ -113,18 +95,7 @@ def get_nextnum(numlist):
           n = numlist[0]
           numlist = numlist[1:]
      else:
-          try:
-               hw = open("nexttoprocess.txt","r")
-               hwline = hw.readline()
-               hw.close()
-               n = string.atoi(hwline)
-               logger.info("Processing %d"%n)
-          except:
-               logger.error( 
-                    "Could not read nexttoprocess.txt, setting n to 1")
-               n = 1
-     return n
-
+         return int(readfrom("nexttoprocess.txt", 1))
 
 if __name__ == "__main__":
      # get command line arguments
@@ -146,12 +117,13 @@ if __name__ == "__main__":
 
      numlist = []
      try:
-          numlistfile = open("numlist.txt","r")
-          for numline in numlistfile.readlines():
-               num = int(numline)
-               numlist.append(num)
+          with open("numlist.txt", "r") as f:
+              numlist = [int(line) for line in f]
      except IOError:
           pass #no numlist.txt
+     except ValueError:
+          logger.error("Malformed numlist.txt")
+          sys.exit(1)
 
      # While ballot images exist in the directory specified in tevs.cfg,
      # create ballot from images, get landmarks, get layout code, get votes.
@@ -159,14 +131,17 @@ if __name__ == "__main__":
      while True:
           n = get_nextnum(numlist)
           name1, name2, procname1, procname2, resultsfilename = build_dirs(n)
-          print "Processing:\n", n, "\n", name1, name2
+          logger.info("Processing: %s: %s & %s" % (n, name1, name2))
 
+          if not os.path.exists(name1):
+              logger.info(name1 + " does not exist. No more records to process")
+              sys.exit(0)
           try:
                newballot = bh.ballotfrom(name1,name2)
           except Exception as e:
                print e
                logger.error("Exception %s at ballot creation, [A|B]%s\n" 
-                            % (e,name1)) 
+                            % (e, name1)) 
                sys.exit(1) #continue
 
           try:
@@ -265,11 +240,11 @@ if __name__ == "__main__":
                           vd.green_thirdfourth,
                           vd.green_lightestfourth,
 
-                          vd.blue_intensity ,
-                          vd.blue_darkestfourth ,
-                          vd.blue_secondfourth ,
-                          vd.blue_thirdfourth ,
-                          vd.blue_lightestfourth ,
+                          vd.blue_intensity,
+                          vd.blue_darkestfourth,
+                          vd.blue_secondfourth,
+                          vd.blue_thirdfourth,
+                          vd.blue_lightestfourth,
                           vd.was_voted)
                      )
                     conn.commit()
@@ -281,14 +256,17 @@ if __name__ == "__main__":
                sys.exit(1) #continue
 
           # move the images from unproc to proc
+          print "rename name1 -> procname1", name1, procname1
           try:
                os.rename(name1,procname1)
-          except IOError:
+          except OSError:
                logger.error("Could not rename %s" % name1)
                sys.exit(1)
+          print "rename name2 -> procname2", name2, procname2
           try:
-               os.rename(name2,procname2)
-          except IOError:
+               if os.path.exists(name2):
+                   os.rename(name2,procname2)
+          except OSError:
                logger.error("Could not rename %s" % name2)
                sys.exit(1)
           n = save_nextnum(n)
