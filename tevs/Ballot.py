@@ -45,20 +45,19 @@ class BallotHatchery(object):
             self.im2 = None
         for func, cls in BallotHatchery.ImageIsToBallotList:
             isa = func(self.im1)
-            try:
-                 fn1 = self.im1.filename
+            fn1 = self.im1.filename
+            fn2 = None
+            if self.im2 is not None:
                  fn2 = self.im2.filename
-            except AttributeError:
-                 fn2 = None
-            if isa==1: 
+            if isa == 1: 
                  const.logger.info(
                       "Creating ballot object %s from %s %s at %s" % 
                                    (cls,
                                     fn1,
                                     fn2,
                                     time.asctime()))
-                 return cls(self.im1,self.im2,flipped=False)
-            elif isa==2:
+                 return cls(self.im1, self.im2, flipped=False)
+            elif isa == 2:
                  const.logger.info("Creating ballot object %s from FLIPPED %s and %s at %s" % 
                                    (cls,
                                     fn1,
@@ -67,13 +66,11 @@ class BallotHatchery(object):
                  const.logger.debug("Flipping %s" % self.im1.filename)
                  self.im1 = self.im1.rotate(180)
                  self.im1.filename = im1
-                 try:
+                 if self.im2 is not None:
                       self.im2 = self.im2.rotate(180)
                       self.im2.filename = im2
                       const.logger.debug("Flipping %s" % self.im2.filename)
-                 except:
-                      pass
-                 return cls(self.im1,self.im2,flipped=True)
+                 return cls(self.im1, self.im2, flipped=True)
         return None
 
 class BtRegion(object):
@@ -84,23 +81,18 @@ class BtRegion(object):
     PROP = 3
     OVAL = 4
     purposelist = ["JUR","CONTEST","CHOICE","PROP","OVAL"]
-    def __init__(self,bbox=(),purpose=None,coord=(0,0),text=None):
+    def __init__(self, bbox=(), purpose=None, coord=(0,0), text=None):
         self.bbox = bbox
         self.purpose = purpose
         self.text = text
         self.coord = coord
 
     def __repr__(self):
-        purposetext = ""
-        try:
-            if self.purpose < 5: 
-                purposetext = BtRegion.purposelist[self.purpose]
-            else: 
-                purposetext = "OVAL"
-        except:
-            purposetext = "OVAL"
+        purposetext = "OVAL"
+        if self.purpose in BtRegion.purposelist: 
+            purposetext = BtRegion.purposelist[self.purpose]
         return "BtRegion with purpose %s, bbox %s coord %s\ntext %s" % (
-            purposetext,self.bbox,self.coord,self.text)
+            purposetext, self.bbox, self.coord, self.text)
 
 
 
@@ -228,8 +220,7 @@ class Ballot(object):
 
 
 class VoteData(object):
-
-    def __init__(self,filename="filename",
+    def __init__(self, filename="filename",
                  precinct="precinct",
                  jurisdiction="jurisdiction", 
                  contest="contest",
@@ -249,37 +240,33 @@ class VoteData(object):
         self.coords = coords
         self.maxv = maxv # max votes allowed in contest
         self.was_voted = False
-        try:
-            self.stats = stats[:]
-            if stats is None:
-                print "No stats while creating vote data"
-        except:
-            print "No stats while creating vote data"
-        try:
-             self.red_intensity = stats[0]
-             self.red_darkestfourth = stats[1]
-             self.red_secondfourth = stats[2]
-             self.red_thirdfourth = stats[3]
-             self.red_lightestfourth = stats[4]
 
-             self.green_intensity = stats[5]
-             self.green_darkestfourth = stats[6]
-             self.green_secondfourth = stats[7]
-             self.green_thirdfourth = stats[8]
-             self.green_lightestfourth = stats[9]
+        if len(stats) != 18:
+            raise BallotException("Attempted to create voting data with invalid stats")
 
-             self.blue_intensity = stats[10]
-             self.blue_darkestfourth = stats[11]
-             self.blue_secondfourth = stats[12]
-             self.blue_thirdfourth = stats[13]
-             self.blue_lightestfourth = stats[14]
+        self.stats = stats[:]
 
-             self.adjusted_x = stats[15]
-             self.adjusted_y = stats[16]
-             self.suspicious = stats[17]
-        except Exception, e:
-             print e
-             pdb.set_trace()
+        self.red_intensity = stats[0]
+        self.red_darkestfourth = stats[1]
+        self.red_secondfourth = stats[2]
+        self.red_thirdfourth = stats[3]
+        self.red_lightestfourth = stats[4]
+
+        self.green_intensity = stats[5]
+        self.green_darkestfourth = stats[6]
+        self.green_secondfourth = stats[7]
+        self.green_thirdfourth = stats[8]
+        self.green_lightestfourth = stats[9]
+
+        self.blue_intensity = stats[10]
+        self.blue_darkestfourth = stats[11]
+        self.blue_secondfourth = stats[12]
+        self.blue_thirdfourth = stats[13]
+        self.blue_lightestfourth = stats[14]
+
+        self.adjusted_x = stats[15]
+        self.adjusted_y = stats[16]
+        self.suspicious = stats[17]
         
         # stats 0, 5, 10 represent mean intensity on R,G,B,
         # test average against vote threshold and set was_voted true
@@ -291,10 +278,11 @@ class VoteData(object):
 
         voted_intensity = False
         voted_count = False
-        if int((stats[0]+stats[5]+stats[10])/3) < const.vote_intensity_threshold:
+        vote_intense = int((stats[0]+stats[5]+stats[10])/3)
+        if vote_intense < const.vote_intensity_threshold:
              voted_intensity = True
              self.was_voted = True
-        if int((stats[0]+stats[5]+stats[10])/3) >= const.problem_intensity_threshold:
+        if vote_intense >= const.problem_intensity_threshold: #XXX need to flag bad input, put in a "problem directory"?
              const.logger.error("Image %s too light at %s: %s %s %s" 
                                 % (filename, oval,stats[0],stats[5],stats[10]))
         if int((stats[1]+stats[2]
@@ -302,7 +290,7 @@ class VoteData(object):
                 +stats[11]+stats[12])/3 > const.dark_pixel_threshold):
              voted_count = True
              self.was_voted = True
-        if voted_intensity <> voted_count:
+        if voted_intensity != voted_count: #XXX same as above
              print "AMBIG VOTE",self
              const.logger.info("AMBIG: voted intensity %s voted count %s" 
                                % (voted_intensity, voted_count))

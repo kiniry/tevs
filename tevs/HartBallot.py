@@ -14,6 +14,7 @@ from PILB import Image, ImageStat
 from Ballot import Ballot, BallotHatchery, BallotException, BtRegion, VoteData
 import const
 import time
+import util
 from ocr import ocr
 from adjust import rotate_pt_by
 
@@ -26,7 +27,6 @@ from adjust import rotate_pt_by
 
 def IsAHart(im):
     """IsAHart returns 1 for good image, 2 for updown, 0 for bad image"""
-    #print "Called IsAHart with image",im
 
     # crop the upper bar code possibilities,
     # UL and UR run from y = .8" to beyond 1.5"
@@ -58,20 +58,15 @@ def IsAHart(im):
                   int(im.size[0] - (0.4*const.ballot_dpi)),
                   int(1.5*const.ballot_dpi)))
     
-    uls = ImageStat.Stat(ul)
-    ul2s = ImageStat.Stat(ul2)
-    urs = ImageStat.Stat(ur)
-    if ((uls.mean[0] < cannot_be_barcode_above 
-        or ul2s.mean[0] < cannot_be_barcode_above ) 
-        and urs.mean[0] > cannot_be_barcode_above):
-        retval = 1
-    elif ((uls.mean[0] < cannot_be_barcode_above 
-           or ul2s.mean[0] < cannot_be_barcode_above )
-          and urs.mean[0] < cannot_be_barcode_above):
-        retval = 2
-    else:
-        retval = 0
-    return retval
+    uls = ImageStat.Stat(ul).mean[0]
+    ul2s = ImageStat.Stat(ul2).mean[0]
+    urs = ImageStat.Stat(ur).mean[0]
+    temp = uls < cannot_be_barcode_above or ul2s < cannot_be_barcode_above
+    if temp and urs > cannot_be_barcode_above:
+        return 1
+    elif temp and urs < cannot_be_barcode_above:
+        return 2
+    return 0
 
 
 class HartBallot(Ballot):
@@ -81,8 +76,8 @@ class HartBallot(Ballot):
     and voting areas are grouped in boxed contests.
     """
 
-    def __init__(self,im1,im2=None,flipped = False):
-        super(HartBallot,self).__init__(im1,im2,flipped)
+    def __init__(self, im1, im2=None, flipped=False):
+        super(HartBallot, self).__init__(im1, im2, flipped)
         self.brand = "Hart"
         self.vote_box_images = {}
 
@@ -109,7 +104,7 @@ class HartBallot(Ballot):
         # are skewed, the scanner may increase the output width.
         # We are forced to rely on the specified dpi in tevs.cfg,
         # or else punt.
-        self.dpi = int(round(
+        self.dpi = int(round( #XXX below code repeated in multiple places with different values, should be handled elsewhere
                 self.im1.size[0]/const.ballot_width_inches))
         if self.dpi >= 148 and self.dpi <= 152:
             self.dpi = 150
@@ -132,8 +127,6 @@ class HartBallot(Ballot):
             fn = self.im1.filename
             self.im1 = self.im1.convert("RGB")
             self.im1.filename = fn
-            if self.im1.mode == "L":
-                pdb.set_trace()
             
         self.tiltinfo[0] = self.im1.gethartlandmarks(self.dpi,0)
         try:
@@ -141,8 +134,6 @@ class HartBallot(Ballot):
                 fn = self.im2.filename
                 self.im2 = self.im2.convert("RGB")
                 self.im2.filename = fn
-                if self.im2.mode == "L":
-                    pdb.set_trace()
                 self.tiltinfo[1] = self.im2.gethartlandmarks(self.dpi,0)
             else:
                 self.tiltinfo[1] = None
@@ -153,23 +144,21 @@ class HartBallot(Ballot):
         # (ballots with a blank side are not duplex)
         if (self.tiltinfo[1] is None) or (self.tiltinfo[0] is None):
             self.duplex = False
-        elif self.tiltinfo[1][1] == 0 and self.tiltinfo[1][2] == 0:
-            self.duplex = False
         else:
-            self.duplex = True
+            self.duplex = self.tiltinfo[1][1] == 0 and self.tiltinfo[1][2] == 0
         
         # flunk ballots with more than 
         # allowed_corner_black_inches of black in corner
         # to avoid dealing with severely skewed ballots
 
-        testwidth = (self.dpi * const.allowed_corner_black_inches)
+        testwidth = self.dpi * const.allowed_corner_black_inches
         testheight = testwidth
         testcrop = self.im1.crop((0,0,testwidth,testheight))
         teststat = ImageStat.Stat(testcrop)
         if teststat.mean[0] < 16:
             const.logger.error("Dark upper left corner on %s, code %d" % (
                     self.im1.filename,1))
-            raise BallotException, "dark upper left corner"
+            raise BallotException("dark upper left corner")
         testcrop = self.im1.crop((self.im1.size[0] - testwidth,
                                   0,
                                   self.im1.size[0] - 1,
@@ -178,7 +167,7 @@ class HartBallot(Ballot):
         if teststat.mean[0] < 16:
             const.logger.error("Dark upper right` corner on %s, code %d" % (
                     self.im1.filename,2))
-            raise BallotException, "dark upper right corner"
+            raise BallotException("dark upper right corner")
         testcrop = self.im1.crop((self.im1.size[0] - testwidth,
                                   self.im1.size[1] - testheight,
                                   self.im1.size[0] - 1,
@@ -187,18 +176,18 @@ class HartBallot(Ballot):
         if teststat.mean[0] < 16:
             const.logger.error("Dark lower right corner on %s, code %d" % (
                     self.im1.filename,3))
-            raise BallotException, "dark lower right corner"
+            raise BallotException("dark lower right corner")
         testcrop = self.im1.crop((0,
-                                    self.im1.size[1] - testheight,
-                                    testwidth,
-                                    self.im1.size[1] - 1))
+                                  self.im1.size[1] - testheight,
+                                  testwidth,
+                                  self.im1.size[1] - 1))
         teststat = ImageStat.Stat(testcrop)
         if teststat.mean[0] < 16:
             const.logger.error("Dark lower left corner on %s, code %d" % (
                     self.im1.filename,4))
-            raise BallotException, "dark lower left corner"
+            raise BallotException("dark lower left corner")
 
-        if self.duplex is False:
+        if not self.duplex:
             toprange = 1
         else:
             toprange = 2
@@ -234,24 +223,20 @@ class HartBallot(Ballot):
                         self.tang[n])
                              )
                 if abs(self.tang[n]) > const.allowed_tangent: 
-                    raise BallotException, "tangent %f exceeds %f" % (
-                        self.tang[n],const.allowed_tangent)
+                    raise BallotException("tangent %f exceeds %f" % (
+                        self.tang[n],const.allowed_tangent))
 
-            except Exception, e:
+            except Exception as e:
                 print e
                 const.logger.error(e)
                 self.tang[n] = 0.
-                raise Exception
+                raise
 
         # Switch front and back if necessary; 
         # unfortunately, this is probably site-dependent
 
         const.logger.debug("TANG %s XREF %s YREF %s " 
                            % (self.tang,self.xref,self.yref))
-        #print "TANG",self.tang
-        #print "XREF",self.xref
-        #print "YREF",self.yref
-        #print "TILTINFO 2 xref yref longdiff shortdiff",self.tiltinfo
 
         return self.tiltinfo
         
@@ -259,13 +244,13 @@ class HartBallot(Ballot):
     def TestLayoutCode(self,code_string):
         """check code for obvious flaws"""
         barcode_good = True
-        if len(code_string) <> 14:
+        if len(code_string) != 14:
             barcode_good = False
         elif not (code_string.startswith("100") 
                   or code_string.startswith("200")):
             # disqualify if not a sheet 1 or a sheet 2
             barcode_good = False
-        elif code_string[7] <> "0":
+        elif code_string[7] != "0":
             # disqualify if eighth digit is not zero
             barcode_good = False
         if barcode_good:
@@ -343,10 +328,7 @@ class HartBallot(Ballot):
                      Ballot.front_dict[code_string])
              except:
                  pass#barcode_good = False
-             if const.on_new_layout=="accept":
-                 return self.layout_code
-             else: 
-                 return self.layout_code
+             return self.layout_code
 
         # end Reminder Stub
         
@@ -497,10 +479,8 @@ class HartBallot(Ballot):
         Ballot.front_dict[self.code_string] = front_xml
 
         # save each template, named by code_string, for future use
-        template_filename = "%s/%s" % (const.templates_path,self.code_string)
-        template_outfile = open(template_filename,"w")
-        template_outfile.write(front_xml)
-        template_outfile.close()
+        template_filename = os.path.join(const.templates_path, self.code_string)
+        util.writeto(template_filename, front_xml)
         const.logger.info("Created layout template %s at %s" % (template_filename,time.asctime()))
         # if you need to build the front layout, you need to build
         # the back layout as well
@@ -546,11 +526,8 @@ class HartBallot(Ballot):
 
         back_xml = self.back_layout.toXML(self.code_string)
         Ballot.back_dict[self.code_string] = back_xml
-        template_filename = "%s/%s" % (const.backtemplates_path,
-                                       self.code_string)
-        template_outfile = open(template_filename,"w")
-        template_outfile.write(back_xml)
-        template_outfile.close()
+        template_filename = os.path.join(const.backtemplates_path, self.code_string)
+        util.writeto(template_filename, back_xml)
         print "Length of self.regionlists[1]",len(self.regionlists[1])
 
         return self.back_layout
@@ -665,7 +642,7 @@ class HartBallot(Ballot):
         seq = 0
         margin = int(round(self.dpi * 0.03))
         boxes_filename = im.filename
-        try:
+        try: #XXX everything here is suspect
             if im.filename.startswith("/"):
                 boxes_filename = im.filename[1:]
             if im.filename.startswith("./"):
@@ -687,7 +664,6 @@ class HartBallot(Ballot):
                 # else set contest valid
                 if (int(region.bbox[3]) - int(region.bbox[1])) < (const.minimum_contest_height_inches * self.dpi):
                     region_valid = False
-                    #print "Skipping",region.bbox,region.text
                 else:
                     region_valid = True
                 if self.current_contest.find("Count")>=0:
@@ -815,7 +791,7 @@ class HartBallot(Ballot):
                                 const.logger.error("Could not create directory %s\n%s" % 
                                                    ("./writeins",e))
                              
-                        savename = "writeins/%s_%s.jpg" % (
+                        savename = "writeins/%s_%s.jpg" % ( #XXX path not from config
                             im.filename[-10:-4].replace("/","").replace(" ","_"),
                             self.current_contest[:20].replace(
                                 "/","").replace(" ","_")
@@ -876,10 +852,10 @@ class BallotSide(object):
             self.precinct)
 
     def append(self,region):
-        if type(region)<>BtRegion:
+        if type(region)!=BtRegion:
             raise Exception
         # don't append regions with (0,0) location, they're artifacts
-        if (region.coord[0] <> 0) and (region.coord[1] <> 0):
+        if (region.coord[0] != 0) and (region.coord[1] != 0):
             self.regionlist.append(region)
 
 

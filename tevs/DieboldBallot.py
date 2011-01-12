@@ -428,7 +428,6 @@ class DieboldBallot(Ballot):
         contest_boxes = []
         vboxes = []
         for n in range(len(columnstart_list)-1):
-            #print "PASS",n,"of",len(columnstart_list),columnstart_list
             try:
                 for m in range(len(conf_hll[n])-1):
                     x1 = columnstart_list[n]
@@ -446,7 +445,6 @@ class DieboldBallot(Ballot):
                         if y2 > (y1+(2*margin)):
                             w = x2 - x1;
                             h = y2 - y1;
-                            #print "Box",x1,y1,w,h
                             # x,y,w,h followed by oval width, oval height
                             tb = im.getdieboldvoteovals(x1,
                                                         y1,
@@ -461,10 +459,8 @@ class DieboldBallot(Ballot):
                             try:
                                 if len(tb)==0:
                                     continue
-                                #print "Cropping to ",x1,y1,x1+w,tb[0][1]
                                 crop = im.crop((x1,y1,x1+w,tb[0][1]))
                                 gaps = crop.gethgaps((128,1))
-                                #print "Gaps are",gaps
                                 try:
                                     gaps = gaps[1:]
                                 except:
@@ -494,7 +490,7 @@ class DieboldBallot(Ballot):
                                 else: 
                                     isProp = False
 
-                            except Exception, e:
+                            except Exception as e:
                                 print e
                                 text = "CONTEST"
 
@@ -594,8 +590,6 @@ class DieboldBallot(Ballot):
 
             elif region.purpose == BtRegion.CONTEST:
                 self.current_contest = region.text
-                #if self.current_contest.find("SHER")>-1:
-                #     pdb.set_trace()
                 if self.current_contest.find("Count")>=0:
                     self.current_jurisdiction = self.current_contest
                 if self.current_contest.find("State")>=0:
@@ -937,7 +931,6 @@ class BallotSideFromXML(BallotSide):
                 print e
                 pdb.set_trace()
         self.im = None
-        #self.landmarklist = self.ballot.landmarklist[self.side]
         try:
             contest_x = contest.getAttribute('x')
             self.xref = int(bs[0].getAttribute('lx')) #from the xml
