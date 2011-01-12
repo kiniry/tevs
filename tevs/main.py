@@ -97,6 +97,112 @@ def get_nextnum(numlist):
      else:
          return int(readfrom("nexttoprocess.txt", 1))
 
+def process_ballot(name1, name2, resultsfilename): #TODO: pull all sql out into their own funcs
+    #note currently relying on conn, cur being defined globally
+    logger = const.logger
+    try:
+        newballot = bh.ballotfrom(name1, name2)
+    except Exception as e:
+        logger.error("Exception %s at ballot creation, [A|B]%s\n" 
+ 		    % (e, name1)) 
+        raise
+
+    try:
+        tiltinfo = newballot.GetLandmarks()
+    except Exception as e:
+        logger.error("Exception %s at GetLandmarks, [A|B]%s\n" % (e, name1)) 
+        raise
+
+    try:
+        layout_codes = newballot.GetLayoutCode()
+    except Exception as e:
+        logger.error("Exception %s at GetLayoutCode, [A|B]%s\n" % (e, name1)) 
+        raise
+
+    search_key = "%07d%07d" % (layout_codes[0][0], layout_codes[0][1])
+
+    if search_key not in Ballot.front_dict: #XXX is there any recovery to do here? is this a fatal error?
+        print search_key, "not in front_dict"
+
+    try:
+        front_layout = newballot.GetFrontLayout()
+    except Exception as e:
+        logger.error("Exception %s at GetFrontLayout, [A|B]%s\n" % (e,name1)) 
+        raise
+
+    try:
+        back_layout = newballot.GetBackLayout()
+    except Exception as e:
+        logger.error("Exception %s at GetBackLayout, [A|B]%s\n" % (e,name1)) 
+        raise
+
+    #if we get this far, create a db record for the ballot
+
+    cur.execute("""INSERT INTO ballots (
+		 processed_at, 
+		 code_string, 
+		 file1, file2) 
+		 VALUES (now(), %s, %s, %s) RETURNING ballot_id ;""",
+	      (search_key, name1, name2)
+	      )
+    sql_ret = cur.fetchall()
+    try:
+        ballot_id = int(sql_ret[0][0])
+    except ValueError:
+        ballot_id = "ERROR" #XXX if this happens shouldn't we do something?
+    conn.commit()
+
+    # we now need to retrieve the newly created serial ballot id 
+    try:
+        print "Storing results"
+        newballot.CaptureVoteInfo()
+        boximage = Image.new("RGB", (1650, 1200), color="white")
+        draw = ImageDraw.Draw(boximage)
+        keys = newballot.vote_box_images.keys()
+        for i, key in enumerate(sorted(keys)):
+	    left = 50 + 150*(i % 10)
+	    right = 7*i
+	    boximage.paste(newballot.vote_box_images[key], (left, right))
+	    draw.text((left, right + 40), "%s_%04d_%04d" % tuple(key[:3]), fill="black")
+
+        boximage.save(resultsfilename.replace("txt","jpg"))
+        writeto(resultsfilename, newballot.WriteVoteInfo())
+        for vd in newballot.results:
+	    cur.execute(voteop_insertion_string,
+		 (ballot_id,
+		  vd.contest,
+		  vd.choice,
+		  vd.coords[0],
+		  vd.coords[1],
+		  vd.adjusted_x,
+		  vd.adjusted_y, 
+
+		  vd.red_intensity,
+		  vd.red_darkestfourth,
+		  vd.red_secondfourth,
+		  vd.red_thirdfourth,
+		  vd.red_lightestfourth,
+
+		  vd.green_intensity,
+		  vd.green_darkestfourth,
+		  vd.green_secondfourth,
+		  vd.green_thirdfourth,
+		  vd.green_lightestfourth,
+
+		  vd.blue_intensity,
+		  vd.blue_darkestfourth,
+		  vd.blue_secondfourth,
+		  vd.blue_thirdfourth,
+		  vd.blue_lightestfourth,
+		  vd.was_voted)
+	     )
+	    conn.commit()
+	    # open the results file and write the results
+
+    except Exception as e:
+        logger.error("Exception %s at Capture or WriteVoteInfo, %s, %s\n" % (e,name1,name2)) 
+        raise
+ 
 if __name__ == "__main__":
      # get command line arguments
      get_args()
@@ -131,141 +237,28 @@ if __name__ == "__main__":
      while True:
           n = get_nextnum(numlist)
           name1, name2, procname1, procname2, resultsfilename = build_dirs(n)
-          logger.info("Processing: %s: %s & %s" % (n, name1, name2))
 
           if not os.path.exists(name1):
               logger.info(name1 + " does not exist. No more records to process")
               sys.exit(0)
-          try:
-               newballot = bh.ballotfrom(name1,name2)
-          except Exception as e:
-               print e
-               logger.error("Exception %s at ballot creation, [A|B]%s\n" 
-                            % (e, name1)) 
-               sys.exit(1) #continue
+
+          logger.info("Processing: %s: %s & %s" % (n, name1, name2))
 
           try:
-               tiltinfo = newballot.GetLandmarks()
-          except Exception as e:
-               print e
-               logger.error("Exception %s at GetLandmarks, [A|B]%s\n" % (e,name1)) 
-               sys.exit(1) #continue
-
-          try:
-               layout_codes = newballot.GetLayoutCode()
-          except Exception as e:
-               print e
-               logger.error("Exception %s at GetLayoutCode, [A|B]%s\n" % (e,name1)) 
-               sys.exit(1) #continue
-
-          search_key = "%07d%07d" % (layout_codes[0][0],layout_codes[0][1])
-
-          if search_key not in Ballot.front_dict:
-               print search_key, "not in front_dict"
-
-          try:
-               front_layout = newballot.GetFrontLayout()
-          except Exception as e:
-               print e
-               logger.error("Exception %s at GetFrontLayout, [A|B]%s\n" % (e,name1)) 
-               sys.exit(1) #continue
-
-          try:
-               back_layout = newballot.GetBackLayout()
-          except Exception as e:
-               print e
-               logger.error("Exception %s at GetBackLayout, [A|B]%s\n" % (e,name1)) 
-               sys.exit(1) #continue
-
-         #if we get this far, create a db record for the ballot
-
-          cur.execute("""INSERT INTO ballots (
-                         processed_at, 
-                         code_string, 
-                         file1, file2) 
-                         VALUES (now(), %s, %s, %s) RETURNING ballot_id ;""",
-                      (search_key, name1, name2)
-                      )
-          sql_ret = cur.fetchall()
-          try:
-               ballot_id = int(sql_ret[0][0])
+               process_ballot(name1, name2, resultsfilename) ##would rather it returned results data so we can save it all here
+          except KeyboardInterrupt:
+               sys.exit(0)
           except:
-               ballot_id = "ERROR"
-          conn.commit()
-
-          # we now need to retrieve the newly created serial ballot id 
-          try:
-               print "Storing results"
-               newballot.CaptureVoteInfo()
-               boximage = Image.new("RGB",(1650,1200),color="white")
-               counter = 0
-               draw = ImageDraw.Draw(boximage)
-               keys = newballot.vote_box_images.keys()
-               keys.sort()
-               for key in keys:
-                    boximage.paste(
-                         newballot.vote_box_images[key],
-                         ( ((counter % 10) * 150)+50, (counter/10) * 70 )
-                         )
-                    draw.text(
-                         ( ((counter % 10) * 150)+50,((counter/10) * 70)+40 ),
-                         "%s_%04d_%04d" % (key[0],key[1],key[2]),
-                         fill="black")
-                    counter += 1
-
-               boximage.save(resultsfilename.replace("txt","jpg"))
-               vi = newballot.WriteVoteInfo()
-               resultsfile = open(resultsfilename,"w+")
-               resultsfile.write(vi)
-               resultsfile.close()
-               for vd in newballot.results:
-                    cur.execute(voteop_insertion_string,
-                         (ballot_id,
-                          vd.contest,
-                          vd.choice,
-                          vd.coords[0],
-                          vd.coords[1],
-                          vd.adjusted_x,
-                          vd.adjusted_y, 
-
-                          vd.red_intensity,
-                          vd.red_darkestfourth,
-                          vd.red_secondfourth,
-                          vd.red_thirdfourth,
-                          vd.red_lightestfourth,
-
-                          vd.green_intensity,
-                          vd.green_darkestfourth,
-                          vd.green_secondfourth,
-                          vd.green_thirdfourth,
-                          vd.green_lightestfourth,
-
-                          vd.blue_intensity,
-                          vd.blue_darkestfourth,
-                          vd.blue_secondfourth,
-                          vd.blue_thirdfourth,
-                          vd.blue_lightestfourth,
-                          vd.was_voted)
-                     )
-                    conn.commit()
-                    # open the results file and write the results
-
-          except Exception as e:
-               print e
-               logger.error("Exception %s at Capture or WriteVoteInfo, %s, %s\n" % (e,name1,name2)) 
-               sys.exit(1) #continue
-
+               sys.exit(1)
           # move the images from unproc to proc
-          print "rename name1 -> procname1", name1, procname1
           try:
-               os.rename(name1,procname1)
+               os.rename(name1, procname1)
           except OSError:
                logger.error("Could not rename %s" % name1)
                sys.exit(1)
-          print "rename name2 -> procname2", name2, procname2
           try:
-               if os.path.exists(name2):
-                   os.rename(name2,procname2)
+               if os.path.exists(name2): #in case ballot isn't 2 sided
+                   os.rename(name2, procname2)
           except OSError:
                logger.error("Could not rename %s" % name2)
                sys.exit(1)
