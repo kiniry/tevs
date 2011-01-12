@@ -7,6 +7,15 @@ import logging
 import const
 from Ballot import Ballot
 
+def fatal(ex, msg, *p):
+    "log fatal messages and exit"
+    if len(p) != 0:
+        msg = msg % p
+    msg += "\n\t" + repr(ex)
+    const.logger.error(msg)
+    sys.exit(1)
+
+
 def writeto(fname, data):
     "save data into fname"
     try:
