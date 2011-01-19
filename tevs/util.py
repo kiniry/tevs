@@ -109,11 +109,14 @@ def get_config():
      mchi = config.get("Sizes","minimum_contest_height_inches")
      acbi = config.get("Sizes","allowed_corner_black_inches")
      allowed_tangent = config.get("Sizes","allowed_tangent")
+
      vit = config.get("Votes","vote_intensity_threshold")
      dpt = config.get("Votes","dark_pixel_threshold")
      pit = config.get("Votes","problem_intensity_threshold")
+
      tdpi = config.get("Scanner","template_dpi")
      bdpi = config.get("Scanner","ballot_dpi")
+
      const.ballot_width_inches = float(bwi)
      const.ballot_height_inches = float(bhi)
      const.oval_width_inches = float(owi)
@@ -137,8 +140,10 @@ def get_config():
      const.results = config.get("Paths","results")
      const.writeins = config.get("Paths","writeins")
      const.boxes_root = config.get("Paths","boxes_root")
+
      save_vops = config.get("Mode","save_vops")
      const.save_vops = save_vops.strip() == "True"
+
      pfs = config.get("Paths","procformatstring")
      ufs = config.get("Paths","unprocformatstring")
      rfs = config.get("Paths","resultsformatstring")
@@ -155,6 +160,9 @@ def get_config():
          "thousands","%03d").replace("units","%06d")
      const.templates_path = templates_path
      const.backtemplates_path = backtemplates_path
+
+     const.dbname = config.get("Database", "name")
+     const.dbpwd  = config.get("Database", "password")
 
      logger.info( "Ballot width in inches %f"%const.ballot_width_inches)
      logger.info( "Ballot height in inches %f"%const.ballot_height_inches)

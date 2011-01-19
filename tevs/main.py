@@ -57,8 +57,7 @@ def save_nextnum(n):
 def get_nextnum(numlist):
      """get next number for processing from list or persistent file"""
      if len(numlist)>0:
-          n = numlist[0]
-          numlist = numlist[1:]
+          n, numlist = numlist[0], numlist[1:]
      else:
          return int(readfrom("nexttoprocess.txt", 1))
 
@@ -178,7 +177,7 @@ def process_ballot(ballot):
 
     try:
         back_layout = ballot.GetBackLayout()
-    except Exception as e:
+    except Exception as e: #XXX
         fatal(e, "failure at GetBackLayout for %s",  name1) 
 
     try:
@@ -208,7 +207,7 @@ if __name__ == "__main__":
 
      # connect to db and open cursor
      try:
-         conn = psycopg2.connect(database="jimmy", user="jimmy")
+         conn = psycopg2.connect(database=const.dbname, user=const.dbpwd)
      except DatabaseError as e:
          fatal(e, "Could not connect to database")
      cur = conn.cursor()
