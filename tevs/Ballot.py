@@ -1,10 +1,6 @@
 import sys
 import os
-#XXX suspect
-imaging_dir = os.path.expanduser("~/Imaging-1.1.7")
-sys.path = [imaging_dir]+sys.path[:]
 import time
-import pdb
 from PILB import Image, ImageStat
 import const
 
@@ -71,7 +67,6 @@ class BallotHatchery(object):
                       self.im2.filename = im2
                       const.logger.debug("Flipping %s" % self.im2.filename)
                  return cls(self.im1, self.im2, flipped=True)
-        return None
 
 class BtRegion(object):
     """ Representing a rectangular region of a ballot. """
@@ -246,27 +241,27 @@ class VoteData(object):
 
         self.stats = stats[:]
 
-        self.red_intensity = stats[0]
-        self.red_darkestfourth = stats[1]
-        self.red_secondfourth = stats[2]
-        self.red_thirdfourth = stats[3]
-        self.red_lightestfourth = stats[4]
+        (self.red_intensity,
+        self.red_darkestfourth,
+        self.red_secondfourth,
+        self.red_thirdfourth,
+        self.red_lightestfourth,
 
-        self.green_intensity = stats[5]
-        self.green_darkestfourth = stats[6]
-        self.green_secondfourth = stats[7]
-        self.green_thirdfourth = stats[8]
-        self.green_lightestfourth = stats[9]
+        self.green_intensity,
+        self.green_darkestfourth,
+        self.green_secondfourth,
+        self.green_thirdfourth,
+        self.green_lightestfourth,
 
-        self.blue_intensity = stats[10]
-        self.blue_darkestfourth = stats[11]
-        self.blue_secondfourth = stats[12]
-        self.blue_thirdfourth = stats[13]
-        self.blue_lightestfourth = stats[14]
+        self.blue_intensity,
+        self.blue_darkestfourth,
+        self.blue_secondfourth,
+        self.blue_thirdfourth,
+        self.blue_lightestfourth,
 
-        self.adjusted_x = stats[15]
-        self.adjusted_y = stats[16]
-        self.suspicious = stats[17]
+        self.adjusted_x,
+        self.adjusted_y,
+        self.suspicious) = stats
         
         # stats 0, 5, 10 represent mean intensity on R,G,B,
         # test average against vote threshold and set was_voted true

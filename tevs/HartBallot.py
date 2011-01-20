@@ -94,10 +94,10 @@ class HartBallot(Ballot):
         (x,y) pairs marking the four corners of the main surrounding box."""
 
         # zero'th entry for image 1, first for image 2
-        self.tiltinfo = [0,0]
-        self.tang = [0,0]
-        self.xref = [0,0]
-        self.yref = [0,0]
+        self.tiltinfo = [0, 0]
+        self.tang = [0, 0]
+        self.xref = [0, 0]
+        self.yref = [0, 0]
 
         # It turns out to be a mistake to set the dpi based on the
         # observed ballot size in pixels, because when the ballots
@@ -153,7 +153,7 @@ class HartBallot(Ballot):
 
         testwidth = self.dpi * const.allowed_corner_black_inches
         testheight = testwidth
-        testcrop = self.im1.crop((0,0,testwidth,testheight))
+        testcrop = self.im1.crop( (0, 0, testwidth, testheight) )
         teststat = ImageStat.Stat(testcrop)
         if teststat.mean[0] < 16:
             const.logger.error("Dark upper left corner on %s, code %d" % (
@@ -176,7 +176,7 @@ class HartBallot(Ballot):
         if teststat.mean[0] < 16:
             const.logger.error("Dark lower right corner on %s, code %d" % (
                     self.im1.filename,3))
-            raise BallotException("dark lower right corner")
+            raise BallotException("dark lower right corner") #XXX bad message, doesn't explain why this is an issue
         testcrop = self.im1.crop((0,
                                   self.im1.size[1] - testheight,
                                   testwidth,
@@ -185,12 +185,13 @@ class HartBallot(Ballot):
         if teststat.mean[0] < 16:
             const.logger.error("Dark lower left corner on %s, code %d" % (
                     self.im1.filename,4))
-            raise BallotException("dark lower left corner")
+            raise BallotException("dark lower left corner") #XXX see above
 
         if not self.duplex:
             toprange = 1
         else:
             toprange = 2
+
         for n in range(toprange):
             # tiltinfo is vestigial, get more understandable names
             self.xref[n] = self.tiltinfo[n][0][0]
@@ -215,7 +216,7 @@ class HartBallot(Ballot):
                     const.logger.error("Bad tilt calculation on %s" % 
                                  self.imagefilenames[n])
                     const.logger.error("n%d tiltinfo[%d] = %s, short%d, long%d" % 
-                         (n,n,self.tiltinfo[n],shortdiff,longdiff)
+                         (n, n, self.tiltinfo[n], shortdiff, longdiff)
                          )
                 const.logger.debug("shortdiff %d longdiff %d tangent %f\n"%(
                         shortdiff, 
@@ -224,7 +225,7 @@ class HartBallot(Ballot):
                              )
                 if abs(self.tang[n]) > const.allowed_tangent: 
                     raise BallotException("tangent %f exceeds %f" % (
-                        self.tang[n],const.allowed_tangent))
+                        self.tang[n], const.allowed_tangent))
 
             except Exception as e:
                 print e
@@ -267,7 +268,7 @@ class HartBallot(Ballot):
 
     def GetLayoutCode(self):
         """ Determine the layout code(s) from the ulc barcode(s) """
-        self.layout_code = [0,0]
+        self.layout_code = [0, 0]
         if self.duplex is False:
             toprange = 1
         else:
@@ -279,8 +280,10 @@ class HartBallot(Ballot):
             if n>0 and not self.duplex:
                 break
             # don't pass negative x,y into getbarcode
-            if self.xref[n]<(self.dpi/3):raise BallotException, "bad xref"
-            if self.yref[n]<(self.dpi/8):raise BallotException, "bad yref"
+            if self.xref[n] < (self.dpi/3):
+                raise BallotException("bad xref")
+            if self.yref[n] < (self.dpi/8):
+                raise BallotException("bad yref")
             if im is not None:
                 bc_startx = self.xref[n] - (self.dpi/3)
                 bc_starty = self.yref[n] - (self.dpi/8)
@@ -290,10 +293,10 @@ class HartBallot(Ballot):
                     bc_startx, bc_starty, bc_endx, bc_endy)
             n = n+1
         im = self.im1
-        code_string = ""
-        for el in self.layout_code[0]:
-            if el>0:
-                code_string += ("%07d" % el)
+ 
+        code_string = "".join(
+            ("%07d" % el) for el in self.layout_code[0] if el > 0
+        )
 
         # Note that the Ballot framework provides for 
         # calling registered functions
@@ -338,7 +341,6 @@ class HartBallot(Ballot):
         # 
 
         self.code_string = code_string
-        #print self.code_string
         if barcode_good == False:
              const.logger.warning("Bad barcode %s at %s" % (
                        code_string, im.filename))
@@ -361,10 +363,8 @@ class HartBallot(Ballot):
              errstuff = p.stderr.read()
              outstuff = p.stdout.read()
              sts = os.waitpid(p.pid,0)[1]
-             if errstuff.startswith(
-                 "Tesseract Open Source OCR Engine") and len(errstuff)<36:
-                 pass
-             else:
+             if not (errstuff.startswith(
+                     "Tesseract Open Source OCR Engine") and len(errstuff) < 36):
                  const.logger.error(errstuff)
 
              barcode_text = util.readfrom("/tmp/barcode.txt")
@@ -509,10 +509,11 @@ class HartBallot(Ballot):
         try:
             self.regionlists[1] = []
         except:
-            self.regionlists = [ [],[] ]
+            self.regionlists = [[], []]
         self.back_layout = []
 
-        if not self.duplex: return None
+        if not self.duplex:
+            return None
         self.gethartdetails(self.im2, self.regionlists[1])
         self.back_layout = BallotSide(
             self,
@@ -539,7 +540,7 @@ class HartBallot(Ballot):
     def gethartdetails(self, im, br):
         """ get layout and ocr information """
         dpi = self.dpi
-        vline_list = im.getcolumnvlines(0,im.size[1]/4,im.size[0]-20)
+        vline_list = im.getcolumnvlines(0, im.size[1]/4, im.size[0]-20)
         const.logger.debug(str(vline_list))
         lastx = 0
         #For each hlinelist that is separated from the previous by 
@@ -560,7 +561,7 @@ class HartBallot(Ballot):
         # an hline is confirmed by matching a positive hline in sublist n
         # against a negative hline in sublist n+1; if no sublist n+1, no hlines
         conf_hll = []
-        for col in range(len(hlinelistlist)-1):
+        for col in range(len(hlinelistlist)-1): #XXX simplify
             conf_hll.append([])
             for entrynum in range(len(hlinelistlist[col])):
                 yval1 = hlinelistlist[col][entrynum]
@@ -570,7 +571,7 @@ class HartBallot(Ballot):
                         conf_hll[col].append(yval1)
                         break
         for i, el in enumerate(conf_hll):
-            conf_hll[i] = [ [e, "h"] for e in el]
+            conf_hll[i] = [ [e, "h"] for e in el ]
         vboxes = []
         for startx in columnstart_list:
              if (startx <= 0):

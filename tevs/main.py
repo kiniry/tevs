@@ -3,7 +3,6 @@ import sys
 import os
 import os.path
 import errno
-import gc
 import string
 
 #XXX
@@ -22,8 +21,6 @@ from Ballot import *
 from HartBallot import *
 from DieboldBallot import *
 
-# for database
-# we initially assume dbname and dbuser mitch in postgresql
 import psycopg2
 
 def build_dirs(n):
@@ -173,12 +170,12 @@ def process_ballot(ballot):
     try:
         front_layout = ballot.GetFrontLayout()
     except Exception as e: #XXX
-        fatal(e, "failure at GetFrontLayout for %s",  name1) 
+        fatal(e, "failure at GetFrontLayout for %s", name1) 
 
     try:
         back_layout = ballot.GetBackLayout()
     except Exception as e: #XXX
-        fatal(e, "failure at GetBackLayout for %s",  name1) 
+        fatal(e, "failure at GetBackLayout for %s", name1) 
 
     try:
         ballot.CaptureVoteInfo()
