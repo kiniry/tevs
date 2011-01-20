@@ -151,7 +151,7 @@ class Ballot(object):
     invalid_front_list = [] # may contain strings or functions
     valid_back_list = [] # may contain strings or functions
     invalid_back_list = [] # may contain strings or functions
-    def __init__(self, im1, im2 = None,flipped=False):
+    def __init__(self, im1, im2=None, flipped=False):
         self.im1 = im1
         self.im2 = im2
         self.flipped = flipped
@@ -210,10 +210,10 @@ class Ballot(object):
         print "In %s WriteVoteInfo" % ("Ballot",) 
 
     def __str__(self):
-        return "BALLOT %s %s" % (self.im1,self.im2)
+        return "BALLOT %s %s" % (self.im1, self.im2)
 
     def printme(self):
-        return "BALLOT %s %s" % (self.im1,self.im2)
+        return "BALLOT %s %s" % (self.im1, self.im2)
 
     def printany(self,args):
         return args
@@ -224,7 +224,7 @@ class VoteData(object):
                  precinct="precinct",
                  jurisdiction="jurisdiction", 
                  contest="contest",
-                 choice = "choice", 
+                 choice="choice", 
                  prop="prop",
                  oval="oval",
                  coords="coords",
@@ -232,7 +232,7 @@ class VoteData(object):
                  stats=None):
         self.filename = filename
         self.precinct = precinct
-        self.jurisdiction=jurisdiction
+        self.jurisdiction = jurisdiction
         self.contest = contest
         self.choice = choice
         self.prop = prop
@@ -291,7 +291,7 @@ class VoteData(object):
              voted_count = True
              self.was_voted = True
         if voted_intensity != voted_count: #XXX same as above
-             print "AMBIG VOTE",self
+             print "AMBIG VOTE", self
              const.logger.info("AMBIG: voted intensity %s voted count %s" 
                                % (voted_intensity, voted_count))
              const.logger.info("AMBIG: %s" 
@@ -304,11 +304,13 @@ class VoteData(object):
             self.contest,
             self.prop,
             self.oval,
-            self.coords[0],self.coords[1],
+            self.coords[0],
+            self.coords[1],
             str(self.stats)[1:-1],
             self.maxv,
             self.was_voted
             )
+
     def toString(self):
         return "%s,%s,%s,%s,%s,%d,%d,%s,%s,%s" % (
             self.filename,
@@ -316,7 +318,8 @@ class VoteData(object):
             self.contest,
             self.prop,
             self.oval,
-            self.coords[0],self.coords[1],
+            self.coords[0],
+            self.coords[1],
             str(self.stats)[1:-1],
             self.maxv,
             self.was_voted

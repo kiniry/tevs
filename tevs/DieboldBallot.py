@@ -243,7 +243,7 @@ class DieboldBallot(Ballot):
     def GetLayoutCode(self):
         """ Determine the layout code(s) from the bottom dashcode(s) """
         self.layout_code = [0,0]
-        if self.duplex is False:
+        if not self.duplex:
             toprange = 1
         else:
             toprange = 2
@@ -293,7 +293,7 @@ class DieboldBallot(Ballot):
                 0,
                 Ballot.front_dict[self.code_string])
             return self.front_layout
-        except Exception, e:
+        except Exception as e:
             print e
             print "On new layout: '%s'" % (const.on_new_layout,)
             if const.on_new_layout.startswith("reject"):
@@ -385,8 +385,8 @@ class DieboldBallot(Ballot):
         """ get layout and ocr information """
         dpi = self.dpi
         margin = dpi/8
-        oval_topline_width = dpi/8
-        oval_height = dpi/8
+        oval_topline_width = margin
+        oval_height = margin
         oval_gap = dpi/16
         vline_list = im.getcolumnvlines(0,im.size[1]/2,im.size[0]-20)
         const.logger.debug("%s" % vline_list)
@@ -903,7 +903,6 @@ class BallotSideFromXML(BallotSide):
         self.dpi = int(self.dpi)
         self.precinct = bs[0].getAttribute('precinct')
         print self.precinct
-#       "dpi='%d' precinct='?' lx='%d' ly='%d' rot='%f'
         contests = doc.getElementsByTagName("Contest")
         for contest in contests:
             try:
@@ -957,17 +956,4 @@ class BallotSideFromXML(BallotSide):
 # and create an appropriate subclass instance 
 # for the first satisfactory type.
 BallotHatchery.ImageIsToBallotList.append((IsADiebold,DieboldBallot))
-
-
-if __name__ == "__main__":
-    bh = BallotHatchery()
-    newballot = bh.ballotfrom("/home/mitch/aug10/ocrtest2.jpg",
-                        "/home/mitch/aug10/rot90.jpg")
-    print "Hatchery returned",newballot
-    print "Layout code",newballot.layout_code
-    print "Brand",newballot.brand
-
-
-    hb = DieboldBallot("a","b")
-    print hb
 

@@ -351,7 +351,7 @@ class HartBallot(Ballot):
                        self.xref[0] - int(self.dpi/24),
                        self.yref[0] + int(4.5*self.dpi) ))
              zone = zone.rotate(-90)
-             zone.save("/tmp/barcode.tif")
+             zone.save("/tmp/barcode.tif") #XXX really needs to be in one and only one place
              p = subprocess.Popen(["/usr/local/bin/tesseract", 
                                   "/tmp/barcode.tif", 
                                   "/tmp/barcode"],
@@ -366,10 +366,9 @@ class HartBallot(Ballot):
                  pass
              else:
                  const.logger.error(errstuff)
-                 
-             tempf = open("/tmp/barcode.txt")
-             barcode_text = tempf.read()
-             tempf.close()
+
+             barcode_text = util.readfrom("/tmp/barcode.txt")
+             #XXX these corrections should also be in one and only one place
              barcode_text = barcode_text.replace("\n","").replace(" ","")
              barcode_text = barcode_text.replace("O","0").replace("o","0")
              barcode_text = barcode_text.replace("l","1")
@@ -390,7 +389,7 @@ class HartBallot(Ballot):
                  const.logger.error("Bad barcode %s, then %s for %s" % (
                          self.code_string, code_string, im.filename)
                                     )
-                 raise BallotException, "bad bar code"
+                 raise BallotException("bad bar code")
 
         self.precinct = self.code_string
         return self.layout_code
@@ -414,10 +413,10 @@ class HartBallot(Ballot):
                 0,
                 Ballot.front_dict[self.code_string])
             return self.front_layout
-        except:
+        except: #XXX what can BallotSideFromXML throw?
             print "On new layout: '%s'" % (const.on_new_layout,)
             if const.on_new_layout.startswith("reject"):
-                return None
+                return None #XXX should this raise instead?
             return self.BuildFrontLayout()
 
 
@@ -440,19 +439,20 @@ class HartBallot(Ballot):
 
 
     def BuildFrontLayout(self):
-        self.regionlists = [[],[]]
+        self.regionlists = [[], []]
         self.need_to_pickle = True
         self.front_layout = []
 
         # for gethartdetails to operate properly, we need to 
         # cancel out rotation to get vertical and horizontal lines
+        rot_angle = self.tang[0] * 57.2957795 #180/pi
         filename = self.im1.filename
-        self.im1 = self.im1.rotate(-self.tang[0] * (180./3.14))
+        self.im1 = self.im1.rotate(-rot_angle)
         self.im1 = self.im1.convert("RGB")
         self.im1.filename = filename
         if self.im2 is not None:
             filename = self.im2.filename
-            self.im2 = self.im2.rotate(self.tang[0] * (180./3.14))
+            self.im2 = self.im2.rotate(rot_angle)
             self.im2 = self.im2.convert("RGB")
             self.im2.filename = filename
         self.tang[0] = 0.0
@@ -466,7 +466,7 @@ class HartBallot(Ballot):
         print "to retrieve text for front and back of new layout."
         print "This may take up to a minute or two, depending on your system."
 
-        self.gethartdetails(self.im1,self.regionlists[0])
+        self.gethartdetails(self.im1, self.regionlists[0])
 
         self.front_layout = BallotSide(
             self,
@@ -481,7 +481,7 @@ class HartBallot(Ballot):
         # save each template, named by code_string, for future use
         template_filename = os.path.join(const.templates_path, self.code_string)
         util.writeto(template_filename, front_xml)
-        const.logger.info("Created layout template %s at %s" % (template_filename,time.asctime()))
+        const.logger.info("Created layout template %s at %s" % (template_filename, time.asctime()))
         # if you need to build the front layout, you need to build
         # the back layout as well
 
@@ -493,19 +493,15 @@ class HartBallot(Ballot):
         # If IsAHart returned 2, the images were flipped and the
         # ballot was created with flipped True.  If this is the case,
         # when we reopen the images, we need to flip them again.
-        frontfilename = self.im1.filename
-        self.im1 = Image.open(frontfilename)
+        self.im1 = Image.open(self.im1.filename)
         if self.flipped:
             self.im1 = self.im1.rotate(180.)
             self.im1 = self.im1.convert("RGB")
-        self.im1.filename = frontfilename
         if self.im2 is not None:
-            backfilename = self.im2.filename
-            self.im2 = Image.open(backfilename)
+            self.im2 = Image.open(self.im2.filename)
             if self.flipped:
                 self.im2 = self.im2.rotate(180.)
                 self.im2 = self.im2.convert("RGB")
-            self.im2.filename = backfilename
         self.GetLandmarks()
         return self.front_layout
 
@@ -517,7 +513,7 @@ class HartBallot(Ballot):
         self.back_layout = []
 
         if not self.duplex: return None
-        self.gethartdetails(self.im2,self.regionlists[1])
+        self.gethartdetails(self.im2, self.regionlists[1])
         self.back_layout = BallotSide(
             self,
             1,
@@ -528,7 +524,7 @@ class HartBallot(Ballot):
         Ballot.back_dict[self.code_string] = back_xml
         template_filename = os.path.join(const.backtemplates_path, self.code_string)
         util.writeto(template_filename, back_xml)
-        print "Length of self.regionlists[1]",len(self.regionlists[1])
+        print "Length of self.regionlists[1]", len(self.regionlists[1])
 
         return self.back_layout
 
@@ -540,34 +536,30 @@ class HartBallot(Ballot):
     # contest description and vote boxes,
     # and calls ocr to analyze the bands. 
     # vop is short for vote op. conf_hll is confirmed horizontal line list
-    def gethartdetails(self,im,br):
+    def gethartdetails(self, im, br):
         """ get layout and ocr information """
         dpi = self.dpi
         vline_list = im.getcolumnvlines(0,im.size[1]/4,im.size[0]-20)
-        const.logger.debug("%s" % vline_list)
+        const.logger.debug(str(vline_list))
         lastx = 0
-        """
-        For each hlinelist that is separated from the previous by 
-        a reasonable amount (more than dpi/4 pixels), we want to line up
-        the negative values from the new hlinelist with the positive values
-        from the old one
-        """
+        #For each hlinelist that is separated from the previous by 
+        #a reasonable amount (more than dpi/4 pixels), we want to line up
+        #the negative values from the new hlinelist with the positive values
+        #from the old one
         hlinelistlist = []
         columnstart_list = []
         vop_list = []
         for x in vline_list:
             if (x - lastx) > (dpi/4):
                 columnstart_list.append(x)
-                pot_hlines = im.getpotentialhlines(x,1,dpi)
-                hlinelistlist.append( pot_hlines)
+                pot_hlines = im.getpotentialhlines(x, 1, dpi)
+                hlinelistlist.append(pot_hlines)
             lastx = x
         lastel2 = 0
 
         # an hline is confirmed by matching a positive hline in sublist n
         # against a negative hline in sublist n+1; if no sublist n+1, no hlines
         conf_hll = []
-        #for hlinelist in hlinelistlist:
-        #    print hlinelist
         for col in range(len(hlinelistlist)-1):
             conf_hll.append([])
             for entrynum in range(len(hlinelistlist[col])):
@@ -577,24 +569,20 @@ class HartBallot(Ballot):
                     if (yval1 > 0) and (abs(yval1 + yval2) < (dpi/16)):
                         conf_hll[col].append(yval1)
                         break
-        for x in range(len(conf_hll)):
-            conf_hll[x] = map(lambda el: [el,"h"],conf_hll[x])
-
+        for i, el in enumerate(conf_hll):
+            conf_hll[i] = [ [e, "h"] for e in el]
         vboxes = []
         for startx in columnstart_list:
              if (startx <= 0):
                   const.logger.info(
                       "Negative startx passed to gethartvoteboxes")
-                  
-             vboxes.append([])
-             vboxes[-1] = im.gethartvoteboxes(startx,dpi/2,dpi)
-             vboxes[-1] = map(lambda el: [el[1],"v"],vboxes[-1])
+             xss = im.gethartvoteboxes(startx, dpi/2, dpi)
+             vboxes.append([ [xs[1], "v"] for xs in xss])
 
 
         for x in range(len(conf_hll)):
             conf_hll[x].extend(vboxes[x])
             conf_hll[x].sort()
-            #print columnstart_list[x],conf_hll[x]
             # now pass conf_hll[x] and the corresponding column start and end
             # into a function which will do OCR on vote and above-vote 
             # subregions
@@ -612,7 +600,7 @@ class HartBallot(Ballot):
             self.CaptureSideInfo(side="Back")
 
 
-    def CaptureSideInfo(self,side):
+    def CaptureSideInfo(self, side):
         """CaptureVoteInfo captures votes off the images in a HartBallot
         
         Each HartBallot instance has one or two images representing the
@@ -636,7 +624,7 @@ class HartBallot(Ballot):
             sidenum = 1
 
         # For saving vote box images, create directory per file
-        print "CaptureSideInfo",side
+        print "CaptureSideInfo", side
         if im is None:
             return None
         seq = 0
@@ -647,7 +635,7 @@ class HartBallot(Ballot):
                 boxes_filename = im.filename[1:]
             if im.filename.startswith("./"):
                 boxes_filename = im.filename[2:]                
-            os.makedirs(const.boxes_root + boxes_filename)
+            util.mkdirp(const.boxes_root, boxes_filename)
         except:
             pass
         region_valid = True
@@ -707,9 +695,9 @@ class HartBallot(Ballot):
                 starty = int(self.current_coords[1])
                 startx = startx + int(round(xoffset))
                 starty = starty + int(round(yoffset))
-                startx,starty=rotate_pt_by(startx,starty,self.tang[sidenum],
-                                             self.xref[sidenum],
-                                             self.yref[sidenum])
+                startx, starty = rotate_pt_by(startx,starty,self.tang[sidenum],
+                                              self.xref[sidenum],
+                                              self.yref[sidenum])
                 # add in end points for oval
                 startx = int(round(startx * scalefactor))
                 starty = int(round(starty * scalefactor))
@@ -717,7 +705,6 @@ class HartBallot(Ballot):
                 oh = int(round(const.oval_height_inches * self.dpi)) 
                 endx = startx + ow
                 endy = starty + oh
-                #pdb.set_trace()
                 cs = im.cropstats( #XXX throwing a deprecation warning, mustfix
                     self.dpi,
                     int(round(const.vote_target_horiz_offset_inches * self.dpi)),
@@ -758,7 +745,7 @@ class HartBallot(Ballot):
                               choice = self.current_choice[:40],
                               prop = self.current_prop[:40],
                               oval = self.current_oval,
-                              coords = [startx,starty],
+                              coords = [startx, starty],
                               stats = cs,
                               maxv = maxv)
                 self.results.append(vd)
@@ -772,9 +759,7 @@ class HartBallot(Ballot):
                                    or self.current_oval.find("Vrit")>-1):
                    # crop the coords for three inches of horizontal
                    # and three times the oval height
-                   if (self.current_oval.find("riter")>-1):
-                        pass
-                   else:
+                   if self.current_oval.find("riter") <= -1:
                         wincrop = im.crop(
                              (startx,
                               starty,
@@ -783,15 +768,9 @@ class HartBallot(Ballot):
                               )
                              )
                         if not os.path.exists(const.writeins): #XXX need to refactor out mkdir -p into a utility func (in tev_normal)
-                            try:
-                                os.makedirs(const.writeins)
-                            except Exception, e:
-                                print "Could not create directory %s\n%s" % (
-                                    const.writeins,e)
-                                const.logger.error("Could not create directory %s\n%s" % 
-                                                   ("./writeins",e))
-                             
-                        savename = "writeins/%s_%s.jpg" % ( #XXX path not from config
+                            util.mkdirp(const.writeins)
+ 
+                        savename = "writeins/%s_%s.jpg" % ( #XXX path not from config, cannot assume positions are constant
                             im.filename[-10:-4].replace("/","").replace(" ","_"),
                             self.current_contest[:20].replace(
                                 "/","").replace(" ","_")
@@ -800,30 +779,22 @@ class HartBallot(Ballot):
                         const.logger.info("Writein saved %s\n",savename)
 
     def WriteVoteInfo(self):
-        retstr = ""
-        for vd in self.results:
-            try:
-                retstr = retstr + vd.toString()
-                retstr = retstr + "\n"
-            except Exception, e:
-                print e
-                const.logger.debug("Problem appending vote at %s, %s" % (self.im1,self.im2))
-        return retstr
+        return "\n".join(vd.toString() for vd in self.results) + "\n"
 
 class BallotSide(object):
     """Representing a ballot side as a list of meaningful regions,
     plus sufficient information about the current ballot to scale,
     offset, and rotate information from the template regions."""
 
-    def __init__(self, ballot,side,precinct="?",
+    def __init__(self, ballot, side, precinct="?",
                  dpi=150 
                  ):
         self.ballot = ballot
         self.side = side
         self.dpi = dpi
         self.precinct = self.ballot.precinct
-        self.regionlists = [ [],[] ]
-        if side==0:
+        self.regionlists = [[], []]
+        if side == 0:
             self.name = self.ballot.im1.filename
         else:
             self.name = self.ballot.im2.filename
@@ -831,9 +802,9 @@ class BallotSide(object):
         self.yref = self.ballot.yref[self.side]
         self.tang = self.ballot.tang[self.side]
         self.regionlist = self.ballot.regionlists[self.side]
-        self.codelist = [None,None]
-        self.columnlist = [None,None]
-        self.br = [None,None]
+        self.codelist = [None, None]
+        self.columnlist = [None, None]
+        self.br = [None, None]
         self.current_jurisdiction = "No info"
         self.current_contest = "No info"
         self.current_choice = "No info"
@@ -852,14 +823,14 @@ class BallotSide(object):
             self.precinct)
 
     def append(self,region):
-        if type(region)!=BtRegion:
-            raise Exception
+        if type(region) != BtRegion:
+            raise TypeError(type(region) + " is not BtRegion")
         # don't append regions with (0,0) location, they're artifacts
         if (region.coord[0] != 0) and (region.coord[1] != 0):
             self.regionlist.append(region)
 
 
-    def toXML(self,precinct="?"):
+    def toXML(self, precinct="?"):
         contestlist = []
         if precinct == "?":
             precinct = self.precinct
@@ -914,8 +885,8 @@ class BallotSide(object):
                 contestlist.append(
        "<Contest prop='False' \ntext='%s' x='%d' y='%d' x2='%d' y2='%d'>"
                                % (region.text.replace("'",""),
-                                  region.bbox[0],region.bbox[1],
-                                  region.bbox[2],region.bbox[3],
+                                  region.bbox[0], region.bbox[1],
+                                  region.bbox[2], region.bbox[3],
                                   )
                 )
                 if self.current_contest.find("Count")>=0:
@@ -945,7 +916,7 @@ class BallotSide(object):
 
 
                 contestlist.append("<Contest prop='True' \ntext='%s'>"
-                               % region.text.replace("'",""))
+                               % region.text.replace("'", ""))
                 
                 self.current_contest = region.text
                 # open new
@@ -991,7 +962,7 @@ class BallotSideFromXML(BallotSide):
         self.myxml = """<?xml version="1.0"?>"""+myxml
         try:
             doc = xml.dom.minidom.parseString(self.myxml)
-        except Exception, e:
+        except Exception as e:
             const.logger.error("problem parsing")
             const.logger.error(e)
             for line in myxml.split("\n"):
@@ -1030,9 +1001,9 @@ class BallotSideFromXML(BallotSide):
         self.xref = int(bs[0].getAttribute('lx')) #from the xml
         self.yref = int(bs[0].getAttribute('ly')) #from the xml
         self.tang = float(bs[0].getAttribute('rot')) #from the xml
-        self.codelist = [None,None]
-        self.columnlist = [None,None]
-        self.br = [None,None]
+        self.codelist = [None, None]
+        self.columnlist = [None, None]
+        self.br = [None, None]
         self.current_jurisdiction = "No info"
         self.current_contest = "No info"
         self.current_choice = "No info"
@@ -1048,18 +1019,6 @@ class BallotSideFromXML(BallotSide):
 # pair by pair down its "ImageIs" to "Ballot" pair list, 
 # and create an appropriate subclass instance 
 # for the first satisfactory type.
-BallotHatchery.ImageIsToBallotList.append((IsAHart,HartBallot))
+BallotHatchery.ImageIsToBallotList.append((IsAHart, HartBallot))
 
-
-if __name__ == "__main__":
-    bh = BallotHatchery()
-    newballot = bh.ballotfrom("/home/mitch/aug10/ocrtest2.jpg",
-                        "/home/mitch/aug10/rot90.jpg")
-    #print "Hatchery returned",newballot
-    #print "Layout code",newballot.layout_code
-    #print "Brand",newballot.brand
-
-
-    hb = HartBallot("a","b")
-    print hb
 
