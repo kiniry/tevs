@@ -144,6 +144,7 @@ def get_config():
      save_vops = config.get("Mode","save_vops")
      const.save_vops = save_vops.strip() == "True"
 
+     const.root = config.get("Paths", "root")
      pfs = config.get("Paths","procformatstring")
      ufs = config.get("Paths","unprocformatstring")
      rfs = config.get("Paths","resultsformatstring")
