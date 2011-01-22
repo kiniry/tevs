@@ -5,23 +5,22 @@ import os.path
 import errno
 import string
 
+import psycopg2
+
+
 #XXX
 import site
 site.addsitedir("/home/jimmy/tevs")
-import pdb
 
 # modified Python Image Library, with B for Ballot
 from PILB import Image, ImageStat
 from PILB import ImageDraw
 import const
+
 # ballot processing python
 #XXX * imports are bad news
 from util import *
 from Ballot import *
-from HartBallot import *
-from DieboldBallot import *
-
-import psycopg2
 
 def build_dirs(n):
      """create any necessary new directories using paths from tevs.cfg"""
@@ -53,7 +52,7 @@ def save_nextnum(n):
 
 def get_nextnum(numlist):
      """get next number for processing from list or persistent file"""
-     if len(numlist)>0:
+     if len(numlist) > 0:
           n, numlist = numlist[0], numlist[1:]
      else:
          return int(readfrom("nexttoprocess.txt", 1))
@@ -209,13 +208,14 @@ if __name__ == "__main__":
          fatal(e, "Could not connect to database")
      cur = conn.cursor()
 
+     try:
+         ballotfrom = LoadBallotType(const.layout_brand)
+     except KeyError as e:
+         fatal(e, "No such ballot type: " + const.layout_brand + " check tevs.cfg")
+
      # read templates
      initialize_from_templates()
      
-     # a BallotHatchery's "ballotfrom" inspects images 
-     # and creates ballots of the correct type
-     bh = BallotHatchery()
-
      numlist = []
      try:
           with open("numlist.txt", "r") as f:
@@ -243,9 +243,20 @@ if __name__ == "__main__":
           logger.info("Processing: %s: %s & %s" % (n, name1, name2))
 
           try:
-              ballot = bh.ballotfrom(name1, name2)
-          except Exception as e: #XXX
-              fatal(e, "Could not create ballot from %s and %s", name1, name2)
+              image1 = Image.open(name1).convert("RGB")
+              image1.filename = name1
+          except IOException as e:
+              fatal(e, "Could not open " + name1)
+          try:
+              image2 = Image.open(name2).convert("RGB")
+              image2.filename = name2
+          except IOError: #XXX could produce other errors
+              image2 = None
+
+          try:
+              ballot = ballotfrom(image1, image2)
+          except BallotException as e:
+              fatal(e, "Could not create ballot")
 
           searchkey, boximage, voteinfo, voteresults = process_ballot(ballot)
 
@@ -283,3 +294,4 @@ if __name__ == "__main__":
 
           #All processing and post processsing succesful, record
           n = save_nextnum(n)
+

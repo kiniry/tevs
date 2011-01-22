@@ -1,72 +1,24 @@
 import sys
 import os
 import time
+
 from PILB import Image, ImageStat
 import const
 
 class BallotException(Exception):
-     def __init__(self, value):
-         self.value = value
-     def __str__(self):
-         return repr(self.value)
+     pass
 
-
-class BallotHatchery(object):
-    """A ballot hatchery handles images until they can be categorized by vendor,
-    then creates a ballot corresponding to the appropriate vendor.
-    """
-    # each new ballot module must append (TestFunc,Class) pair to this list
-    # where TestFunc takes a PIL Image 
-    # and returns 1 if it is a picture of a Class type ballot rightside up,
-    # or 2 if it is a picture of a Class type ballot upside down,
-    # or 0 if it is neither
-    ImageIsToBallotList = []
-
-    def __init__(self):
-        pass
-
-    def ballotfrom(self,im1,im2):
-        """ballotfrom opens image files, creates Ballot for size and brand
-        
-        It discovers size directly, then discovers brand by passing the 
-        first image to each registered IsA function until one returns True,
-        then creates a ballot instance of the corresponding ballot type.
-        """
-        self.im1 = Image.open(im1).convert("RGB")
-        self.im1.filename = im1
-        try: 
-            self.im2 = Image.open(im2).convert("RGB")
-            self.im2.filename = im2
-        except:
-            self.im2 = None
-        for func, cls in BallotHatchery.ImageIsToBallotList:
-            isa = func(self.im1)
-            fn1 = self.im1.filename
-            fn2 = None
-            if self.im2 is not None:
-                 fn2 = self.im2.filename
-            if isa == 1: 
-                 const.logger.info(
-                      "Creating ballot object %s from %s %s at %s" % 
-                                   (cls,
-                                    fn1,
-                                    fn2,
-                                    time.asctime()))
-                 return cls(self.im1, self.im2, flipped=False)
-            elif isa == 2:
-                 const.logger.info("Creating ballot object %s from FLIPPED %s and %s at %s" % 
-                                   (cls,
-                                    fn1,
-                                    fn2,
-                                    time.asctime()))
-                 const.logger.debug("Flipping %s" % self.im1.filename)
-                 self.im1 = self.im1.rotate(180)
-                 self.im1.filename = im1
-                 if self.im2 is not None:
-                      self.im2 = self.im2.rotate(180)
-                      self.im2.filename = im2
-                      const.logger.debug("Flipping %s" % self.im2.filename)
-                 return cls(self.im1, self.im2, flipped=True)
+def LoadBallotType(name):
+    name = name.lower().strip()
+    try:
+        module = __import__(
+             name + "_ballot",
+             globals(),
+        )
+    except ImportError as e:
+        raise ValueError(str(e))
+    return getattr(module,
+        name[0].upper() + name[1:] + "Ballot")
 
 class BtRegion(object):
     """ Representing a rectangular region of a ballot. """
@@ -88,7 +40,6 @@ class BtRegion(object):
             purposetext = BtRegion.purposelist[self.purpose]
         return "BtRegion with purpose %s, bbox %s coord %s\ntext %s" % (
             purposetext, self.bbox, self.coord, self.text)
-
 
 
 class Ballot(object):
@@ -205,14 +156,10 @@ class Ballot(object):
         print "In %s WriteVoteInfo" % ("Ballot",) 
 
     def __str__(self):
-        return "BALLOT %s %s" % (self.im1, self.im2)
+        return "BALLOT:%s %s %s" % (self.brand, self.im1, self.im2)
 
-    def printme(self):
-        return "BALLOT %s %s" % (self.im1, self.im2)
-
-    def printany(self,args):
-        return args
-
+    def __repr__(self):
+        return "BALLOT:%s %s %s" % (self.brand, self.im1, self.im2)
 
 class VoteData(object):
     def __init__(self, filename="filename",

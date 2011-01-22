@@ -7,7 +7,7 @@ import pdb
 imaging_dir = os.path.expanduser("~/Imaging-1.1.7")
 sys.path = [imaging_dir]+sys.path[:] #XXX
 from PILB import Image, ImageStat
-from Ballot import Ballot, BallotHatchery, BallotException, BtRegion, VoteData
+from Ballot import Ballot, BallotException, BtRegion, VoteData
 import const
 from ocr import ocr
 from adjust import rotate_pt_by
@@ -19,7 +19,7 @@ from util import alnumify
 # must return 2 if the image is a usable representation
 # of this module's ballot type, upside down,
 # or must return 0 otherwise
-def IsADiebold(im):
+def IsADiebold(im): #TODO push into Flip
     print "Called IsADiebold with image",im
     # A diebold image will have registration marks on either side
     # and will have a series of dashes across the top if rightside up
@@ -98,12 +98,6 @@ class DieboldBallot(Ballot):
     def __init__(self,im1,im2=None):
         super(DieboldBallot,self).__init__(im1,im2)
         self.brand = "Diebold"
-
-    def __repr__(self):
-        return "%s: %s; %s" % (self.brand, self.im1, self.im2)
-
-    def __str__(self):
-        return "%s: %s, %s" % (self.brand, self.im1, self.im2)
 
     def GetLandmarks(self):
         """ retrieve landmarks for Diebold,
@@ -949,11 +943,4 @@ class BallotSideFromXML(BallotSide):
             self.results = []
         except Exception, e:
             print e
-            pdb.set_trace()
-# Every Ballot subclass module must register its IsA function and
-# itself with the BallotHatchery.  The BallotHatchery can then go
-# pair by pair down its "ImageIs" to "Ballot" pair list, 
-# and create an appropriate subclass instance 
-# for the first satisfactory type.
-BallotHatchery.ImageIsToBallotList.append((IsADiebold,DieboldBallot))
 

@@ -168,17 +168,6 @@ def get_config():
      logger.info( "Ballot height in inches %f"%const.ballot_height_inches)
      logger.info( "Voteop width in inches %f"%const.oval_width_inches)
      logger.info( "Voteop height in inches %f"%const.oval_height_inches)
-     logger.info( "Format string for processed files: %s" 
-                  % const.procformatstring)
-     logger.info( "substituted with 123456: %s" 
-                  % (const.procformatstring % (123456/1000,123456)))
-     logger.info( "Format strings for unprocessed, results, masks files:")
-     logger.info( const.unprocformatstring)
-     logger.info( const.unprocformatstring % (123456/1000,123456))
-     logger.info( const.resultsformatstring)
-     logger.info( const.resultsformatstring % (123456/1000,123456))
-     logger.info( const.masksformatstring)
-     logger.info( const.masksformatstring % (123456/1000,123456))
      return logger
 
 def initialize_from_templates():

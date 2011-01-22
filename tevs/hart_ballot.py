@@ -9,65 +9,14 @@ import os
 import sys
 import subprocess
 import xml.dom.minidom
-import pdb
-from PILB import Image, ImageStat
-from Ballot import Ballot, BallotHatchery, BallotException, BtRegion, VoteData
-import const
 import time
+
+from PILB import Image, ImageStat
+from Ballot import Ballot, BallotException, BtRegion, VoteData
+import const
 import util
 from ocr import ocr
 from adjust import rotate_pt_by
-
-# "IsA" function, registered below with BallotHatchery,
-# must return 1 if the image is a usable representation 
-# of this module's ballot type, rightside up,
-# must return 2 if the image is a usable representation
-# of this module's ballot type, upside down,
-# or must return 0 otherwise
-
-def IsAHart(im):
-    """IsAHart returns 1 for good image, 2 for updown, 0 for bad image"""
-
-    # crop the upper bar code possibilities,
-    # UL and UR run from y = .8" to beyond 1.5"
-    # (try relying on only first two)
-    # U/LL from 1/3" to 2/3", U/LR 1/3" to 2/3" inch in from right
-    # ballot is rightside up if the missing bar code
-    # is the upper right, upside down if the missing
-    # barcode is lower left.
-
-    # if we get even a third of a bar code, 
-    # it should darken crop by more than 1/8
-
-    # Not added: ambiguous results could be tested with OCR
-
-    cannot_be_barcode_above = 224
-
-    ul = im.crop((int(0.4*const.ballot_dpi),
-                  int(0.8*const.ballot_dpi),
-                  int(0.6*const.ballot_dpi),
-                  int(1.5*const.ballot_dpi)))
-    
-    ul2 = im.crop((int(0.3*const.ballot_dpi),
-                  int(0.8*const.ballot_dpi),
-                  int(0.5*const.ballot_dpi),
-                  int(1.5*const.ballot_dpi)))
-    
-    ur = im.crop((int(im.size[0] - (0.6*const.ballot_dpi)),
-                  int(0.8*const.ballot_dpi),
-                  int(im.size[0] - (0.4*const.ballot_dpi)),
-                  int(1.5*const.ballot_dpi)))
-    
-    uls = ImageStat.Stat(ul).mean[0]
-    ul2s = ImageStat.Stat(ul2).mean[0]
-    urs = ImageStat.Stat(ur).mean[0]
-    temp = uls < cannot_be_barcode_above or ul2s < cannot_be_barcode_above
-    if temp and urs > cannot_be_barcode_above:
-        return 1
-    elif temp and urs < cannot_be_barcode_above:
-        return 2
-    return 0
-
 
 class HartBallot(Ballot):
     """Class representing ballots from Hart Intersystems.
@@ -77,15 +26,52 @@ class HartBallot(Ballot):
     """
 
     def __init__(self, im1, im2=None, flipped=False):
+        im1 = self.Flip(im1)
+        if im2 is not None:
+            im2 = self.Flip(im2)
         super(HartBallot, self).__init__(im1, im2, flipped)
         self.brand = "Hart"
         self.vote_box_images = {}
 
-    def __repr__(self):
-        return "%s: %s; %s" % (self.brand, self.im1, self.im2)
+    def Flip(self, im):
+        # crop the upper bar code possibilities,
+        # UL and UR run from y = .8" to beyond 1.5"
+        # (try relying on only first two)
+        # U/LL from 1/3" to 2/3", U/LR 1/3" to 2/3" inch in from right
+        # ballot is rightside up if the missing bar code
+        # is the upper right, upside down if the missing
+        # barcode is lower left.
 
-    def __str__(self):
-        return "%s: %s, %s" % (self.brand, self.im1, self.im2)
+        # if we get even a third of a bar code, 
+        # it should darken crop by more than 1/8
+
+        # Not added: ambiguous results could be tested with OCR
+
+        cannot_be_barcode_above = 224
+        ul = im.crop((int(0.4*const.ballot_dpi),
+                  int(0.8*const.ballot_dpi),
+                  int(0.6*const.ballot_dpi),
+                  int(1.5*const.ballot_dpi)))
+    
+        ul2 = im.crop((int(0.3*const.ballot_dpi),
+                  int(0.8*const.ballot_dpi),
+                  int(0.5*const.ballot_dpi),
+                  int(1.5*const.ballot_dpi)))
+    
+        ur = im.crop((int(im.size[0] - (0.6*const.ballot_dpi)),
+                  int(0.8*const.ballot_dpi),
+                  int(im.size[0] - (0.4*const.ballot_dpi)),
+                  int(1.5*const.ballot_dpi)))
+    
+        uls = ImageStat.Stat(ul).mean[0]
+        ul2s = ImageStat.Stat(ul2).mean[0]
+        urs = ImageStat.Stat(ur).mean[0]
+        if uls < cannot_be_barcode_above or ul2s < cannot_be_barcode_above:
+            if urs > cannot_be_barcode_above:
+                pass #return 1
+            elif urs < cannot_be_barcode_above:
+                im.rotate(180)
+        return im
 
     def GetLandmarks(self):
         """ retrieve landmarks for Hart images, set tang, xref, yref
@@ -1014,12 +1000,4 @@ class BallotSideFromXML(BallotSide):
         self.oval_width = const.oval_width_inches * self.dpi
         self.oval_height = const.oval_height_inches * self.dpi
         self.results = []
-
-# Every Ballot subclass module must register its IsA function and
-# itself with the BallotHatchery.  The BallotHatchery can then go
-# pair by pair down its "ImageIs" to "Ballot" pair list, 
-# and create an appropriate subclass instance 
-# for the first satisfactory type.
-BallotHatchery.ImageIsToBallotList.append((IsAHart, HartBallot))
-
 
