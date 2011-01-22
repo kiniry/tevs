@@ -4,3 +4,4 @@ cp -r ~/data/proc/* ~/data/unproc/
 rm -rf ~/data/proc/* ~/data/home
 cat ~/data/tevs_log.txt >>~/data/tevs_log.txt.old
 echo 1 > nexttoprocess.txt
+rm *.pyc

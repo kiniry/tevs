@@ -12,15 +12,12 @@ import psycopg2
 import site
 site.addsitedir("/home/jimmy/tevs")
 
-# modified Python Image Library, with B for Ballot
 from PILB import Image, ImageStat
 from PILB import ImageDraw
 import const
 
-# ballot processing python
-#XXX * imports are bad news
-from util import *
-from Ballot import *
+import util
+from Ballot import Ballot, BallotException, LoadBallotType
 
 def build_dirs(n):
      """create any necessary new directories using paths from tevs.cfg"""
@@ -41,13 +38,13 @@ def build_dirs(n):
                   resultsfilename, 
                   masksfilename1,
                   masksfilename2):
-          mkdirp(os.path.dirname(item))
+          util.mkdirp(os.path.dirname(item))
      return name1, name2, procname1, procname2, resultsfilename
 
 def save_nextnum(n):
      """Save number in nexttoprocess.txt"""
      n += 2
-     writeto("nexttoprocess.txt", str(n))
+     util.writeto("nexttoprocess.txt", str(n))
      return n
 
 def get_nextnum(numlist):
@@ -55,7 +52,7 @@ def get_nextnum(numlist):
      if len(numlist) > 0:
           n, numlist = numlist[0], numlist[1:]
      else:
-         return int(readfrom("nexttoprocess.txt", 1))
+         return int(util.readfrom("nexttoprocess.txt", 1))
 
 def insert_ballot(cur, search_key, name1, name2):
     "insert a ballot into db, returns id"
@@ -71,7 +68,7 @@ def insert_ballot(cur, search_key, name1, name2):
     try:
         ballot_id = int(sql_ret[0][0])
     except ValueError as e:
-        fatal(e, "Corrupt ballot_id")
+        util.fatal(e, "Corrupt ballot_id")
 
     return ballot_id
 
@@ -154,32 +151,32 @@ def process_ballot(ballot):
     try:
         tiltinfo = ballot.GetLandmarks()
     except Exception as e: #XXX
-        fatal(e, "failure at GetLandmarks for %s", name1) 
+        util.fatal(e, "failure at GetLandmarks for %s", name1) 
 
     try:
         layout_codes = ballot.GetLayoutCode()
     except Exception as e: #XXX
-        fatal(e, "failure at GetLayoutCode for %s", name1) 
+        util.fatal(e, "failure at GetLayoutCode for %s", name1) 
 
     search_key = "%07d%07d" % tuple(layout_codes[0][:2])
 
-    if search_key not in Ballot.front_dict: #XXX is there any recovery to do here? is this a fatal error?
+    if search_key not in Ballot.front_dict: #XXX is there any recovery to do here? is this a util.fatal error?
         print search_key, "not in front_dict"
 
     try:
         front_layout = ballot.GetFrontLayout()
     except Exception as e: #XXX
-        fatal(e, "failure at GetFrontLayout for %s", name1) 
+        util.fatal(e, "failure at GetFrontLayout for %s", name1) 
 
     try:
         back_layout = ballot.GetBackLayout()
     except Exception as e: #XXX
-        fatal(e, "failure at GetBackLayout for %s", name1) 
+        util.fatal(e, "failure at GetBackLayout for %s", name1) 
 
     try:
         ballot.CaptureVoteInfo()
     except Exception as e: #XXX
-        fatal(e, "Failed to CaptureVoteInfo")
+        util.fatal(e, "Failed to CaptureVoteInfo")
 
     #create mosaic of all vote ovals
     boximage = Image.new("RGB", (1650, 1200), color="white")
@@ -196,25 +193,25 @@ def process_ballot(ballot):
  
 if __name__ == "__main__":
      # get command line arguments
-     get_args()
+     util.get_args()
 
      # read configuration from tevs.cfg and set constants for this run
-     logger = get_config()
+     logger = util.get_config()
 
      # connect to db and open cursor
      try:
          conn = psycopg2.connect(database=const.dbname, user=const.dbpwd)
      except DatabaseError as e:
-         fatal(e, "Could not connect to database")
+         util.fatal(e, "Could not connect to database")
      cur = conn.cursor()
 
      try:
          ballotfrom = LoadBallotType(const.layout_brand)
      except KeyError as e:
-         fatal(e, "No such ballot type: " + const.layout_brand + " check tevs.cfg")
+         util.fatal(e, "No such ballot type: " + const.layout_brand + " check tevs.cfg")
 
      # read templates
-     initialize_from_templates()
+     util.initialize_from_templates()
      
      numlist = []
      try:
@@ -223,7 +220,7 @@ if __name__ == "__main__":
      except IOError:
           pass #no numlist.txt
      except ValueError as e:
-          fatal(e, "Malformed numlist.txt")
+          util.fatal(e, "Malformed numlist.txt")
 
      # While ballot images exist in the directory specified in tevs.cfg,
      # create ballot from images, get landmarks, get layout code, get votes.
@@ -246,7 +243,7 @@ if __name__ == "__main__":
               image1 = Image.open(name1).convert("RGB")
               image1.filename = name1
           except IOException as e:
-              fatal(e, "Could not open " + name1)
+              util.fatal(e, "Could not open " + name1)
           try:
               image2 = Image.open(name2).convert("RGB")
               image2.filename = name2
@@ -256,7 +253,7 @@ if __name__ == "__main__":
           try:
               ballot = ballotfrom(image1, image2)
           except BallotException as e:
-              fatal(e, "Could not create ballot")
+              util.fatal(e, "Could not create ballot")
 
           searchkey, boximage, voteinfo, voteresults = process_ballot(ballot)
 
@@ -265,9 +262,9 @@ if __name__ == "__main__":
           try:
               boximage.save(resultsfilename.replace("txt", "jpg")) #XXX should add to config file
           except Exception as e: #TODO what exceptions does boximage.save throw?
-              fatal(e, "Could not write vote boxes to disk")
+              util.fatal(e, "Could not write vote boxes to disk")
 
-          writeto(resultsfilename, voteinfo)
+          util.writeto(resultsfilename, voteinfo)
 
           ballot_id = insert_ballot(cur, searchkey, name1, name2)
 
@@ -276,7 +273,7 @@ if __name__ == "__main__":
           try:
               conn.commit()
           except psycopg2.DatabaseError as e:
-              fatal(e, "Could not commit vote information to database")
+              util.fatal(e, "Could not commit vote information to database")
 
           #Post-processing
 
@@ -284,13 +281,13 @@ if __name__ == "__main__":
           try:
                os.rename(name1, procname1)
           except OSError as e:
-               fatal(e, "Could not rename %s", name1)
+               util.fatal(e, "Could not rename %s", name1)
 
           try:
                if os.path.exists(name2): #in case ballot isn't 2 sided
                    os.rename(name2, procname2)
           except OSError as e:
-               fatal(e, "Could not rename %s", name2)
+               util.fatal(e, "Could not rename %s", name2)
 
           #All processing and post processsing succesful, record
           n = save_nextnum(n)
