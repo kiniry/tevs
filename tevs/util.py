@@ -171,7 +171,7 @@ def get_config():
      logger.info( "Voteop height in inches %f"%const.oval_height_inches)
      return logger
 
-def initialize_from_templates():
+def initialize_from_templates(): #XXX has potentially injurious manual path manipulations
      """Read layout info from templates directory."""
      try:
           # for each file in templates directory, 
@@ -220,100 +220,6 @@ def get_maxv_from_text(text):
      elif (text.find("Five") > 1):
           maxv = 5
      return maxv
-
-def image_diff(im1,im2,x,y,deltatang,lx,ly):
-    """NOT IN USE"""
-    # scale down the images and offsets by scalefactor
-    # rotate im2 by deltatang and offset it by scaled x and y,
-    # to bring im2 into approx alignment with im1,
-    # thicken the dark spots on im1, and use
-    # ImageChops.strays to spot areas on im2 that are dark 
-    # where the corresponding area on im1 is not;
-    # we might also want to report/return
-    # the total number of nonblack pixels in the screened image
-    # (x',y') =  (ax + by + c, dx + ey + f)
-
-    #xresult = (xforcalc * cosra) - (yforcalc * (sinra))
-    #yresult = (xforcalc * sinra) + (yforcalc * cosra)
-    scaledown = 2.
-    newsize1 = (int(round(im1.size[0]/scaledown)),
-                int(round(im1.size[1]/scaledown)))
-    newsize2 = (int(round(im2.size[0]/scaledown)),
-                int(round(im2.size[1]/scaledown)))
-    im1 = im1.resize(newsize1,Image.BILINEAR)
-    im2 = im2.resize(newsize2,Image.BILINEAR)
-    im1 = im1.thicken()
-    # in addition to thickening image1, all vote areas should be darkened !!!
-    affine = [math.cos(deltatang),
-              -math.sin(deltatang),
-              int(round(x/scaledown)),
-              math.sin(deltatang),
-              math.cos(deltatang),
-              int(round(y/scaledown))
-              ]
-    # first offset the image by landmarks so the landmarks are at 0,0
-    im2 = im2.transform(im2.size,Image.AFFINE, affine, Image.BILINEAR)
-    im2 = ImageChops.strays(im1,im2)
-    return im2
-
-
-
-# rotation about a landmark point lx,ly by an amount equivalent to 
-# that which caused dx x offset specified when dy is as specified
-def rotate_pt_by(x,y,deltatang,lx,ly):
-    """rotate x,y about lx,ly adjusting for tilt given by dx and dy""" 
-
-    ra = math.atan(deltatang) 
-
-    cosra = math.cos(ra)
-    sinra = math.sin(ra)
-    
-    origx = x
-    origy = y
-    # our y's are positive down, not positive up
-    yforcalc = -(y-ly)
-    xforcalc = x-lx
-    ysinra = yforcalc * sinra
-    ycosra = yforcalc * cosra
-    xresult = (xforcalc * cosra) - (yforcalc * (sinra))
-    yresult = (xforcalc * sinra) + (yforcalc * cosra)
-    #switch result back to positive down
-    y = -yresult + ly
-    x = xresult+lx
-    const.logger.debug("orig x,y (%d,%d) adjusted x,y (%d, %d)"
-                       % (origx,origy,x,y)
-                       )
-    return (x,y)
-
-
-def rotate_pt(x,y,hdist,dx,dy,lx,ly):
-    """NOT IN USE"""
-    # rotate x,y about lx,ly adjusting for tilt given by dx and dy""" 
-    # We are adding one to dy here; check to see if there's any opportunity
-    # to round dy earlier in the calling sequence...!!!
-    if (hdist == 0):
-        ra = 0
-    else:
-        ra = math.atan(float(-(dy+1))/hdist) 
-                      
-    # adjust from degrees to radians
-    cosra = math.cos(ra)
-    sinra = math.sin(ra)
-    
-    origx = x
-    origy = y
-    # our y's are positive down, not positive up
-    yforcalc = -(y-ly)
-    xforcalc = x-lx
-    ysinra = yforcalc * sinra
-    ycosra = yforcalc * cosra
-    xresult = (xforcalc * cosra) - (yforcalc * (sinra))
-    yresult = (xforcalc * sinra) + (yforcalc * cosra)
-    #switch result back to positive down
-    y = -yresult + ly
-    x = xresult+lx
-    logger.debug("orig x,y (%d,%d) adjusted x,y (%d, %d)"%(origx,origy,x,y))
-    return (x,y)
 
 # Remove punctuation and special chars from text, except for space
 def alnumify(instring):
