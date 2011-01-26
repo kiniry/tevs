@@ -32,7 +32,8 @@ def translator(ideal, local, tilt):
           pair 1 is the upper right hand pair
           and pair 2 is lower left hand pair,
           for both layout and ballot, and all
-          values are >= 0.
+          values are >= 0, and each pair of
+          coordinates refers to the same landmarks in each.
       tilt = tilt in radians
     returns:
       a function that given ideal coordinates returns the
@@ -73,17 +74,15 @@ def translator(ideal, local, tilt):
     (65, -8)
 
     >>> r = int(round(5*math.sqrt(2)))
-    >>> #10/7 needed to counteract false scaling from rounding
-    >>> #resulting from using irrationals in the example
     >>> t = translator(orig, #only rotation required
     ...     ((0,0), (r,r), (-r,r)), 1) #45 deg, cw (because of y inversion)
     >>> t(0, 0)
     (0, 0)
     >>> t(1, 1)
     (0, 1)
-    >>> t(10, 10) #fails because of false scaling
+    >>> t(10, 10)
     (0, 14)
-    >>> t(50, 100) #fails because of false scaling
+    >>> t(50, 100) #fails because of scale still squished slightly 
     (-35, 106)
     """
 
@@ -91,7 +90,7 @@ def translator(ideal, local, tilt):
     #but it's easier to ask for logically related
     #pairs than make the user remember which to
     #ignore.
-    (xi0, yi0), (xi1, _),  (_,  yi2) = ideal
+    (xi0, yi0), (xi1, _),  (xi2,  yi2) = ideal
     (x0,  y0),  (x1,  x2), (y1, y2)  = local
 
     #get rotation factors
@@ -109,11 +108,11 @@ def translator(ideal, local, tilt):
     #compute x and y scale factors
     Xs = (xr1 - xr0) / (xi1 - xi0)
     Ys = (yr2 - yr0) / (yi2 - yi0)
- 
+
     #compute x and y offset
     X = xr0 - xi0
     Y = yr0 - yi0
-  
+
     def trans(x, y):
         #shift by determined offset (X, Y)
         dx, dy = x + X, y + Y
