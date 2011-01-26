@@ -91,31 +91,39 @@ def translator(ideal, local, tilt):
     #but it's easier to ask for logically related
     #pairs than make the user remember which to
     #ignore.
-    (xi0, yi0), (xi1, _), (_, yi2) = ideal
-    (x0,  y0),  (x1,  _), (_, y2)  = local
+    (xi0, yi0), (xi1, _),  (_,  yi2) = ideal
+    (x0,  y0),  (x1,  x2), (y1, y2)  = local
 
     #get rotation factors
     at = math.atan(tilt)
     sin, cos = math.sin(at), math.cos(at)
 
+    #rotate x0,y0,x1,y2 wrt ideal to compute scale and offset
+    #so the slant doesn't skew the numbers
+    
+    xr0 = x0*cos - y0*sin
+    yr0 = x0*sin + y0*cos
+    xr1 = x1*cos - y1*sin
+    yr2 = x2*sin + y2*cos
+
     #compute x and y scale factors
-    Xs = (x1 - x0) / (xi1 - xi0)
-    Ys = (y2 - y0) / (yi2 - yi0)
+    Xs = (xr1 - xr0) / (xi1 - xi0)
+    Ys = (yr2 - yr0) / (yi2 - yi0)
  
     #compute x and y offset
-    X = x0 - xi0
-    Y = y0 - yi0
+    X = xr0 - xi0
+    Y = yr0 - yi0
   
     def trans(x, y):
-         #shift by determined offset (X, Y)
-         dx, dy = x + X, y + Y
-         #rotate and scale
-         x = Xs*cos*dx - Ys*sin*dy
-         y = Xs*sin*dx + Ys*cos*dy
-         #round and return
-         x = int(round(x))
-         y = int(round(y))
-         return x, y
+        #shift by determined offset (X, Y)
+        dx, dy = x + X, y + Y
+        #rotate and scale
+        x = Xs*cos*dx - Ys*sin*dy
+        y = Xs*sin*dx + Ys*cos*dy
+        #round and return
+        x = int(round(x))
+        y = int(round(y))
+        return x, y
     return trans
 
 if __name__ == '__main__':
