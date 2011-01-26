@@ -171,7 +171,7 @@ def get_config():
      logger.info( "Voteop height in inches %f"%const.oval_height_inches)
      return logger
 
-def initialize_from_templates(): #XXX has potentially injurious manual path manipulations
+def initialize_from_templates(): #XXX has potentially injurious manual path manipulations, should be in Balllot.py
      """Read layout info from templates directory."""
      try:
           # for each file in templates directory, 
