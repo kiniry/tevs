@@ -17,6 +17,7 @@ import const
 import util
 from ocr import ocr
 from adjust import rotate_pt_by
+from adjust import rotator
 
 class HartBallot(Ballot):
     """Class representing ballots from Hart Intersystems.
@@ -85,46 +86,15 @@ class HartBallot(Ballot):
         self.xref = [0, 0]
         self.yref = [0, 0]
 
-        # It turns out to be a mistake to set the dpi based on the
-        # observed ballot size in pixels, because when the ballots
-        # are skewed, the scanner may increase the output width.
-        # We are forced to rely on the specified dpi in tevs.cfg,
-        # or else punt.
-        self.dpi = int(round( #XXX below code repeated in multiple places with different values, should be handled elsewhere
-                self.im1.size[0]/const.ballot_width_inches))
-        if self.dpi >= 148 and self.dpi <= 152:
-            self.dpi = 150
-        elif self.dpi >= 296 and self.dpi <= 304:
-            self.dpi = 300
-        else:
-            const.logger.warning(
-                "Image file %s has DPI %d from pixel width %d, forcing %d from tevs.cfg" %
-                (
-                    self.im1.filename,
-                    self.dpi,
-                    self.im1.size[0],
-                    const.ballot_dpi
-                    )
-                )
-
         self.dpi = const.ballot_dpi
         self.dpi_y = self.dpi
-        if self.im1.mode == 'L':
-            fn = self.im1.filename
-            self.im1 = self.im1.convert("RGB")
-            self.im1.filename = fn
-            
+           
         self.tiltinfo[0] = self.im1.gethartlandmarks(self.dpi,0)
+        self.tiltinfo[1] = None
         try:
-            if self.im2 is not None:
-                fn = self.im2.filename
-                self.im2 = self.im2.convert("RGB")
-                self.im2.filename = fn
-                self.tiltinfo[1] = self.im2.gethartlandmarks(self.dpi,0)
-            else:
-                self.tiltinfo[1] = None
+            self.tiltinfo[1] = self.im2.gethartlandmarks(self.dpi,0)
         except:
-            self.tiltinfo[1] = None
+            pass
         # ballots are duplex only when
         # gethartlandmarks can find a tilt on both sides;
         # (ballots with a blank side are not duplex)
@@ -142,36 +112,32 @@ class HartBallot(Ballot):
         testcrop = self.im1.crop( (0, 0, testwidth, testheight) )
         teststat = ImageStat.Stat(testcrop)
         if teststat.mean[0] < 16:
-            const.logger.error("Dark upper left corner on %s, code %d" % (
+            raise BallotException("Dark upper left corner on %s, code %d" % (
                     self.im1.filename,1))
-            raise BallotException("dark upper left corner")
         testcrop = self.im1.crop((self.im1.size[0] - testwidth,
                                   0,
                                   self.im1.size[0] - 1,
                                   testheight))
         teststat = ImageStat.Stat(testcrop)
         if teststat.mean[0] < 16:
-            const.logger.error("Dark upper right` corner on %s, code %d" % (
+            raise BallotException("Dark upper right corner on %s, code %d" % (
                     self.im1.filename,2))
-            raise BallotException("dark upper right corner")
         testcrop = self.im1.crop((self.im1.size[0] - testwidth,
                                   self.im1.size[1] - testheight,
                                   self.im1.size[0] - 1,
                                   self.im1.size[1] - 1))
         teststat = ImageStat.Stat(testcrop)
         if teststat.mean[0] < 16:
-            const.logger.error("Dark lower right corner on %s, code %d" % (
+            raise BallotException("Dark lower right corner on %s, code %d" % (
                     self.im1.filename,3))
-            raise BallotException("dark lower right corner") #XXX bad message, doesn't explain why this is an issue
         testcrop = self.im1.crop((0,
                                   self.im1.size[1] - testheight,
                                   testwidth,
                                   self.im1.size[1] - 1))
         teststat = ImageStat.Stat(testcrop)
         if teststat.mean[0] < 16:
-            const.logger.error("Dark lower left corner on %s, code %d" % (
+            raise BallotException("Dark lower left corner on %s, code %d" % (
                     self.im1.filename,4))
-            raise BallotException("dark lower left corner") #XXX see above
 
         if not self.duplex:
             toprange = 1
@@ -196,35 +162,16 @@ class HartBallot(Ballot):
                                 self.yref[n],
                                 longdiff,
                                 shortdiff]
-            try:
-                self.tang[n] = float(shortdiff)/float(longdiff)
-                if abs(self.tang[n])>const.allowed_tangent:
-                    const.logger.error("Bad tilt calculation on %s" % 
-                                 self.imagefilenames[n])
-                    const.logger.error("n%d tiltinfo[%d] = %s, short%d, long%d" % 
-                         (n, n, self.tiltinfo[n], shortdiff, longdiff)
-                         )
-                const.logger.debug("shortdiff %d longdiff %d tangent %f\n"%(
-                        shortdiff, 
-                        longdiff, 
-                        self.tang[n])
-                             )
-                if abs(self.tang[n]) > const.allowed_tangent: 
-                    raise BallotException("tangent %f exceeds %f" % (
-                        self.tang[n], const.allowed_tangent))
-
-            except Exception as e:
-                print e
-                const.logger.error(e)
-                self.tang[n] = 0.
-                raise
-
-        # Switch front and back if necessary; 
-        # unfortunately, this is probably site-dependent
-
-        const.logger.debug("TANG %s XREF %s YREF %s " 
-                           % (self.tang,self.xref,self.yref))
-
+            self.tang[n] = float(shortdiff)/float(longdiff)
+            if abs(self.tang[n])>const.allowed_tangent:
+                raise BallotException(("Bad tilt calculation on %s" % 
+                             self.imagefilenames[n])
+                + ("\nn%d tiltinfo[%d] = %s, short%d, long%d" % 
+                     (n, n, self.tiltinfo[n], shortdiff, longdiff)
+                     ))
+            if abs(self.tang[n]) > const.allowed_tangent: 
+                raise BallotException("tangent %f exceeds %f" % (
+                    self.tang[n], const.allowed_tangent))
         return self.tiltinfo
         
 
