@@ -609,7 +609,11 @@ class HartBallot(Ballot):
             layout = self.back_layout
             im = self.im2
             sidenum = 1
-
+        ##TODO MAKE ROTATE BY CLOSURE HERE with:
+            ##self.tang[sidenum],
+            ##self.xref[sidenum],
+            ##self.yref[sidenum]
+        #rotate_pt_by = adjust.rotator(self.tang[sidenum], (self.xref[sidenum], self.yref[sidenum]))
         # For saving vote box images, create directory per file
         print "CaptureSideInfo", side
         if im is None:
@@ -617,14 +621,7 @@ class HartBallot(Ballot):
         seq = 0
         margin = int(round(self.dpi * 0.03))
         boxes_filename = im.filename
-        try: #XXX everything here is suspect
-            if im.filename.startswith("/"):
-                boxes_filename = im.filename[1:]
-            if im.filename.startswith("./"):
-                boxes_filename = im.filename[2:]                
-            util.mkdirp(const.boxes_root, boxes_filename)
-        except:
-            pass
+        util.mkdirp(const.boxes_root, boxes_filename)
         region_valid = True
         for region in layout.regionlist:
             if region.purpose == BtRegion.JURISDICTION:
@@ -641,17 +638,6 @@ class HartBallot(Ballot):
                     region_valid = False
                 else:
                     region_valid = True
-                if self.current_contest.find("Count")>=0:
-                    self.current_jurisdiction = self.current_contest
-                if self.current_contest.find("State")>=0:
-                    self.current_jurisdiction = self.current_contest
-                if self.current_contest.find("School")>=0:
-                    self.current_jurisdiction = self.current_contest
-                if self.current_contest.find("Meas")>=0:
-                    self.current_prop = self.current_contest[:40]
-                else:
-                    self.current_prop = None
-
             elif region.purpose == BtRegion.CHOICE:
                 self.current_choice = region.text
 
