@@ -16,7 +16,6 @@ from Ballot import Ballot, BallotException, BtRegion, VoteData
 import const
 import util
 from ocr import ocr
-from adjust import rotate_pt_by
 from adjust import rotator
 
 class HartBallot(Ballot):
@@ -177,27 +176,25 @@ class HartBallot(Ballot):
 
     def TestLayoutCode(self,code_string):
         """check code for obvious flaws"""
-        barcode_good = True
         if len(code_string) != 14:
-            barcode_good = False
+            return False
         elif not (code_string.startswith("100") 
                   or code_string.startswith("200")):
             # disqualify if not a sheet 1 or a sheet 2
-            barcode_good = False
+            return False
         elif code_string[7] != "0":
             # disqualify if eighth digit is not zero
-            barcode_good = False
-        if barcode_good:
-            # ninth digit is side count, must be four or below
-            # and everything should be decimal digits as well
-            try:
-                csi = int(code_string[8])
-                remaining = int(code_string[8:])
-                if csi > 4:
-                    barcode_good = False
-            except:
-                barcode_good = False
-        return barcode_good
+            return False
+        # ninth digit is side count, must be four or below
+        # and everything should be decimal digits as well
+        try:
+            csi = int(code_string[8])
+            remaining = int(code_string[8:])
+        except IndexError:
+            return False
+        if csi > 4:
+            return False
+        return True
 
     def GetLayoutCode(self):
         """ Determine the layout code(s) from the ulc barcode(s) """
@@ -208,8 +205,7 @@ class HartBallot(Ballot):
             toprange = 2
         # barcode zones to search are from 1/3" to 1/6" to left of ulc
         # and from 1/8" above ulc down to 2 5/8" below ulc.
-        n = 0
-        for im in (self.im1, self.im2):
+        for n, im in enumerate(self.im1, self.im2):
             if n>0 and not self.duplex:
                 break
             # don't pass negative x,y into getbarcode
@@ -224,7 +220,6 @@ class HartBallot(Ballot):
                 bc_endy = (3*self.dpi) - ((3*self.dpi)/8)
                 self.layout_code[n] = im.getbarcode(
                     bc_startx, bc_starty, bc_endx, bc_endy)
-            n = n+1
         im = self.im1
  
         code_string = "".join(
@@ -238,7 +233,6 @@ class HartBallot(Ballot):
 
         # try validating the barcode number, first as read off barcode,
         # then, if failure to validate, try validating OCR'd version
-        barcode_good = True
         orig_code_string = code_string
         self.code_string = code_string
         barcode_good = self.TestLayoutCode(code_string)
@@ -351,8 +345,6 @@ class HartBallot(Ballot):
             if const.on_new_layout.startswith("reject"):
                 return None #XXX should this raise instead?
             return self.BuildFrontLayout()
-
-
 
     def GetBackLayout(self):
         """ Retrieve back template from dict or call Build func.
@@ -507,7 +499,7 @@ class HartBallot(Ballot):
             conf_hll[i] = [ [e, "h"] for e in el ]
         vboxes = []
         for startx in columnstart_list:
-             if (startx <= 0):
+             if startx <= 0:
                   const.logger.info(
                       "Negative startx passed to gethartvoteboxes")
              xss = im.gethartvoteboxes(startx, dpi/2, dpi)
@@ -524,15 +516,19 @@ class HartBallot(Ballot):
             try:
                 endx = columnstart_list[x+1]
             except:
-                endx = im.size[0] - (dpi/2)
+                endx = im.size[0] - dpi/2
             text = ocr(im,br,dpi,columnstart_list[x],endx,conf_hll[x])
 
     def CaptureVoteInfo(self):
         """CaptureVoteInfo just calls CaptureSideInfo for each side"""
         self.CaptureSideInfo(side="Front")
-        if self.duplex:
-            self.CaptureSideInfo(side="Back")
+        self.CaptureSideInfo(side="Back")
 
+    def captureSideInfo(self, layout, im, offs):
+        rotate = rotator(*offs)
+        layout.contest = [] #XXX placeholder until we build contest list REMOVE
+        for contest in layout.contests:
+            pass
 
     def CaptureSideInfo(self, side):
         """CaptureVoteInfo captures votes off the images in a HartBallot
@@ -551,14 +547,16 @@ class HartBallot(Ballot):
         if side == "Front":
             layout = self.front_layout
             im = self.im1
+            off = (self.tang[0], self.xref[0], self.yref[0])
+            self.captureSide(layout, im, off)
         else:
             layout = self.back_layout
             im = self.im2
+            if im is None:
+                return
             sidenum = 1
-        # For saving vote box images, create directory per file
-        print "CaptureSideInfo", side
-        if im is None:
-            return None
+            off = (self.tang[1], self.xref[1], self.yref[1])
+            self.captureSide(layout, im, off)
         rotate = rotator(
                      self.tang[sidenum],
                      self.xref[sidenum],
@@ -646,9 +644,8 @@ class HartBallot(Ballot):
                     seq += 1
                 maxv = 1
                 try:
-                    #maxv = get_maxv_from_text(self.current_contest)
                     self.current_contest = self.current_contest[:40]
-                except:
+                except IndexError:
                     pass
                 if self.current_prop is None:
                     self.current_prop = "No"
@@ -861,12 +858,6 @@ class BallotSide(object):
 
 class BallotSideFromXML(BallotSide):
     """BallotSide created from an xml string"""
-
-
-    def toXML(self,precinct="?"):
-        """If a BallotSide is from xml string, toXML just returns the string"""
-        return self.myxml
-
     def __init__(self, name,side,myxml):
         """Create a BallotSide from an XML string, so editing is possible"""
         self.ballot = None
@@ -926,4 +917,9 @@ class BallotSideFromXML(BallotSide):
         self.oval_width = const.oval_width_inches * self.dpi
         self.oval_height = const.oval_height_inches * self.dpi
         self.results = []
+
+    def toXML(self,precinct="?"):
+        """If a BallotSide is from xml string, toXML just returns the string"""
+        return self.myxml
+
 

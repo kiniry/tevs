@@ -126,16 +126,12 @@ class Ballot(object):
         print "In %s GetFrontLayout with layout %s" % ("Ballot", 
                                                        self.layout_code)
         self.front_layout = "FRONT"
-        if self.front_layout is None:
-            self.front_layout = self.BuildFrontLayout()
-            self.back_layout = self.BuildBackLayout()
         return self.front_layout
 
     def GetBackLayout(self):
         print "In %s GetBackLayout with layout %s" % ("Ballot", 
                                                        self.layout_code)
         self.back_layout = "BACK"
-
         return self.back_layout
 
     def BuildFrontLayout(self):
@@ -266,4 +262,8 @@ class VoteData(object):
             self.maxv,
             self.was_voted
             )
-    
+
+class Contest(object): #placeholder
+     def __init__(self, **kw):
+         self.__dict__.update(kw)
+ 
