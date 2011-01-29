@@ -551,24 +551,23 @@ class HartBallot(Ballot):
         if side == "Front":
             layout = self.front_layout
             im = self.im1
-            sidenum = 0
         else:
             layout = self.back_layout
             im = self.im2
             sidenum = 1
-        ##TODO MAKE ROTATE BY CLOSURE HERE with:
-            ##self.tang[sidenum],
-            ##self.xref[sidenum],
-            ##self.yref[sidenum]
-        #rotate_pt_by = adjust.rotator(self.tang[sidenum], (self.xref[sidenum], self.yref[sidenum]))
         # For saving vote box images, create directory per file
         print "CaptureSideInfo", side
         if im is None:
             return None
+        rotate = rotator(
+                     self.tang[sidenum],
+                     self.xref[sidenum],
+                     self.yref[sidenum]
+                 )
         seq = 0
         margin = int(round(self.dpi * 0.03))
         boxes_filename = im.filename
-        util.mkdirp(const.boxes_root, boxes_filename)
+        util.mkdirp(const.boxes_root, boxes_filename) #XXX not in our area of influence
         region_valid = True
         for region in layout.regionlist:
             if region.purpose == BtRegion.JURISDICTION:
@@ -581,10 +580,7 @@ class HartBallot(Ballot):
                 # const.minimum_contest_height_inches,
                 # set contest invalid and skip votes;
                 # else set contest valid
-                if (int(region.bbox[3]) - int(region.bbox[1])) < (const.minimum_contest_height_inches * self.dpi):
-                    region_valid = False
-                else:
-                    region_valid = True
+                region_valid = not (int(region.bbox[3]) - int(region.bbox[1])) < (const.minimum_contest_height_inches * self.dpi)
             elif region.purpose == BtRegion.CHOICE:
                 self.current_choice = region.text
 
@@ -615,9 +611,7 @@ class HartBallot(Ballot):
                 starty = int(self.current_coords[1])
                 startx = startx + int(round(xoffset))
                 starty = starty + int(round(yoffset))
-                startx, starty = rotate_pt_by(startx,starty,self.tang[sidenum],
-                                              self.xref[sidenum],
-                                              self.yref[sidenum])
+                startx, starty = rotate(startx, starty)
                 # add in end points for oval
                 startx = int(round(startx * scalefactor))
                 starty = int(round(starty * scalefactor))
@@ -687,8 +681,7 @@ class HartBallot(Ballot):
                               starty+int(0.6*self.dpi)
                               )
                              )
-                        if not os.path.exists(const.writeins): #XXX need to refactor out mkdir -p into a utility func (in tev_normal)
-                            util.mkdirp(const.writeins)
+                        util.mkdirp(const.writeins)
  
                         savename = "writeins/%s_%s.jpg" % ( #XXX path not from config, cannot assume positions are constant
                             im.filename[-10:-4].replace("/","").replace(" ","_"),
