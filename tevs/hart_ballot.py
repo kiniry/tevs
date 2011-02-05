@@ -12,26 +12,46 @@ import xml.dom.minidom
 import time
 
 from PILB import Image, ImageStat
-from Ballot import Ballot, BallotException, BtRegion, VoteData
+import Ballot
 import const
 import util
 from ocr import ocr
 from adjust import rotator
 
-class HartBallot(Ballot):
+class HartBallot(Ballot.Ballot):
     """Class representing ballots from Hart Intersystems.
 
     Each Hart ballot has dark rectangles around voting areas,
     and voting areas are grouped in boxed contests.
     """
 
+    brand = "Hart"
+    transformer = rotator
+
     def __init__(self, im1, im2=None, flipped=False):
         im1 = self.Flip(im1)
         if im2 is not None:
             im2 = self.Flip(im2)
         super(HartBallot, self).__init__(im1, im2, flipped)
-        self.brand = "Hart"
+        self.dpi = const.ballot_dpi
         self.vote_box_images = {}
+
+        #convert all our constants to locally correct values
+        adj = lambda f: int(round(self.dpi * f))
+        self.oval_size = (
+            adj(const.oval_width_inches),
+            adj(const.oval_height_inches)
+        )
+        self.oval_margin = adj(.03) #XXX length should be in config or metadata
+        self.min_contest_height = adj(const.minimum_contest_height_inches)
+        self.vote_target_horiz_inches = adj(const.vote_target_horiz_offset_inches)
+        self.writein_xoff = adj(2.5) #XXX
+        self.writein_yoff = adj(.6)
+
+        self.pages = [Page(self.dpi, 0, 0, 0, im1)]
+        if im2 is not None:
+            self.pages.append(Page(self.dpi, 0, 0, 0, im2))
+
 
     def Flip(self, im):
         # crop the upper bar code possibilities,
@@ -48,7 +68,7 @@ class HartBallot(Ballot):
         # Not added: ambiguous results could be tested with OCR
 
         cannot_be_barcode_above = 224
-        ul = im.crop((int(0.4*const.ballot_dpi),
+        ul = im.crop((int(0.4*const.ballot_dpi), #XXX magic number should be inconfig
                   int(0.8*const.ballot_dpi),
                   int(0.6*const.ballot_dpi),
                   int(1.5*const.ballot_dpi)))
@@ -92,7 +112,7 @@ class HartBallot(Ballot):
         self.tiltinfo[1] = None
         try:
             self.tiltinfo[1] = self.im2.gethartlandmarks(self.dpi,0)
-        except:
+        except AttributeError:
             pass
         # ballots are duplex only when
         # gethartlandmarks can find a tilt on both sides;
@@ -111,7 +131,7 @@ class HartBallot(Ballot):
         testcrop = self.im1.crop( (0, 0, testwidth, testheight) )
         teststat = ImageStat.Stat(testcrop)
         if teststat.mean[0] < 16:
-            raise BallotException("Dark upper left corner on %s, code %d" % (
+            raise Ballot.BallotException("Dark upper left corner on %s, code %d" % (
                     self.im1.filename,1))
         testcrop = self.im1.crop((self.im1.size[0] - testwidth,
                                   0,
@@ -119,7 +139,7 @@ class HartBallot(Ballot):
                                   testheight))
         teststat = ImageStat.Stat(testcrop)
         if teststat.mean[0] < 16:
-            raise BallotException("Dark upper right corner on %s, code %d" % (
+            raise Ballot.BallotallotException("Dark upper right corner on %s, code %d" % (
                     self.im1.filename,2))
         testcrop = self.im1.crop((self.im1.size[0] - testwidth,
                                   self.im1.size[1] - testheight,
@@ -127,7 +147,7 @@ class HartBallot(Ballot):
                                   self.im1.size[1] - 1))
         teststat = ImageStat.Stat(testcrop)
         if teststat.mean[0] < 16:
-            raise BallotException("Dark lower right corner on %s, code %d" % (
+            raise Ballot.BallotException("Dark lower right corner on %s, code %d" % (
                     self.im1.filename,3))
         testcrop = self.im1.crop((0,
                                   self.im1.size[1] - testheight,
@@ -135,7 +155,7 @@ class HartBallot(Ballot):
                                   self.im1.size[1] - 1))
         teststat = ImageStat.Stat(testcrop)
         if teststat.mean[0] < 16:
-            raise BallotException("Dark lower left corner on %s, code %d" % (
+            raise Ballot.BallotException("Dark lower left corner on %s, code %d" % (
                     self.im1.filename,4))
 
         if not self.duplex:
@@ -163,13 +183,13 @@ class HartBallot(Ballot):
                                 shortdiff]
             self.tang[n] = float(shortdiff)/float(longdiff)
             if abs(self.tang[n])>const.allowed_tangent:
-                raise BallotException(("Bad tilt calculation on %s" % 
+                raise Ballot.BallotException(("Bad tilt calculation on %s" % 
                              self.imagefilenames[n])
                 + ("\nn%d tiltinfo[%d] = %s, short%d, long%d" % 
                      (n, n, self.tiltinfo[n], shortdiff, longdiff)
                      ))
             if abs(self.tang[n]) > const.allowed_tangent: 
-                raise BallotException("tangent %f exceeds %f" % (
+                raise Ballot.BallotException("tangent %f exceeds %f" % (
                     self.tang[n], const.allowed_tangent))
         return self.tiltinfo
         
@@ -192,9 +212,7 @@ class HartBallot(Ballot):
             remaining = int(code_string[8:])
         except IndexError:
             return False
-        if csi > 4:
-            return False
-        return True
+        return csi <= 4
 
     def GetLayoutCode(self):
         """ Determine the layout code(s) from the ulc barcode(s) """
@@ -205,14 +223,14 @@ class HartBallot(Ballot):
             toprange = 2
         # barcode zones to search are from 1/3" to 1/6" to left of ulc
         # and from 1/8" above ulc down to 2 5/8" below ulc.
-        for n, im in enumerate(self.im1, self.im2):
+        for n, im in enumerate((self.im1, self.im2)):
             if n>0 and not self.duplex:
                 break
             # don't pass negative x,y into getbarcode
             if self.xref[n] < (self.dpi/3):
-                raise BallotException("bad xref")
+                raise Ballot.BallotException("bad xref")
             if self.yref[n] < (self.dpi/8):
-                raise BallotException("bad yref")
+                raise Ballot.BallotException("bad yref")
             if im is not None:
                 bc_startx = self.xref[n] - (self.dpi/3)
                 bc_starty = self.yref[n] - (self.dpi/8)
@@ -223,7 +241,6 @@ class HartBallot(Ballot):
         im = self.im1
  
         code_string = "".join(
-            ("%07d" % el) for el in self.layout_code[0] if el > 0
         )
 
         # Note that the Ballot framework provides for 
@@ -255,7 +272,7 @@ class HartBallot(Ballot):
                  self.front_layout = BallotSideFromXML(
                      im.filename,
                      0,
-                     Ballot.front_dict[code_string])
+                     Ballot.Ballot.front_dict[code_string])
              except:
                  pass#barcode_good = False
              return self.layout_code
@@ -316,7 +333,7 @@ class HartBallot(Ballot):
                  const.logger.error("Bad barcode %s, then %s for %s" % (
                          self.code_string, code_string, im.filename)
                                     )
-                 raise BallotException("bad bar code")
+                 raise Ballot.BallotException("bad bar code")
 
         self.precinct = self.code_string
         return self.layout_code
@@ -338,7 +355,7 @@ class HartBallot(Ballot):
             self.front_layout = BallotSideFromXML(
                 self.im1.filename,
                 0,
-                Ballot.front_dict[self.code_string])
+                Ballot.Ballot.front_dict[self.code_string])
             return self.front_layout
         except: #XXX what can BallotSideFromXML throw?
             print "On new layout: '%s'" % (const.on_new_layout,)
@@ -357,7 +374,7 @@ class HartBallot(Ballot):
             self.back_layout = BallotSideFromXML(
                 self.im2.filename,
                 1,
-                Ballot.back_dict[self.code_string])
+                Ballot.Ballot.back_dict[self.code_string])
             return self.back_layout
         except:
             return self.BuildBackLayout()
@@ -399,9 +416,9 @@ class HartBallot(Ballot):
             precinct=self.precinct,
             dpi=self.dpi)
 
-        front_xml = self.front_layout.toXML(self.code_string)
+        front_xml = self.front_layout.XML(self.code_string)
         
-        Ballot.front_dict[self.code_string] = front_xml
+        Ballot.Ballot.front_dict[self.code_string] = front_xml
 
         # save each template, named by code_string, for future use
         template_filename = os.path.join(const.templates_path, self.code_string)
@@ -446,8 +463,8 @@ class HartBallot(Ballot):
             precinct=self.precinct,
             dpi=self.dpi)
 
-        back_xml = self.back_layout.toXML(self.code_string)
-        Ballot.back_dict[self.code_string] = back_xml
+        back_xml = self.back_layout.XML(self.code_string)
+        Ballot.Ballot.back_dict[self.code_string] = back_xml
         template_filename = os.path.join(const.backtemplates_path, self.code_string)
         util.writeto(template_filename, back_xml)
         print "Length of self.regionlists[1]", len(self.regionlists[1])
@@ -523,403 +540,102 @@ class HartBallot(Ballot):
         """CaptureVoteInfo just calls CaptureSideInfo for each side"""
         self.CaptureSideInfo(side="Front")
         self.CaptureSideInfo(side="Back")
+        #replace this with:
+        #for page in pages:
+        #    self.captureSideInfo(page)
 
-    def captureSideInfo(self, layout, im, offs):
-        rotate = rotator(*offs)
-        layout.contest = [] #XXX placeholder until we build contest list REMOVE
-        for contest in layout.contests:
-            pass
+    def captureSideInfo(self, page):
+        T = self.transformer(self.rot, page.template.xoff, page.template.yoff)
+        scale = page.dpi / page.template.dpi #should be in rotator--which should just be in Page?
 
-    def CaptureSideInfo(self, side):
-        """CaptureVoteInfo captures votes off the images in a HartBallot
-        
-        Each HartBallot instance has one or two images representing the
-        sides of the ballot, and points to one or two "BallotSide" 
-        template instances, representing the layout of votes on images
-        representing ballots of the target ballot's precinct.
+        results = []
+        def append(contest, choice, x=-1, y=-1, stats=None, oval=None, writein=None, voted=None, ambiguous=None):
+            results.append(Ballot.VoteData(
+                filename     = page.filename,
+                precinct     = page.template.precinct,
+                contest      = contest,
+                choice       = choice,
+                coords       = (x, y),
+                stats        = stats,
+                is_writein   = writein,
+                voted        = voted,
+                ambiguous    = ambiguous,
+                image        = oval,
+            ))
 
-        CaptureVoteInfo goes through the templates item by item and
-        examines the equivalent regions of the ballot instance to
-        determine which vote opportunities have been marked by the voter.
-        """
-        #first, the front
-        sidenum = 0
-        if side == "Front":
-            layout = self.front_layout
-            im = self.im1
-            off = (self.tang[0], self.xref[0], self.yref[0])
-            self.captureSide(layout, im, off)
-        else:
-            layout = self.back_layout
-            im = self.im2
-            if im is None:
-                return
-            sidenum = 1
-            off = (self.tang[1], self.xref[1], self.yref[1])
-            self.captureSide(layout, im, off)
-        rotate = rotator(
-                     self.tang[sidenum],
-                     self.xref[sidenum],
-                     self.yref[sidenum]
-                 )
-        seq = 0
-        margin = int(round(self.dpi * 0.03))
-        boxes_filename = im.filename
-        util.mkdirp(const.boxes_root, boxes_filename) #XXX not in our area of influence
-        region_valid = True
-        for region in layout.regionlist:
-            if region.purpose == BtRegion.JURISDICTION:
-                self.current_jurisdiction = region.text
+        for contest in page.template.contests:
+            if int(contest.h) - int(contest.y) < self.min_contest_height:
+                for choice in contest.choices:
+                     append(contest, choice) #mark all bad
+                continue
 
-            elif region.purpose == BtRegion.CONTEST:
-                self.current_contest = region.text
-
-                # if the current_contest is less than 
-                # const.minimum_contest_height_inches,
-                # set contest invalid and skip votes;
-                # else set contest valid
-                region_valid = not (int(region.bbox[3]) - int(region.bbox[1])) < (const.minimum_contest_height_inches * self.dpi)
-            elif region.purpose == BtRegion.CHOICE:
-                self.current_choice = region.text
-
-            elif region.purpose == BtRegion.PROP:
-                self.current_contest = region.text
-                self.current_prop = "(Prop)"
-                
-            else:
-                # skip over items in a contest that's not valid
-                # because it is too short 
-                # (settable via minimum_contest_height_inches in tevs.cfg)
-                if not region_valid:
-                    continue
-                # anything else is a vote op, with the y offset stored
-                # in place of the purpose
-                self.current_oval = region.text
-                self.current_coords = region.coord
-                scalefactor = float(self.dpi)/float(layout.dpi)
-                xoffset = self.xref[sidenum] - (layout.xref*scalefactor)
-                yoffset = self.yref[sidenum] - (layout.yref*scalefactor)
-
-                # the ballot region's dpi will typically be 300,
-                # while individual ballots will typically have 150
-                scalefactor = float(self.dpi)/float(layout.dpi)
-                # adjust oval location given in template 
-                # for tilt and offset of this ballot
-                startx = int(self.current_coords[0])
-                starty = int(self.current_coords[1])
-                startx = startx + int(round(xoffset))
-                starty = starty + int(round(yoffset))
-                startx, starty = rotate(startx, starty)
-                # add in end points for oval
-                startx = int(round(startx * scalefactor))
-                starty = int(round(starty * scalefactor))
-                ow = int(round(const.oval_width_inches * self.dpi ))
-                oh = int(round(const.oval_height_inches * self.dpi)) 
-                endx = startx + ow
-                endy = starty + oh
-                cs = im.cropstats( #XXX throwing a deprecation warning, mustfix
-                    self.dpi,
-                    int(round(const.vote_target_horiz_offset_inches * self.dpi)),
-                    int(round(startx)),
-                    int(round(starty)),
-                    int(round(ow)),
-                    int(round(oh)),
-                    1)
-                if const.save_vops:
-                    cropx = int(round(cs[-3]))
-                    cropy = int(round(cs[-2]))
-                    cropendx = cropx + ow
-                    cropendy = cropy + oh
-                    # the statistics have been gathered before the photo 
-                    # is taken; let's give the photo some margins
-                    crop = im.crop((int(round(cropx))- margin,
-                                    int(round(cropy))- margin,
-                                    int(round(cropendx))+ margin,
-                                    int(round(cropendy))+ margin
-                                    ))
-                    redintensity = cs[0]
-                    greenintensity = cs[5]
-                    blueintensity = cs[10]
-                    self.vote_box_images[(side,cropx,cropy)] = crop
-                    seq += 1
-                maxv = 1
-                try:
-                    self.current_contest = self.current_contest[:40]
-                except IndexError:
-                    pass
-                if self.current_prop is None:
-                    self.current_prop = "No"
-                vd = VoteData(filename = im.filename,
-                              precinct = layout.precinct,
-                              jurisdiction = self.current_jurisdiction[:40],
-                              contest = self.current_contest[:40],
-                              choice = self.current_choice[:40],
-                              prop = self.current_prop[:40],
-                              oval = self.current_oval,
-                              coords = [startx, starty],
-                              stats = cs,
-                              maxv = maxv)
-                self.results.append(vd)
-
-                if vd.suspicious and not vd.was_voted:
-                    const.logger.warning("Suspicious mark in nonvoted box %s %s %s\n" % (self.current_contest[:40],self.current_oval[:40],im.filename))
-
-                # deal with write-ins; this should be refactored out
-                if vd.was_voted and (self.current_oval.find("Write")>-1 
-                                   or self.current_oval.find("vrit")>-1 
-                                   or self.current_oval.find("Vrit")>-1):
-                   # crop the coords for three inches of horizontal
-                   # and three times the oval height
-                   if self.current_oval.find("riter") <= -1:
-                        wincrop = im.crop(
-                             (startx,
-                              starty,
-                              startx+int(2.5*self.dpi),
-                              starty+int(0.6*self.dpi)
-                              )
-                             )
-                        util.mkdirp(const.writeins)
- 
-                        savename = "writeins/%s_%s.jpg" % ( #XXX path not from config, cannot assume positions are constant
-                            im.filename[-10:-4].replace("/","").replace(" ","_"),
-                            self.current_contest[:20].replace(
-                                "/","").replace(" ","_")
-                            )
-                        wincrop.save(savename)
-                        const.logger.info("Writein saved %s\n",savename)
-
-    def WriteVoteInfo(self):
-        return "\n".join(vd.toString() for vd in self.results) + "\n"
-
-class BallotSide(object):
-    """Representing a ballot side as a list of meaningful regions,
-    plus sufficient information about the current ballot to scale,
-    offset, and rotate information from the template regions."""
-
-    def __init__(self, ballot, side, precinct="?",
-                 dpi=150 
-                 ):
-        self.ballot = ballot
-        self.side = side
-        self.dpi = dpi
-        self.precinct = self.ballot.precinct
-        self.regionlists = [[], []]
-        if side == 0:
-            self.name = self.ballot.im1.filename
-        else:
-            self.name = self.ballot.im2.filename
-        self.xref = self.ballot.xref[self.side]
-        self.yref = self.ballot.yref[self.side]
-        self.tang = self.ballot.tang[self.side]
-        self.regionlist = self.ballot.regionlists[self.side]
-        self.codelist = [None, None]
-        self.columnlist = [None, None]
-        self.br = [None, None]
-        self.current_jurisdiction = "No info"
-        self.current_contest = "No info"
-        self.current_choice = "No info"
-        self.current_prop = "No info"
-        self.current_oval = "No info"
-        self.current_coords = "No info"
-        self.oval_width = const.oval_width_inches * dpi
-        self.oval_height = const.oval_height_inches * dpi
-        self.results = []
-
-    def __repr__(self):
-        return "BallotSide %s regionlist length %s  tangent %f, precinct %s" % (
-            self.name,
-            len(self.regionlist),
-            self.tang, 
-            self.precinct)
-
-    def append(self,region):
-        if type(region) != BtRegion:
-            raise TypeError(type(region) + " is not BtRegion")
-        # don't append regions with (0,0) location, they're artifacts
-        if (region.coord[0] != 0) and (region.coord[1] != 0):
-            self.regionlist.append(region)
-
-
-    def toXML(self, precinct="?"):
-        contestlist = []
-        if precinct == "?":
-            precinct = self.precinct
-        retlist = ["<BallotSide",
-                   "dpi='%d' precinct='%s' lx='%d' ly='%d' rot='%f'>" % (
-                  self.dpi,
-                  precinct,
-                  self.xref,
-                  self.yref,
-                  self.tang)
-                   ]
-        jurisdiction_open = False
-        contest_open = False
-        
-        const.logger.debug(
-            "BSide.toXML imname %s dpi %d newxy %d %d tang %f" % (
-                self.name,
-                self.dpi,
-                self.xref,
-                self.yref,
-                self.tang)
-            )
-        self.results = []
-        self.current_jurisdiction = "No info"
-        self.current_contest = "No info"
-        self.current_choice =  "No info"
-        self.current_prop = "No info"
-        # walk through the regionlist in sequence, creating potential
-        # contest nodes and adding them to the ballotside if the potential
-        # contest includes at least one oval (choice).
-        contest_ovalcount = 0
-        for region in self.regionlist:
-            if region.purpose == BtRegion.JURISDICTION:
-                # close existing jurisdiction
-                if jurisdiction_open:
-                    retlist.append("</Jurisdiction>")
-                self.current_jurisdiction = region.text
-                # open new jurisdiction
-                retlist.append("<Jurisdiction text='%s'>" 
-                               % region.text.replace("'",""))
-            elif region.purpose == BtRegion.CONTEST:
-                # close existing contest
-                if contest_open:
-                    contestlist.append("</Contest>")
-                if contest_ovalcount > 0:
-                    retlist.extend(contestlist)
-                contestlist = []
-                contest_ovalcount = 0
-                self.current_contest = region.text
-                # open new contest
-                contest_open = True
-                contestlist.append(
-       "<Contest prop='False' \ntext='%s' x='%d' y='%d' x2='%d' y2='%d'>"
-                               % (region.text.replace("'",""),
-                                  region.bbox[0], region.bbox[1],
-                                  region.bbox[2], region.bbox[3],
-                                  )
+            for choice in contest.choices:
+                x, y, stats, crop, writein, voted, ambiguous = self.ExtractOval(
+                    page, T, scale, choice
                 )
-                if self.current_contest.find("Count")>=0:
-                    self.current_jurisdiction = self.current_contest
-                if self.current_contest.find("State")>=0:
-                    self.current_jurisdiction = self.current_contest
-                if self.current_contest.find("School")>=0:
-                    self.current_jurisdiction = self.current_contest
-                if self.current_contest.find("Meas")>=0:
-                    self.current_prop = self.current_contest
-                else:
-                    self.current_prop = None
+                append(contest, choice, x, y, stats, crop, writein, voted, ambiguous)
 
-            elif region.purpose == BtRegion.CHOICE:
-                self.current_choice = region.text
+        return results
 
-            elif region.purpose == BtRegion.PROP:
-                # close existing
-                # close existing contest
-                if contest_open:
-                    contestlist.append("</Contest>")
-                if contest_ovalcount > 0:
-                    retlist.extend(contestlist)
-                contestlist = []
-                contest_ovalcount = 0
-                self.current_contest = region.text
+    def ExtractOval(self, page, rotate, scale, choice):
+        """Extract a single oval, or writein box, from the specified ballot"""
+        x, y = choice.coords()
+        iround = lambda x: int(round(x))
 
+        #XXX BEGIN move into transformer
+        xoff = page.xoff - iround(page.template.xoff*scale)
+        yoff = page.yoff - iround(page.template.yoff*scale)
 
-                contestlist.append("<Contest prop='True' \ntext='%s'>"
-                               % region.text.replace("'", ""))
-                
-                self.current_contest = region.text
-                # open new
-                self.current_prop = "(Prop)"
-                
-            else:
-                # anything above 3 is an oval, with the y offset stored
-                # in place of the purpose
-                self.current_oval = region.text
-                contest_ovalcount += 1
-                self.current_coords = region.coord
-                contestlist.append("<oval x='%d' y='%d' text='%s' />" 
-                               % (self.current_coords[0], 
-                                  self.current_coords[1], 
-                                  region.text.replace("'","")
-                                  )
-                               )
-                # if additional result functions are provided,
-                # call them here and accumulate their results
-        if contest_open and contest_ovalcount > 0:
-            retlist.extend(contestlist)
-            retlist.append("</Contest>")
-        if jurisdiction_open:
-            retlist.append("</Jurisdiction>")
-        retlist.append("</BallotSide>")
-        return "\n".join(retlist)
+        x, y = rotate(xoff + x, yoff + y)
+        x = iround(x * scale)
+        y = iround(y * scale)
+        #XXX end move into transformer (which should now just take a page obj)
 
+        ow, oh = self.oval_size
+        stats = Stats(im.cropstats( #XXX throwing a deprecation warning, mustfix, but looks good . . .
+            page.dpi,
+            self.vote_target_horiz_offset,
+            x, y,
+            ow, oh,
+            1
+        ))
 
+        cropx = cs.adjusted.x
+        cropy = cs.adjusted.y
+        crop = im.crop((
+            cropx - margin,
+            cropy - margin,
+            cropx + margin + ow, 
+            cropy + margin + oh
+        ))
 
-class BallotSideFromXML(BallotSide):
-    """BallotSide created from an xml string"""
-    def __init__(self, name,side,myxml):
-        """Create a BallotSide from an XML string, so editing is possible"""
-        self.ballot = None
-        self.name = name
-        self.side = side
-        self.myxml = """<?xml version="1.0"?>"""+myxml
-        try:
-            doc = xml.dom.minidom.parseString(self.myxml)
-        except Exception as e:
-            const.logger.error("problem parsing")
-            const.logger.error(e)
-            for line in myxml.split("\n"):
-                const.logger.error(line)
-            print e
-        self.regionlist = []
-        bs = doc.getElementsByTagName("BallotSide")
-        self.dpi = bs[0].getAttribute('dpi')
-        self.dpi = int(self.dpi)
-        self.precinct = bs[0].getAttribute('precinct')
-        contests = doc.getElementsByTagName("Contest")
-        for contest in contests:
-            contest_x = contest.getAttribute('x')
-            contest_y = contest.getAttribute('y')
-            contest_x2 = contest.getAttribute('x2')
-            contest_y2 = contest.getAttribute('y2')
-            contest_text = contest.getAttribute('text')
-            purpose = BtRegion.CONTEST
-            contest_x = int(contest_x)
-            contest_y = int(contest_y)
-            bbox = (contest_x,contest_y,contest_x2,contest_y2)
-            coord = (contest_x,contest_y)
-            self.regionlist.append(BtRegion(bbox,purpose,coord,contest_text))
-            choices = contest.getElementsByTagName("oval")
-            for choice in choices:
-                choice_x = choice.getAttribute('x')
-                choice_y = choice.getAttribute('y')
-                choice_text = choice.getAttribute('text')
-                purpose = BtRegion.OVAL
-                bbox = (choice_x,choice_y,choice_x,choice_y)
-                coord = (choice_x,choice_y,choice_x,choice_y)
-                self.regionlist.append(BtRegion(bbox,purpose,coord,choice_text))
+        voted, ambiguous = self.IsVoted(crop, stats, choice)
+        writein = False
+        if voted:
+           writein = self.IsWriteIn(crop, stats, choice)
+        if writein:
+            crop = im.crop(( #XXX choice of coordinates inconsistient with above?
+                 cropx  - margin,
+                 cropy  - margin,
+                 cropx  + self.writein_xoff + margin,
+                 cropyy + self.writein_yoff + margin
+            ))
 
-        self.im = None
-        contest_x = contest.getAttribute('x')
-        self.xref = int(bs[0].getAttribute('lx')) #from the xml
-        self.yref = int(bs[0].getAttribute('ly')) #from the xml
-        self.tang = float(bs[0].getAttribute('rot')) #from the xml
-        self.codelist = [None, None]
-        self.columnlist = [None, None]
-        self.br = [None, None]
-        self.current_jurisdiction = "No info"
-        self.current_contest = "No info"
-        self.current_choice = "No info"
-        self.current_prop = "No info"
-        self.current_oval = "No info"
-        self.current_coords = "No info"
-        self.oval_width = const.oval_width_inches * self.dpi
-        self.oval_height = const.oval_height_inches * self.dpi
-        self.results = []
+        return cropx, cropy, stats, crop, voted, writein, ambiguous
 
-    def toXML(self,precinct="?"):
-        """If a BallotSide is from xml string, toXML just returns the string"""
-        return self.myxml
+    def IsVoted(self, im, stats, choice): #should this be somewhere separate that's "plugged into" the Ballot object?
+        """determine if a box is checked
+        and if so whether it is ambiguous"""
+        intensity_test = stats.mean_intensity() < const.vote_intensity_threshold
+        darkness_test  = stats.mean_darkness()  > const.dark_pixel_threshold
+        voted = intensity_test or darkness_test  
+        ambiguous = intensity_test != darkness_test
+        return voted, ambiguous
 
+    def IsWriteIn(self, im, stats, choice):
+        """determine if box is actually a write in"""
+        d = choice.description.tolower().find
+        if d("write") != -1 or d("vrit") != -1:
+            return d("riter") == -1
+        return False 
 

@@ -20,29 +20,7 @@ def LoadBallotType(name):
     return getattr(module,
         name[0].upper() + name[1:] + "Ballot")
 
-class BtRegion(object):
-    """ Representing a rectangular region of a ballot. """
-    JURISDICTION = 0
-    CONTEST = 1
-    CHOICE = 2
-    PROP = 3
-    OVAL = 4
-    purposelist = ["JUR","CONTEST","CHOICE","PROP","OVAL"]
-    def __init__(self, bbox=(), purpose=None, coord=(0,0), text=None):
-        self.bbox = bbox
-        self.purpose = purpose
-        self.text = text
-        self.coord = coord
-
-    def __repr__(self):
-        purposetext = "OVAL"
-        if self.purpose in BtRegion.purposelist: 
-            purposetext = BtRegion.purposelist[self.purpose]
-        return "BtRegion with purpose %s, bbox %s coord %s\ntext %s" % (
-            purposetext, self.bbox, self.coord, self.text)
-
-
-class Ballot(object):
+class Ballot(object): #XXX a better name may be something like BallotAnalyzer
     """Ballot contains routines to get vote info off one or two images.
 
     Ballot treats one or two images as the front and, optionally, the back
@@ -157,113 +135,313 @@ class Ballot(object):
     def __repr__(self):
         return "BALLOT:%s %s %s" % (self.brand, self.im1, self.im2)
 
+class _bag(object):
+    def __repr__(self):
+        return repr(self.__dict__)
+
+class Stats(object):
+    def __init__(self, stats):
+       self.red, self.green, self.blue = _bag(), _bag(), _bag()
+       self.adjusted = _bag()
+       (self.red.intensity,
+        self.red.darkest_fourth,
+        self.red.second_fourth,
+        self.red.third_fourth,
+        self.red.lightest_fourth,
+
+        self.green.intensity,
+        self.green.darkest_fourth,
+        self.green.second_fourth,
+        self.green.third_fourth,
+        self.green.lightest_fourth,
+
+        self.blue.intensity,
+        self.blue.darkest_fourth,
+        self.blue.second_fourth,
+        self.blue.third_fourth,
+        self.blue.lightest_fourth,
+
+        self.adjusted.x,
+        self.adjusted.y,
+
+        self.suspicious) = stats
+
+    def mean_intensity(self):
+        try:
+            return self._mean_intensity
+        except AttributeError:
+            self._mean_intensity = int(round(
+                (self.red.intensity +
+                 self.green.intensity +
+                 self.blue.intensity)/3.0
+            ))
+            return self._mean_intensity
+
+    def mean_darkness(self):
+       """compute mean darkness over each channel using first
+       two quartiles."""
+       try:
+           return self._mean_darkness
+       except AttributeError:
+           self._mean_darkness = int(round(
+               (self.red.darkest_fourth   + self.red.second_fourth   +
+                self.blue.darkest_fourth  + self.blue.second_fourth  +
+                self.green.darkest_fourth + self.green.second_fourth
+               )/3.0
+           ))
+
+    def mean_lightness(self):
+       """compute mean lightness over each channel using last
+       two quartiles."""
+       try:
+           return self._mean_lightness
+       except AttributeError:
+           self._mean_lightness = int(round(
+               (self.red.lightest_fourth   + self.red.third_fourth   +
+                self.blue.lightest_fourth  + self.blue.third_fourth  +
+                self.green.lightest_fourth + self.green.third_fourth
+               )/3.0
+           ))
+
+    def __iter__(self):
+       return (x for x in (
+           self.red.intensity,
+           self.red.darkest_fourth,
+           self.red.second_fourth,
+           self.red.third_fourth,
+           self.red.lightest_fourth,
+
+           self.green.intensity,
+           self.green.darkest_fourth,
+           self.green.second_fourth,
+           self.green.third_fourth,
+           self.green.lightest_fourth,
+
+           self.blue.intensity,
+           self.blue.darkest_fourth,
+           self.blue.second_fourth,
+           self.blue.third_fourth,
+           self.blue.lightest_fourth,
+
+           self.adjusted.x,
+           self.adjusted.y,
+
+           self.suspicious,
+      ))
+
+    def CSV_header_line(self):
+        return (
+            "red_intensity,red_darkest_fourth,red_second_fourth,red_third_fourth,red_lightest_fourth," +
+            "green_intensity,green_darkest_fourth,green_second_fourth,green_third_fourth,green_lightest_fourth," +
+            "blue_intensity,blue_darkest_fourth,blue_second_fourth,blue_third_fourth,blue_lightest_fourth," +
+            "adjusted_x,adjusted_y,was_suspicious"
+        )
+
+    def CSV(self):
+        return ",".join(self)
+
+    def __repr__(self):
+        return repr(self.__dict)
+
+_bad_stats = Stats([-1]*18)
+
 class VoteData(object):
-    def __init__(self, filename="filename",
-                 precinct="precinct",
-                 jurisdiction="jurisdiction", 
-                 contest="contest",
-                 choice="choice", 
-                 prop="prop",
-                 oval="oval",
-                 coords="coords",
+    "All of the data associated with a single vote"
+    def __init__(self,
+                 filename=None,
+                 precinct=None,
+                 jurisdiction=None,
+                 contest=None,
+                 choice=None,
+                 prop=None,
+                 coords=(-1, -1),
                  maxv=1,
-                 stats=None):
+                 stats=None,
+                 image=None,
+                 is_writein=None,
+                 was_voted=None,
+                 ambiguous=None):
         self.filename = filename
         self.precinct = precinct
-        self.jurisdiction = jurisdiction
-        self.contest = contest
-        self.choice = choice
-        self.prop = prop
-        self.oval = oval
+        self.jurisdiction = None
+        if contest is not None:
+            self.jurisdiction = jurisdiction
+        self.contest = None
+        if contest is not None:
+            self.contest = contest.description
+        self.choice = None
+        self.prop = None
+        if choice is not None:
+            self.choice = choice.description
+            self.prop = choice.prop
         self.coords = coords
-        self.maxv = maxv # max votes allowed in contest
-        self.was_voted = False
+        self.maxv = maxv
+        self.image = image
+        self.was_voted = was_voted
+        self.is_writein = is_writein
+        self.ambiguous = ambiguous
+        self.stats = stats
+        if stats is None:
+            self.stats = _bad_stats
 
-        if len(stats) != 18:
-            raise BallotException("Attempted to create voting data with invalid stats")
-
-        self.stats = stats[:]
-
-        (self.red_intensity,
-        self.red_darkestfourth,
-        self.red_secondfourth,
-        self.red_thirdfourth,
-        self.red_lightestfourth,
-
-        self.green_intensity,
-        self.green_darkestfourth,
-        self.green_secondfourth,
-        self.green_thirdfourth,
-        self.green_lightestfourth,
-
-        self.blue_intensity,
-        self.blue_darkestfourth,
-        self.blue_secondfourth,
-        self.blue_thirdfourth,
-        self.blue_lightestfourth,
-
-        self.adjusted_x,
-        self.adjusted_y,
-        self.suspicious) = stats
-        
-        # stats 0, 5, 10 represent mean intensity on R,G,B,
-        # test average against vote threshold and set was_voted true
-        # if value is below
-
-        # stats 1,2 and 6,7 and 10,11 represent darkest/darker pixel counts
-        # on R, G, B; test average sum against dark_pixel threshold and
-        # set was_voted true if value is below
-
-        voted_intensity = False
-        voted_count = False
-        vote_intense = int((stats[0]+stats[5]+stats[10])/3)
-        if vote_intense < const.vote_intensity_threshold:
-             voted_intensity = True
-             self.was_voted = True
-        if vote_intense >= const.problem_intensity_threshold: #XXX need to flag bad input, put in a "problem directory"?
-             const.logger.error("Image %s too light at %s: %s %s %s" 
-                                % (filename, oval,stats[0],stats[5],stats[10]))
-        if int((stats[1]+stats[2]
-                +stats[6]+stats[7]
-                +stats[11]+stats[12])/3 > const.dark_pixel_threshold):
-             voted_count = True
-             self.was_voted = True
-        if voted_intensity != voted_count: #XXX same as above
-             print "AMBIG VOTE", self
-             const.logger.info("AMBIG: voted intensity %s voted count %s" 
-                               % (voted_intensity, voted_count))
-             const.logger.info("AMBIG: %s" 
-                               % (self,))
-                      
     def __repr__(self):
-        return "%s,%s,%s,%s,%s,%d,%d,%s,%s,%s" % (
+        return repr(self.__dict__)
+
+    def CSV(self):
+        "return this vote as a line in CSV format"
+        return ",".join((
             self.filename,
             self.precinct,
             self.contest,
             self.prop,
             self.oval,
-            self.coords[0],
-            self.coords[1],
-            str(self.stats)[1:-1],
+            self.coords[0], self.coords[1],
+            self.stats.CSV(),
             self.maxv,
-            self.was_voted
+            self.was_voted,
+            self.ambiguous,
+            self.is_writein, #BUG runtime insists this is an int, refuses to coerce to string :(
+        ))
+
+def results_to_CSV(results, heading=False):
+    """Take a list of VoteData and return a generator of CSV 
+    encoded information. If heading, insert a descriptive
+    header line."""
+    if heading:
+        yield ( #note that this MUST be kept in sync with the CSV method on VoteData
+            "filename,precinct,contest,prop,oval,x,y," +
+            self.stats.CSV_header_line() + "," +
+            "max_votes,was_voted,is_ambiguous,is_writein\n")
+    for out in results:
+        yield out.CSV() + "\n"
+
+def results_to_mosaic(results):
+    """return an image that is a mosaic of all ovals
+    from a list of Votedata"""
+    pass #TODO copy from main.py and rework
+
+class Region(object):
+    def __init__(self, x, y, description):
+        self.x, self.y = x, y
+        self.description = description
+
+    def coords(self):
+        return self.x, self.y
+
+class Choice(Region):
+     def __init__(self, x, y, description):
+         super(Region, self).__init__(x, y, description)
+         self.prop = prop
+
+class Contest(Region):
+     def __init__(self, x, y, w, h, prop, description):
+         super(Region, self).__init__(x, y, w, h, description)
+         self.jurisdiction = jurisdiction
+         self.choices = []
+
+     def bbox(self):
+        return self.x, self.y, self.w, self.h
+
+     def append(self, choice):
+         self.choices.append(choice)
+
+
+class BallotPage(object):
+    def __init__(self, dpi, xoff, yoff, rot):
+        self.dpi = int(dpi)
+        self.xoff, self.yoff = int(xoff), int(yoff)
+        self.rot = float(rot)
+
+class Page(BallotPage):
+    """A ballot page represented by an image and a Template"""
+    def __init__(self, dpi, xoff, yoff, rot, filename=None, image=None, template=None):
+        super(Page, self).__init__(dpi, xoff, yoff, rot)
+        self.image = image
+        self.filename = filename
+        self.template = template
+        #adjust.rotator generalized belongs here?
+
+class Template(BallotPage):
+    """A ballot page that has been fully mapped and is used as a
+    template for similiar pages"""
+    def __init__(self, dpi, xoff, yoff, rot, precinct, contests):
+        super(Page, self).__init__(dpi, xoff, yoff, rot)
+        self.precinct = precinct
+        if contests is None:
+            contests = []
+        self.contests = contests
+
+def Template_to_XML(ballot):
+    acc = ['<?xml version="1.0"?>\n<BallotSide']
+    def attrs(**kw):
+        for name, value in kw.iteritems():
+            acc.extend((" ", name, "='", value, "'"))
+    ins = acc.append
+
+    attrs(
+        dpi=ballot.dpi,
+        precinct=ballot.precinct,
+        lx=ballot.xoff,
+        ly=ballot.yoff,
+        rot=ballot.rot
+    )
+    ins(">\n")
+
+    for contest in ballot.contests:
+
+        ins("\t<Contest")
+        attrs(
+            prop=contest.prop,
+            text=contest.description,
+            x=contest.x,
+            y=contest.y,
+            x2=contest.w,
+            y2=contest.h
+        )
+        ins(">\n")
+
+        for choice in contest.choices:
+            ins("\t\t<oval")
+            attrs(
+                x=choice.x,
+                y=choice.y,
+                text=choice.description
+            )
+            ins(" />\n")
+
+        ins("\t</Contest>\n")
+    ins("</BallotSide>\n")
+    return "".join(acc)
+
+def Template_from_XML(xml):
+    doc = xml.dom.minidom.parseString(xml)
+
+    tag = lambda root, name: root.getElementByTagName(name)
+    def attrs(root, *attrs):
+        for attr in attrs:
+            yield root.getAttribute(attr)
+
+    side = tag(doc, "BallotSide")[0]
+    dpi, precinct, xoff, yoff, rot = attrs(
+        side,
+        "dpi", "precinct", "lx", "ly", "rot"
+    )
+    contests = []
+
+    for contest in tag(side, "Contest"):
+        cur = Contest(*attrs(
+            contest,
+            "x", "y", "x2", "y2",
+            "prop", "text"
+        ))
+
+        for choice in tag(contest, "oval"):
+            cur.append(Choice(*attrs(
+                 choice,
+                 "x", "y", "text"
             )
 
-    def toString(self):
-        return "%s,%s,%s,%s,%s,%d,%d,%s,%s,%s" % (
-            self.filename,
-            self.precinct,
-            self.contest,
-            self.prop,
-            self.oval,
-            self.coords[0],
-            self.coords[1],
-            str(self.stats)[1:-1],
-            self.maxv,
-            self.was_voted
-            )
+        contests.append(cur)
 
-class Contest(object): #placeholder
-     def __init__(self, **kw):
-         self.__dict__.update(kw)
- 
+    return Template(dpi, xoff, yoff, rot, precinct, contests)
+
