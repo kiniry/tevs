@@ -2,6 +2,7 @@ import getopt
 import ConfigParser
 import logging
 import const
+import sys
 
 def get_args():
      """Get command line arguments"""
@@ -41,11 +42,11 @@ def get_config():
      config.read("tevs.cfg")
 
      # first, get log file name so log can be opened
-     const.logfilename = config.get("Paths","logfilename")
+     const.logfilename = config.get("Paths", "logfilename")
      if const.debug:
-          logging.basicConfig(filename=const.logfilename,level=logging.DEBUG)
+          logging.basicConfig(filename=const.logfilename, level=logging.DEBUG)
      else:
-          logging.basicConfig(filename=const.logfilename,level=logging.INFO)
+          logging.basicConfig(filename=const.logfilename, level=logging.INFO)
 
      logger = logging.getLogger("extraction")
      logger.addHandler(logging.StreamHandler(sys.stderr))

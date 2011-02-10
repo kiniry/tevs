@@ -7,17 +7,15 @@ import string
 
 import psycopg2
 
+import site; site.addsitedir("/home/jimmy/tevs") #XXX
+from PILB import Image, ImageStat, ImageDraw
 
-#XXX
-import site
-site.addsitedir("/home/jimmy/tevs")
-
-from PILB import Image, ImageStat
-from PILB import ImageDraw
-import const
+import const #To be deprecated
+import config
 
 import util
-from Ballot import Ballot, BallotException, LoadBallotType
+import Ballot
+BallotException = Ballot.BallotException
 
 def build_dirs(n):
      """create any necessary new directories using paths from tevs.cfg"""
@@ -160,7 +158,7 @@ def process_ballot(ballot):
 
     search_key = "%07d%07d" % tuple(layout_codes[0][:2])
 
-    if search_key not in Ballot.front_dict: #XXX is there any recovery to do here? is this a util.fatal error?
+    if search_key not in Ballot.Ballot.front_dict: #XXX is there any recovery to do here? is this a util.fatal error?
         print search_key, "not in front_dict"
 
     try:
@@ -179,6 +177,7 @@ def process_ballot(ballot):
         util.fatal(e, "Failed to CaptureVoteInfo")
 
     #create mosaic of all vote ovals
+    #TODO replace with results_to_mosaic
     boximage = Image.new("RGB", (1650, 1200), color="white")
     draw = ImageDraw.Draw(boximage)
     keys = ballot.vote_box_images.keys()
@@ -193,10 +192,10 @@ def process_ballot(ballot):
  
 if __name__ == "__main__":
      # get command line arguments
-     util.get_args()
+     config.get_args()
 
      # read configuration from tevs.cfg and set constants for this run
-     logger = util.get_config()
+     logger = config.get_config()
 
      # connect to db and open cursor
      try:
@@ -206,12 +205,12 @@ if __name__ == "__main__":
      cur = conn.cursor()
 
      try:
-         ballotfrom = LoadBallotType(const.layout_brand)
+         ballotfrom = Ballot.LoadBallotType(const.layout_brand)
      except KeyError as e:
-         util.fatal(e, "No such ballot type: " + const.layout_brand + " check tevs.cfg")
+         util.fatal(e, "No such ballot type: " + const.layout_brand + ": check tevs.cfg")
 
-     # read templates
-     util.initialize_from_templates()
+     cache = Ballot.TemplateCache(util.root("templates"))
+     extensions = Ballot.Extensions(template_cache=cache)
      
      numlist = []
      try:
@@ -233,6 +232,7 @@ if __name__ == "__main__":
           if not os.path.exists(name1):
               logger.info(name1 + " does not exist. No more records to process")
               conn.close()
+              tmpl_cache.save()
               sys.exit(0)
 
           #Processing
@@ -240,20 +240,12 @@ if __name__ == "__main__":
           logger.info("Processing: %s: %s & %s" % (n, name1, name2))
 
           try:
-              image1 = Image.open(name1).convert("RGB")
-              image1.filename = name1
-          except IOException as e:
-              util.fatal(e, "Could not open " + name1)
-          try:
-              image2 = Image.open(name2).convert("RGB")
-              image2.filename = name2
-          except IOError: #XXX could produce other errors
-              image2 = None
-
-          try:
-              ballot = ballotfrom(image1, image2)
+              names = [name1, name2]
+              if not os.path.exists(name2):
+                  names = name1
+              ballot = ballotfrom(names, extensions)
           except BallotException as e:
-              util.fatal(e, "Could not create ballot")
+              util.fatal(e, "Could not analyze ballot")
 
           searchkey, boximage, voteinfo, voteresults = process_ballot(ballot)
 
@@ -290,5 +282,5 @@ if __name__ == "__main__":
                util.fatal(e, "Could not rename %s", name2)
 
           #All processing and post processsing succesful, record
-          n = save_nextnum(n)
+          n = save_nextnum(n) #XXX should really only write to disk once at end
 

@@ -4,14 +4,17 @@ import errno
 import const
 from Ballot import Ballot
 
-def fatal(ex, msg, *p):
+def root(*dir):
+    "convert a dir to a root relative path"
+    dir = (const.root,) + dir
+    return os.path.join(*dir)
+
+def fatal(ex, msg, *p): #XXX ex not used, need to clean out at some point
     "log fatal messages and exit"
     if len(p) != 0:
         msg = msg % p
-    msg += "\n\t" + repr(ex)
     const.logger.exception(msg)
     sys.exit(1)
-
 
 def writeto(fname, data):
     "save data into fname"
@@ -19,7 +22,7 @@ def writeto(fname, data):
         with open(fname, "w") as f:
             f.write(str(data))
     except OSError as e:
-        logger.exception("Could not write to %s\n%s" % (fname, e))
+        const.logger.exception("Could not write to %s" % fname)
         sys.exit(1)
 
 def readfrom(fname, default=None):
@@ -30,7 +33,7 @@ def readfrom(fname, default=None):
     except Exception as e:
         if default is not None:
             return default
-        logger.exception("Could not read from %s\n%s" % (fname, e))
+        const.logger.exception("Could not read from %s" % fname)
         sys.exit(1) 
 
 def mkdirp(*path):
@@ -43,37 +46,27 @@ def mkdirp(*path):
      except Exception as e:
          if e.errno == errno.EEXIST:
             return # an ignorable error, dir already exists
-         logger.exception("Could not create directory %s\n%s" % (path, e))
+         const.logger.exception("Could not create directory %s" % path)
          sys.exit(1)
 
+def rmf(*path):
+    "Copy of rm -f, joins all arguments as path elements"
+    if len(path) == 0:
+        return
+    path = os.path.join(*path)
+    try:
+        os.unlink(path)
+    except OSError as e:
+        if e.errno == errno.ENOENT:
+            return
+        const.logger.exception("Could not remove file " + path)
+        sys.exit(1)
 
-def initialize_from_templates(): #XXX has potentially injurious manual path manipulations, should be in Balllot.py
-     """Read layout info from templates directory."""
-     try:
-          # for each file in templates directory, 
-          # add contents to fronts dictionary in Ballot module,
-          # keyed by name; create None entry in backs dictionary
-          print "Reading templates from %s" % const.templates_path
-          for f in os.listdir(const.templates_path):
-
-               print f,
-
-               ff = open("%s/%s" % (const.templates_path,f),"r")
-               template_text = ff.read()
-               Ballot.front_dict[f] = template_text
-               Ballot.precinct_dict[f] = "1"
-               ff.close()
-               try:
-                    ff = open("%s/%s" % (const.backtemplates_path,f),"r")
-                    template_text = ff.read()
-                    Ballot.back_dict[f] = template_text
-                    ff.close()
-               except: 
-                    pass
-          print
-     except Exception, e:
-          const.logger.warning("Could not load existing template entries.")
-          const.logger.warning(e)
+def pairs(list):
+    """walk through list returning two elements at a time.
+     Assumes len(list) is even."""
+    for i in range(0, len(list), 2):
+        yield list[i:i+2]
 
 
 def get_maxv_from_text(text):
@@ -99,8 +92,7 @@ def get_maxv_from_text(text):
 
 # Remove punctuation and special chars from text, except for space
 def alnumify(instring):
-     filtered = filter(lambda x: (x.isalnum() or x.isspace()) and x, instring)
-     return filtered
+     return filter(lambda x: (x.isalnum() or x.isspace()) and x, instring)
 
 # Reasonable text assumptions
 def clean_text(instring):
@@ -110,12 +102,12 @@ def clean_text(instring):
     # vvnte VVnte is Write
     # MO_ is NO_
     # l\/l is M
-    instring = instring.replace("united States","United States")
+    instring = instring.replace("united States", "United States")
     instring = instring.replace("MO ", "NO ")
     instring = instring.replace("l\/l", "M")
-    instring = instring.replace("VVnte","Write")
-    instring = instring.replace("Wnte","Write")
-    instring = instring.replace("vv","W")
+    instring = instring.replace("VVnte", "Write")
+    instring = instring.replace("Wnte", "Write")
+    instring = instring.replace("vv", "W")
     return instring
 
 def get_region_text(im, x1, y1, x2, y2):
@@ -127,7 +119,7 @@ def get_region_text(im, x1, y1, x2, y2):
      if y2>=im.size[1]:y2=im.size[1]-1
      if y1>=y2:
           return("")
-     logger.debug("Cropping %d %d %d %d" % (x1,y1,x2,y2))
+     const.logger.debug("Cropping %d %d %d %d" % (x1,y1,x2,y2))
      crop = im.crop((x1,y1,x2,y2))
      contrast = crop.point(threshold48table)
      crop.save("regionorig.tif")

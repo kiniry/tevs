@@ -932,32 +932,32 @@ gethartlandmarks(Imaging im, int dpi, int need_vops)
 
   /* now return a list of the four (x,y) pairs you've accumulated,
      starting at ULC and going clockwise */
-  list = PyList_New(0);//!!!
-  item = Py_BuildValue("[ii]", found_leftline_top,found_topline_left);
+  list = PyList_New(0);
+  item = Py_BuildValue("(ii)", found_leftline_top,found_topline_left);
+  if (!item){
+    Py_DECREF(list);
+    return NULL
+  }
+  PyList_Append(list, item);
+  item = Py_BuildValue("(ii)", found_rightline_top,found_topline_right);
   if (!item){
     Py_DECREF(list);
     return NULL;
   }
-  PyList_Append(list,item);
-  item = Py_BuildValue("[ii]", found_rightline_top,found_topline_right);
+  PyList_Append(list, item);
+  item = Py_BuildValue("(ii)", found_rightline_bottom,found_bottomline_right);
   if (!item){
     Py_DECREF(list);
     return NULL;
   }
-  PyList_Append(list,item);
-  item = Py_BuildValue("[ii]", found_rightline_bottom,found_bottomline_right);
+  PyList_Append(list, item);
+  item = Py_BuildValue("(ii)", found_leftline_bottom,found_bottomline_left);
   if (!item){
     Py_DECREF(list);
     return NULL;
   }
-  PyList_Append(list,item);
-  item = Py_BuildValue("[ii]", found_leftline_bottom,found_bottomline_left);
-  if (!item){
-    Py_DECREF(list);
-    return NULL;
-  }
-  PyList_Append(list,item);
-  return (list);
+  PyList_Append(list, item);
+  return list;
 #undef VERBOSE
 }
 
