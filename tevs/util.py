@@ -25,6 +25,14 @@ def writeto(fname, data):
         const.logger.exception("Could not write to %s" % fname)
         sys.exit(1)
 
+def genwriteto(fname, gen):
+    "save data into fname"
+    try:
+        with open(fname, "w") as f:
+            f.writelines(gen)
+    except OSError as e:
+        const.logger.exception("Could not write to %s" % fname)
+        sys.exit(1)
 def readfrom(fname, default=None):
     "return contents of fname as string, if we can't read: returns default if not None, otherwise shuts down"
     try:
