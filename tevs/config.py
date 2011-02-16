@@ -87,6 +87,7 @@ def get_config():
      const.problem_intensity_threshold = float(pit)
      const.dark_pixel_threshold = int(dpt)
      const.ballot_dpi = int(bdpi)
+     const.dpi = const.ballot_dpi #oops
      const.template_dpi = int(tdpi)
      const.layout_brand = config.get("Layout","brand")
      const.on_new_layout = config.get("Mode","on_new_layout")
