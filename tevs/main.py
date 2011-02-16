@@ -70,7 +70,7 @@ def insert_ballot(cur, search_key, name1, name2):
 
     return ballot_id
 
-def save_voteinfo(cur, ballot_id, voteinfo):
+def save_voteinfo(cur, ballot_id, voteinfo): #XXX needs to be updated
     "write voteinfo to db"
     for vd in voteinfo:
         cur.execute(
@@ -143,54 +143,7 @@ def save_voteinfo(cur, ballot_id, voteinfo):
             )
         )
 
-def process_ballot(ballot):
-    logger = const.logger
-
-    try:
-        tiltinfo = ballot.GetLandmarks()
-    except Exception as e: #XXX
-        util.fatal(e, "failure at GetLandmarks for %s", name1) 
-
-    try:
-        layout_codes = ballot.GetLayoutCode()
-    except Exception as e: #XXX
-        util.fatal(e, "failure at GetLayoutCode for %s", name1) 
-
-    search_key = "%07d%07d" % tuple(layout_codes[0][:2])
-
-    if search_key not in Ballot.Ballot.front_dict: #XXX is there any recovery to do here? is this a util.fatal error?
-        print search_key, "not in front_dict"
-
-    try:
-        front_layout = ballot.GetFrontLayout()
-    except Exception as e: #XXX
-        util.fatal(e, "failure at GetFrontLayout for %s", name1) 
-
-    try:
-        back_layout = ballot.GetBackLayout()
-    except Exception as e: #XXX
-        util.fatal(e, "failure at GetBackLayout for %s", name1) 
-
-    try:
-        ballot.CaptureVoteInfo()
-    except Exception as e: #XXX
-        util.fatal(e, "Failed to CaptureVoteInfo")
-
-    #create mosaic of all vote ovals
-    #TODO replace with results_to_mosaic
-    boximage = Image.new("RGB", (1650, 1200), color="white")
-    draw = ImageDraw.Draw(boximage)
-    keys = ballot.vote_box_images.keys()
-    for i, key in enumerate(sorted(keys)):
-        left = 50 + 150*(i % 10)
-        right = 7*i
-        boximage.paste(ballot.vote_box_images[key], (left, right))
-        draw.text((left, right + 40), "%s_%04d_%04d" % tuple(key[:3]), fill="black")
-
-    return search_key, boximage, ballot.WriteVoteInfo(), ballot.results
-
- 
-if __name__ == "__main__":
+def main():
      # get command line arguments
      config.get_args()
 
@@ -198,11 +151,11 @@ if __name__ == "__main__":
      logger = config.get_config()
 
      # connect to db and open cursor
-     try:
-         conn = psycopg2.connect(database=const.dbname, user=const.dbpwd)
-     except DatabaseError as e:
-         util.fatal(e, "Could not connect to database")
-     cur = conn.cursor()
+##     try:
+##         conn = psycopg2.connect(database=const.dbname, user=const.dbpwd)
+##     except DatabaseError as e:
+##         util.fatal(e, "Could not connect to database")
+##     cur = conn.cursor()
 
      try:
          ballotfrom = Ballot.LoadBallotType(const.layout_brand)
@@ -232,40 +185,44 @@ if __name__ == "__main__":
           if not os.path.exists(name1):
               logger.info(name1 + " does not exist. No more records to process")
               conn.close()
-              tmpl_cache.save()
+              cache.save()
               sys.exit(0)
 
           #Processing
 
           logger.info("Processing: %s: %s & %s" % (n, name1, name2))
 
+          names = [name1, name2]
+          name2save = name2
+          if not os.path.exists(name2):
+              names = name1
+              name2save = "<No such file>"
           try:
-              names = [name1, name2]
-              if not os.path.exists(name2):
-                  names = name1
               ballot = ballotfrom(names, extensions)
           except BallotException as e:
               util.fatal(e, "Could not analyze ballot")
 
-          searchkey, boximage, voteinfo, voteresults = process_ballot(ballot)
+          csv = Ballot.results_to_CSV(ballot.results)
+          moz = Ballot.results_to_mosaic(ballot.results)
 
           #Write all data
-
           try:
-              boximage.save(resultsfilename.replace("txt", "jpg")) #XXX should add to config file
+              moz.save(resultsfilename.replace("txt", "jpg")) #XXX should add to config file
           except Exception as e: #TODO what exceptions does boximage.save throw?
               util.fatal(e, "Could not write vote boxes to disk")
 
-          util.writeto(resultsfilename, voteinfo)
+          util.genwriteto(resultsfilename, csv)
 
-          ballot_id = insert_ballot(cur, searchkey, name1, name2)
+          searchkey = "$".join(p.template.precinct for p in ballot.pages)
+          print searchkey, "processed"
+##          ballot_id = insert_ballot(cur, searchkey[:14], name1, name2save)
 
-          save_voteinfo(cur, ballot_id, voteresults)
+##          save_voteinfo(cur, ballot_id, ballot.results) #XXX needs to be updated
 
-          try:
-              conn.commit()
-          except psycopg2.DatabaseError as e:
-              util.fatal(e, "Could not commit vote information to database")
+##          try:
+##              conn.commit()
+##         except psycopg2.DatabaseError as e:
+##             util.fatal(e, "Could not commit vote information to database")
 
           #Post-processing
 
@@ -284,3 +241,5 @@ if __name__ == "__main__":
           #All processing and post processsing succesful, record
           n = save_nextnum(n) #XXX should really only write to disk once at end
 
+if __name__ == "__main__":
+    main()
