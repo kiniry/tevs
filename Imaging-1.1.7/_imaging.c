@@ -4584,9 +4584,9 @@ cropstats(Imaging im, int dpi, int gap, int x, int y, int w, int h, int fine_adj
     }
   }
   retlist = Py_BuildValue("iiiiiiiiiiiiiiiiii", 
-			  total[0]/count ,lowest[0],low[0],high[0],highest[0],
-			  total[1]/count ,lowest[1],low[1],high[1],highest[1],
-			  total[2]/count ,lowest[2],low[2],high[2],highest[2],
+			  total[0]/count, lowest[0],low[0],high[0],highest[0],
+			  total[1]/count, lowest[1],low[1],high[1],highest[1],
+			  total[2]/count, lowest[2],low[2],high[2],highest[2],
 			  x,y, suspicious
 			  );
   return retlist;
