@@ -28,7 +28,6 @@ class HartBallot(Ballot.Ballot):
     transformer = rotator
 
     def __init__(self, images, extensions):
-        super(HartBallot, self).__init__(images, extensions)
         #convert all our constants to locally correct values
         adj = lambda f: int(round(const.dpi * f))
         self.oval_size = (
@@ -37,10 +36,11 @@ class HartBallot(Ballot.Ballot):
         )
         self.oval_margin = adj(.03) #XXX length should be in config or metadata
         self.min_contest_height = adj(const.minimum_contest_height_inches)
-        self.vote_target_horiz_inches = adj(const.vote_target_horiz_offset_inches)
+        self.vote_target_horiz_offset = adj(const.vote_target_horiz_offset_inches)
         self.writein_xoff = adj(2.5) #XXX
         self.writein_yoff = adj(.6)
         self.allowed_corner_black = adj(const.allowed_corner_black_inches)
+        super(HartBallot, self).__init__(images, extensions)
 
     def flip(self, im):
         # crop the upper bar code possibilities,
@@ -57,16 +57,16 @@ class HartBallot(Ballot.Ballot):
         # Not added: ambiguous results could be tested with OCR
 
         adj = lambda x: int(round(x * const.ballot_dpi))
-        mean = lambda i: ImageStat(i).mean[0]
+        mean = lambda i: ImageStat.Stat(i).mean[0]
         box = lambda a, b, c, d: \
-            mean(im.crop(adj(a), adj(b), adj(c), adj(d)))
+            mean(im.crop((adj(a), adj(b), adj(c), adj(d))))
 
         uls = box(.4, .8, .6, 1.5)
         ul2s = box(.3, .8, .5, 1.5)        
-        urs = mean(im.crop(
+        urs = mean(im.crop((
             im.size[0] - adj(0.6), adj(0.8),
             im.size[0] - adj(0.4), adj(1.5)
-        ))
+        )))
     
         bar_cutoff = 224
         if uls < bar_cutoff or ul2s < bar_cutoff:
@@ -74,14 +74,14 @@ class HartBallot(Ballot.Ballot):
                 im.rotate(180)
         return im
 
-    def find_landmarks(self, page): #make so it takes a page, rename find_landmarks
+    def find_landmarks(self, page):
         """ retrieve landmarks for Hart images, set tang, xref, yref
 
         Landmarks for the Hart Ballot will be the ulc, urc, lrc, llc 
         (x,y) pairs marking the four corners of the main surrounding box."""
 
         #[(x,y),(x,y),(x,y),(x,y)] | None //from upper left hand corner, clockwise
-        tiltinfo = self.im1.gethartlandmarks(const.dpi,0)
+        tiltinfo = page.image.gethartlandmarks(const.dpi, 0)
         if tiltinfo is None:
             raise Ballot.BallotException("Could not find landmarks")
         
@@ -93,6 +93,7 @@ class HartBallot(Ballot.Ballot):
         testlen = self.allowed_corner_black
         xs, ys = page.image.size
 
+        #boxes to test
         ul = (0,             0,           
               testlen,       testlen)
  
@@ -109,21 +110,15 @@ class HartBallot(Ballot.Ballot):
                              (ur, "upper right"),
                              (lr, "lower right"),
                              (ll, "lower left")):
-            if ImageStat(page.image.crop(area)).mean[0] < 16:
+            if ImageStat.Stat(page.image.crop(area)).mean[0] < 16:
                 raise Ballot.BallotException(errmsg % (corner, page.filename))
 
-        xoff = self.tiltinfo[0][0]
-        yoff = self.tiltinfo[0][1]
+        xoff = tiltinfo[0][0]
+        yoff = tiltinfo[0][1]
 
         # note that tiltinfo[3][0] is not set!!!
-        shortdiff = self.tiltinfo[2][0] - self.tiltinfo[1][0]
-        longdiff  = self.tiltinfo[2][1]  - self.tiltinfo[1][1]
-
-        self.tiltinfo = [2, #XXX only keeping as reference, to be removed
-                         self.xref,
-                         self.yref,
-                         longdiff,
-                         shortdiff]
+        shortdiff = tiltinfo[2][0] - tiltinfo[1][0]
+        longdiff  = tiltinfo[2][1] - tiltinfo[1][1]
 
         rot = shortdiff/float(longdiff)
         if abs(rot) > const.allowed_tangent:
@@ -184,6 +179,7 @@ class HartBallot(Ballot.Ballot):
         """Extract a single oval, or writein box, from the specified ballot"""
         x, y = choice.coords()
         iround = lambda x: int(round(x))
+        margin = iround(.03 * const.dpi)
 
         #XXX BEGIN move into transformer
         xoff = page.xoff - iround(page.template.xoff*scale)
@@ -195,17 +191,17 @@ class HartBallot(Ballot.Ballot):
         #XXX end move into transformer (which should now just take a page obj)
 
         ow, oh = self.oval_size
-        stats = Ballot.IStats(im.cropstats( #XXX throwing a deprecation warning, mustfix, but looks good . . .
-            page.dpi,
+        stats = Ballot.IStats(page.image.cropstats(
+            const.dpi,
             self.vote_target_horiz_offset, #XXX is this the only part that can't be pulled out of this specific ballot kind?!
             x, y,
             ow, oh,
             1
         ))
 
-        cropx = cs.adjusted.x
-        cropy = cs.adjusted.y
-        crop = im.crop((
+        cropx = stats.adjusted.x
+        cropy = stats.adjusted.y
+        crop = page.image.crop((
             cropx - margin,
             cropy - margin,
             cropx + margin + ow, 
@@ -226,65 +222,6 @@ class HartBallot(Ballot.Ballot):
 
         return cropx, cropy, stats, crop, voted, writein, ambiguous
 
-    def BuildFrontLayout(self): #merge next two into build_layout(page)
-        self.regionlists = [[], []]
-        self.need_to_pickle = True
-        self.front_layout = []
-
-        # for gethartdetails to operate properly, we need to 
-        # cancel out rotation to get vertical and horizontal lines,
-        # duplicate the original images so we can dispose of the
-        # modified ones when we're done with them
-        oldim1 = self.im1.copy()
-        oldim1.filename = self.im1.filename
-        oldim2 = None
-        if self.im2 is not None:
-            oldim2 = self.im2.copy()
-            oldim2.filename = self.im2.filename
-
-        rot_angle = self.tang[0] * 57.2957795 #180/pi
-        self.tang[0] = 0.0
-        self.tang[1] = 0.0
-        # we also update our landmark and tilt information,
-        # for the rotated image
-        self.GetLandmarks()
-
-        print "New layout bar code: ", self.code_string
-        print "Running Tesseract Open Source OCR "
-        print "to retrieve text for front and back of new layout."
-        print "This may take up to a minute or two, depending on your system."
-
-        self.gethartdetails(self.im1, self.regionlists[0]) #XXX should be factored out
-
-        self.front_layout = BallotSide( #XXX change to page
-            self,
-            0,
-            precinct=self.precinct,
-            dpi=const.dpi)
-
-        front_xml = self.front_layout.XML(self.code_string) #XXX deprecated
-        
-        Ballot.Ballot.front_dict[self.code_string] = front_xml #XXX depracated
-
-        #XXX needs to be somewhere else
-        template_filename = os.path.join(const.templates_path, self.code_string)
-        util.writeto(template_filename, front_xml)
-        const.logger.info("Created layout template %s at %s" % (template_filename, time.asctime()))
-
-        # if you need to build the front layout, you need to build
-        # the back layout as well
-        self.BuildBackLayout()
-
-        # if you've just built the layouts, you must reload
-        # the original images, because you may have rotated your images
-        # You must then retrieve the landmarks again.
-        # If IsAHart returned 2, the images were flipped and the
-        # ballot was created with flipped True.  If this is the case,
-        # when we reopen the images, we need to flip them again.
-        self.im1, self.im2 = oldim1, oldim2
-        self.GetLandmarks() #XXX cache old landmarks and restore, like we did with images
-        return self.front_layout
-
     # gethartdetails remains ugly and is a candidate for DO OVER.
     # it gets the column dividers, then finds
     # presumed horizontal lines across each column,
@@ -292,61 +229,62 @@ class HartBallot(Ballot.Ballot):
     # how the contests should be divided into bands for
     # contest description and vote boxes,
     # and calls ocr to analyze the bands. 
-    # vop is short for vote op. conf_hll is confirmed horizontal line list
-    def gethartdetails(self, im, br):
+    # vop is short for vote op. hlines is confirmed horizontal line list
+    def build_layout(self, page):
         """ get layout and ocr information """
         dpi = const.dpi
-        vline_list = im.getcolumnvlines(0, im.size[1]/4, im.size[0]-20)
-        const.logger.debug(str(vline_list))
-        lastx = 0
+        dpi2, dpi4, dpi16 = dpi/2, dpi/4, dpi/16
+        xend, yend = page.image.size[0], page.image.size[1]
+        vlines = page.image.getcolumnvlines(0, yend/4, xend-20)
 
         #For each hlinelist that is separated from the previous by 
         #a reasonable amount (more than dpi/4 pixels), we want to line up
         #the negative values from the new hlinelist with the positive values
         #from the old one
-        hlinelistlist = []
-        columnstart_list = []
-        vop_list = []
-        for x in vline_list:
-            if (x - lastx) > (dpi/4):
-                columnstart_list.append(x)
-                pot_hlines = im.getpotentialhlines(x, 1, dpi)
-                hlinelistlist.append(pot_hlines)
-            lastx = x
-        lastel2 = 0
+        hlinelists = []
+        columnstarts = []
+        lastx = 0
+        for vline in vlines:
+            if vline - lastx > dpi4:
+                columnstarts.append(vline)
+                pot_hlines = page.image.getpotentialhlines(vline, 1, dpi)
+                hlinelists.append(pot_hlines)
+            lastx = vline
 
         # an hline is confirmed by matching a positive hline in sublist n
         # against a negative hline in sublist n+1; if no sublist n+1, no hlines
-        conf_hll = [] #confirmed hll
-        for col in range(len(hlinelistlist)-1): #XXX simplify
-            conf_hll.append([])
-            for entrynum in range(len(hlinelistlist[col])):
-                yval1 = hlinelistlist[col][entrynum]
-                for entrynum2 in range(len(hlinelistlist[col+1])):
-                    yval2 = hlinelistlist[col+1][entrynum2]
-                    if (yval1 > 0) and (abs(yval1 + yval2) < (dpi/16)):
-                        conf_hll[col].append(yval1)
+        hlines = [] #confirmed hll
+        for col in range(len(hlinelists)-1): #XXX simplify
+            hlines.append([])
+            for entrynum in range(len(hlinelists[col])):
+                yval1 = hlinelists[col][entrynum]
+                for entrynum2 in range(len(hlinelists[col+1])):
+                    yval2 = hlinelists[col+1][entrynum2]
+                    if yval1 > 0 and abs(yval1 + yval2) < dpi16:
+                        hlines[col].append(yval1)
                         break
 
-        for i, el in enumerate(conf_hll):
-            conf_hll[i] = [ [e, "h"] for e in el ]
+        for i, el in enumerate(hlines):
+            hlines[i] = [ [e, "h"] for e in el ]
 
         vboxes = []
-        for startx in columnstart_list:
+        for startx in columnstarts:
              if startx <= 0:
                   const.logger.info(
                       "Negative startx passed to gethartvoteboxes")
-             xss = im.gethartvoteboxes(startx, dpi/2, dpi) #column_start, half inch down, dpi
+             xss = page.image.gethartvoteboxes(startx, dpi2, dpi) #column_start, half inch down, dpi
              vboxes.append([ [xs[1], "v"] for xs in xss])
 
-        for x, hll in enumerate(conf_hll):
+        br = []
+        for x, hll in enumerate(hlines):
             hll.extend(vboxes[x])
             hll.sort()
             try:
-                endx = columnstart_list[x+1]
+                endx = columnstarts[x+1]
             except:
-                endx = im.size[0] - dpi/2
-            ocr(im, br, dpi, columnstart_list[x], endx, hll, self.extensions)
+                endx = xend - dpi2
+            ocr(page.image, br, dpi, columnstarts[x], endx, hll, self.extensions)
+        return br
 
 def good_barcode(code_string):
     """check code for obvious flaws"""
@@ -367,5 +305,7 @@ def good_barcode(code_string):
         csi = int(code_string[8])
         _ = int(code_string[8:])
     except IndexError:
+        return False
+    except ValueError:
         return False
     return csi <= 4

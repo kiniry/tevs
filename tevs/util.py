@@ -9,7 +9,7 @@ def root(*dir):
     dir = (const.root,) + dir
     return os.path.join(*dir)
 
-def fatal(ex, msg, *p): #XXX ex not used, need to clean out at some point
+def fatal(msg, *p):
     "log fatal messages and exit"
     if len(p) != 0:
         msg = msg % p

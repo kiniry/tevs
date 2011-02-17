@@ -86,8 +86,12 @@ def ocr(im, contests, dpi, x1, x2, splits, xtnz): #XXX can replace all of this w
         x, y, w = croplist[:3]
         if oval:
             # vote boxes begin 1/10" in from edge of contest box
-            C = Ballot.Choice(x1+vote_target_off, croplist[1]-dpi_02, text)
-            contests[-1].append(C) #XXX we're assuming that at least one context comes before
+            C = Ballot.Choice(
+                x1 + vote_target_off,
+                croplist[1] - dpi_02,
+                text
+            )
+            contests[-1].append(C)
         else:
             contests.append(Ballot.Contest(x, y, w, nexty, None, text))
 
@@ -113,7 +117,9 @@ def tesseract(zone):
         )
         err = p.stderr.read()
         sts = os.waitpid(p.pid, 0)[1]
-        #XXX what to do with all this lovely error information . . .
+        if sts != 0 or len(err) > 100:
+            const.logger.error(err)
+            raise BallotException("OCR failed")
         text = util.readfrom(ft + ".txt")
     finally:
         for p in (".tif", ".txt"):

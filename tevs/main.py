@@ -66,7 +66,7 @@ def insert_ballot(cur, search_key, name1, name2):
     try:
         ballot_id = int(sql_ret[0][0])
     except ValueError as e:
-        util.fatal(e, "Corrupt ballot_id")
+        util.fatal("Corrupt ballot_id")
 
     return ballot_id
 
@@ -118,26 +118,26 @@ def save_voteinfo(cur, ballot_id, voteinfo): #XXX needs to be updated
 
                 vd.coords[0],
                 vd.coords[1],
-                vd.adjusted_x,
-                vd.adjusted_y, 
+                vd.stats.adjusted.x,
+                vd.stats.adjusted.y, 
 
-                vd.red_intensity,
-                vd.red_darkestfourth,
-                vd.red_secondfourth,
-                vd.red_thirdfourth,
-                vd.red_lightestfourth,
+                vd.stats.red.intensity,
+                vd.stats.red.darkest_fourth,
+                vd.stats.red.second_fourth,
+                vd.stats.red.third_fourth,
+                vd.stats.red.lightest_fourth,
 
-                vd.green_intensity,
-                vd.green_darkestfourth,
-                vd.green_secondfourth,
-                vd.green_thirdfourth,
-                vd.green_lightestfourth,
+                vd.stats.green.intensity,
+                vd.stats.green.darkest_fourth,
+                vd.stats.green.second_fourth,
+                vd.stats.green.third_fourth,
+                vd.stats.green.lightest_fourth,
 
-                vd.blue_intensity,
-                vd.blue_darkestfourth,
-                vd.blue_secondfourth,
-                vd.blue_thirdfourth,
-                vd.blue_lightestfourth,
+                vd.stats.blue.intensity,
+                vd.stats.blue.darkest_fourth,
+                vd.stats.blue.second_fourth,
+                vd.stats.blue.third_fourth,
+                vd.stats.blue.lightest_fourth,
 
                 vd.was_voted
             )
@@ -151,16 +151,16 @@ def main():
      logger = config.get_config()
 
      # connect to db and open cursor
-##     try:
-##         conn = psycopg2.connect(database=const.dbname, user=const.dbpwd)
-##     except DatabaseError as e:
-##         util.fatal(e, "Could not connect to database")
-##     cur = conn.cursor()
+     try:
+         conn = psycopg2.connect(database=const.dbname, user=const.dbpwd)
+     except DatabaseError as e:
+         util.fatal("Could not connect to database")
+     cur = conn.cursor()
 
      try:
          ballotfrom = Ballot.LoadBallotType(const.layout_brand)
      except KeyError as e:
-         util.fatal(e, "No such ballot type: " + const.layout_brand + ": check tevs.cfg")
+         util.fatal("No such ballot type: " + const.layout_brand + ": check tevs.cfg")
 
      cache = Ballot.TemplateCache(util.root("templates"))
      extensions = Ballot.Extensions(template_cache=cache)
@@ -172,8 +172,9 @@ def main():
      except IOError:
           pass #no numlist.txt
      except ValueError as e:
-          util.fatal(e, "Malformed numlist.txt")
+          util.fatal("Malformed numlist.txt")
 
+     base = os.path.basename
      # While ballot images exist in the directory specified in tevs.cfg,
      # create ballot from images, get landmarks, get layout code, get votes.
      # Write votes to database and results directory.  Repeat.
@@ -182,15 +183,15 @@ def main():
           n = get_nextnum(numlist)
           name1, name2, procname1, procname2, resultsfilename = build_dirs(n)
 
-          if not os.path.exists(name1):
-              logger.info(name1 + " does not exist. No more records to process")
+          if not os.path.exists(name1):#TODO this should all be in a finally
+              logger.info(base(name1) + " does not exist. No more records to process")
               conn.close()
               cache.save()
               sys.exit(0)
 
           #Processing
 
-          logger.info("Processing: %s: %s & %s" % (n, name1, name2))
+          logger.info("Processing: %s: %s & %s" % (n, base(name1), base(name2)))
 
           names = [name1, name2]
           name2save = name2
@@ -199,30 +200,32 @@ def main():
               name2save = "<No such file>"
           try:
               ballot = ballotfrom(names, extensions)
+              results = ballot.ProcessPages()
           except BallotException as e:
-              util.fatal(e, "Could not analyze ballot")
+              util.fatal("Could not analyze ballot")
 
-          csv = Ballot.results_to_CSV(ballot.results)
-          moz = Ballot.results_to_mosaic(ballot.results)
+          csv = Ballot.results_to_CSV(results)
+          moz = Ballot.results_to_mosaic(results)
 
           #Write all data
           try:
               moz.save(resultsfilename.replace("txt", "jpg")) #XXX should add to config file
           except Exception as e: #TODO what exceptions does boximage.save throw?
-              util.fatal(e, "Could not write vote boxes to disk")
+              util.fatal("Could not write vote boxes to disk")
 
           util.genwriteto(resultsfilename, csv)
 
           searchkey = "$".join(p.template.precinct for p in ballot.pages)
-          print searchkey, "processed"
-##          ballot_id = insert_ballot(cur, searchkey[:14], name1, name2save)
+          logger.info("processed " + searchkey)
 
-##          save_voteinfo(cur, ballot_id, ballot.results) #XXX needs to be updated
+          ballot_id = insert_ballot(cur, searchkey[:14], name1, name2save)
 
-##          try:
-##              conn.commit()
-##         except psycopg2.DatabaseError as e:
-##             util.fatal(e, "Could not commit vote information to database")
+          save_voteinfo(cur, ballot_id, ballot.results) #XXX needs to be updated
+
+          try:
+              conn.commit()
+          except psycopg2.DatabaseError as e:
+             util.fatal("Could not commit vote information to database")
 
           #Post-processing
 
@@ -230,13 +233,13 @@ def main():
           try:
                os.rename(name1, procname1)
           except OSError as e:
-               util.fatal(e, "Could not rename %s", name1)
+               util.fatal("Could not rename %s", name1)
 
           try:
                if os.path.exists(name2): #in case ballot isn't 2 sided
                    os.rename(name2, procname2)
           except OSError as e:
-               util.fatal(e, "Could not rename %s", name2)
+               util.fatal("Could not rename %s", name2)
 
           #All processing and post processsing succesful, record
           n = save_nextnum(n) #XXX should really only write to disk once at end
