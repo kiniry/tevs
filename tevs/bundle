@@ -1,3 +1,0 @@
-#!/bin/sh
-hg bundle --base `cat lasttip.txt` ~/tevs.bz2
-hg tags | sed 's/tip.*:\(.*\)/\1/g' > lasttip.txt

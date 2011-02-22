@@ -2,7 +2,6 @@ import sys
 import os
 import errno
 import const
-from Ballot import Ballot
 
 def root(*dir):
     "convert a dir to a root relative path"

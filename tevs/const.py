@@ -1,4 +1,5 @@
 class _const:
+    __name__ = __name__
 
     class ConstError(TypeError): pass
 
