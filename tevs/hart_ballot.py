@@ -80,7 +80,8 @@ class HartBallot(Ballot.Ballot):
         Landmarks for the Hart Ballot will be the ulc, urc, lrc, llc 
         (x,y) pairs marking the four corners of the main surrounding box."""
 
-        #[(x,y),(x,y),(x,y),(x,y)] | None //from upper left hand corner, clockwise
+        #tiltinfo, from upperleft clockwise:
+        #[(x,y),(x,y),(x,y),(x,y)] or None
         tiltinfo = page.image.gethartlandmarks(const.dpi, 0)
         if tiltinfo is None:
             raise Ballot.BallotException("Could not find landmarks")
