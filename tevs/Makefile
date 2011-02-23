@@ -15,7 +15,7 @@ clean:
 	@rm -f *.pyc
 
 test: *.py
-	@nosetests -qx --with-doctest #--with-coverage --cover-erase --cover-html --cover-html-dir=coverage
+	@nosetests -q --with-doctest #--with-coverage --cover-erase --cover-html --cover-html-dir=coverage
 
 bundle:
 	@hg bundle --base `cat lasttip.txt` ~/tevs.bz2
