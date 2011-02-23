@@ -304,8 +304,6 @@ def good_barcode(code_string):
     try:
         csi = int(code_string[8])
         _ = int(code_string[8:])
-    except IndexError:
-        return False
     except ValueError:
         return False
     return csi <= 4
