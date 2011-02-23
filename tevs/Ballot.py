@@ -126,7 +126,8 @@ class Ballot(object): #XXX a better name may be something like BallotAnalyzer
                 append(contest, choice, 
                     coords=(x, y), stats=stats, image=crop,
                     is_writein=writein, was_voted=voted, 
-                    ambiguous=ambiguous)
+                    ambiguous=ambiguous
+                )
 
         self.results.extend(results)
         return results
