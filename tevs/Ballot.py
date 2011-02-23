@@ -1,6 +1,4 @@
-import sys
 import os
-import time
 from xml.dom import minidom
 from xml.parsers.expat import ExpatError
 
@@ -107,6 +105,8 @@ class Ballot(object): #XXX a better name may be something like BallotAnalyzer
         results = []
         def append(contest, choice, **kw):
             kw.update({
+                "contest":  contest,
+                "choice":   choice,
                 "filename": page.filename,
                 "precinct": page.template.precinct,
                 "number":   page.number
@@ -114,7 +114,7 @@ class Ballot(object): #XXX a better name may be something like BallotAnalyzer
             results.append(VoteData(**kw))
 
         for contest in page.template.contests:
-            if int(contest.h) - int(contest.y) < self.min_contest_height:
+            if int(contest.h) - int(contest.y) < self.min_contest_height: #XXX only defined insubclass!!!!!!
                 for choice in contest.choices:
                      append(contest, choice) #mark all bad
                 continue
@@ -154,7 +154,7 @@ class DuplexBallot(Ballot):
     backside do not have a unique layoutcode on the back page.
     As such get_layout_code will only be called on front pages."""
     def __init__(self, images, extensions):
-       if isinstance(images, basestring) or len(image) < 2:
+       if isinstance(images, basestring) or len(images) < 2:
           raise BallotException("Duplex Ballots require at least 2 images")
        super(DuplexBallot, self).__init__(images, extensions)
        #need to duplicate some code here to handle some other stuff?
@@ -290,19 +290,19 @@ class IStats(object):
            self.suspicious,
       ))
 
-    def CSV_header_line(self):
-        return (
-            "red_intensity,red_darkest_fourth,red_second_fourth,red_third_fourth,red_lightest_fourth," +
-            "green_intensity,green_darkest_fourth,green_second_fourth,green_third_fourth,green_lightest_fourth," +
-            "blue_intensity,blue_darkest_fourth,blue_second_fourth,blue_third_fourth,blue_lightest_fourth," +
-            "adjusted_x,adjusted_y,was_suspicious"
-        )
-
     def CSV(self):
         return ",".join(str(x) for x in self)
 
     def __repr__(self):
         return repr(self.__dict__)
+
+def _stats_CSV_header_line():
+    return (
+        "red_intensity,red_darkest_fourth,red_second_fourth,red_third_fourth,red_lightest_fourth," +
+        "green_intensity,green_darkest_fourth,green_second_fourth,green_third_fourth,green_lightest_fourth," +
+        "blue_intensity,blue_darkest_fourth,blue_second_fourth,blue_third_fourth,blue_lightest_fourth," +
+        "adjusted_x,adjusted_y,was_suspicious"
+    )
 
 _bad_stats = IStats([-1]*18)
 
@@ -328,10 +328,13 @@ class VoteData(object):
         if contest is not None:
             self.contest = contest.description
         self.choice = None
-        self.prop = None
+        self.prop = prop
         if choice is not None:
             self.choice = choice.description
-            self.prop = choice.prop
+            try:
+                self.prop = choice.prop
+            except AttributeError:
+                pass
         self.coords = coords
         self.maxv = maxv
         self.image = image
@@ -366,8 +369,8 @@ def results_to_CSV(results, heading=False):
     header line."""
     if heading:
         yield ( #note that this MUST be kept in sync with the CSV method on VoteData
-            "filename,precinct,contest,prop,oval,x,y," +
-            self.stats.CSV_header_line() + "," +
+            "filename,precinct,contest,choice,prop,x,y," +
+            _stats_CSV_header_line() + "," +
             "max_votes,was_voted,is_ambiguous,is_writein\n")
     for out in results:
         yield out.CSV() + "\n"
@@ -422,7 +425,7 @@ def results_to_mosaic(results):
     wxs = max(wrinx, _sszx) + 2*_xins
     wys = wriny + _sszy + 3*_yins
     if wrinx == 0:
-        wxs, yxs = 0, 0 #no wrins
+        wxs, wxs = 0, 0 #no wrins
 
     #compute dimensions of mosaic
     xl = max(10*xs, 4*wxs)
@@ -519,7 +522,7 @@ class Page(BallotPage):
         self.number = number
 
     def as_template(self, precinct, contests):
-	"""Given the precinct and contests, convert this page into a Template
+        """Given the precinct and contests, convert this page into a Template
         and store that objects as its own template"""
         t = Template(self.dpi, self.xoff, self.yoff, self.rot, precinct, contests)
         self.template = t
@@ -626,12 +629,12 @@ class TemplateCache(object):
                 data = util.readfrom(file, "<") #default to text that will not parse
                 try:
                     tmpl = Template_from_XML(data)
-                except ExpatError as e:
+                except ExpatError:
                     if data != "<":
                         const.logger.exception("Could not parse " + file)
                     continue
                 fname = os.path.basename(file)
-                cache[fname] = tmpl
+                self.cache[fname] = tmpl
         except OSError:
             const.logger.info("No templates found")
 

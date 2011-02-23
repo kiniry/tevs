@@ -113,8 +113,8 @@ def save_voteinfo(cur, ballot_id, voteinfo): #XXX needs to be updated
             )""",
             (
                 ballot_id,
-                vd.contest,
-                vd.choice,
+                vd.contest[:80],
+                vd.choice[:80],
 
                 vd.coords[0],
                 vd.coords[1],

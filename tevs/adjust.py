@@ -2,7 +2,6 @@
 # that which caused dx x offset specified when dy is as specified
 from __future__ import division
 import math
-import const
 
 def rotator(tang, xl, yl):
     """
