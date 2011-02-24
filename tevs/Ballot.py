@@ -487,7 +487,7 @@ class Choice(Region):
      def __str__(self):
          return "\n\t".join(str(p) for p in self.__dict__.iteritems())
 
-class Contest(Region):
+class Contest(Region): #XXX prop is weird, what do we do with it?
      def __init__(self, x, y, w, h, prop, description):
          super(Contest, self).__init__(x, y, description)
          self.w = w
@@ -682,7 +682,15 @@ def IsVoted(im, stats, choice):
     return voted, ambiguous
 
 def IsWriteIn(im, stats, choice):
-    """determine if box is actually a write in"""
+    """determine if box is actually a write in
+    >>> test = lambda t: "ok" if IsWriteIn(None, None, Choice(0,0,t)) else None
+    >>> test("Garth Marenghi")
+    >>> test("is a write in")
+    'ok'
+    >>> test("John Riter for emperor")
+    >>> test("vvritten")
+    'ok'
+    """
     d = lambda x: choice.description.lower().find(x) != -1
     if d("write") or d("vrit"):
         return not d("riter")
