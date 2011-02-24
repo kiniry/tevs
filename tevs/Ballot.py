@@ -227,69 +227,68 @@ class IStats(object):
         self.adjusted.y,
 
         self.suspicious) = stats
+       self._mean_intensity = None
+       self._mean_darkness = None
+       self._mean_lightness = None
 
     def mean_intensity(self):
-        try:
-            return self._mean_intensity
-        except AttributeError:
+        if self._mean_intensity is None:
             self._mean_intensity = int(round(
                 (self.red.intensity +
                  self.green.intensity +
                  self.blue.intensity)/3.0
             ))
-            return self._mean_intensity
+        return self._mean_intensity
 
     def mean_darkness(self):
        """compute mean darkness over each channel using first
        two quartiles."""
-       try:
-           return self._mean_darkness
-       except AttributeError:
+       if self._mean_darkness is None:
            self._mean_darkness = int(round(
                (self.red.darkest_fourth   + self.red.second_fourth   +
                 self.blue.darkest_fourth  + self.blue.second_fourth  +
                 self.green.darkest_fourth + self.green.second_fourth
                )/3.0
            ))
+       return self._mean_darkness
 
     def mean_lightness(self):
-       """compute mean lightness over each channel using last
-       two quartiles."""
-       try:
-           return self._mean_lightness
-       except AttributeError:
-           self._mean_lightness = int(round(
-               (self.red.lightest_fourth   + self.red.third_fourth   +
-                self.blue.lightest_fourth  + self.blue.third_fourth  +
-                self.green.lightest_fourth + self.green.third_fourth
-               )/3.0
-           ))
+        """compute mean lightness over each channel using last
+        two quartiles."""
+        if self._mean_lightness is None:
+            self._mean_lightness = int(round(
+                (self.red.lightest_fourth   + self.red.third_fourth   +
+                 self.blue.lightest_fourth  + self.blue.third_fourth  +
+                 self.green.lightest_fourth + self.green.third_fourth
+                )/3.0
+            ))
+        return self._mean_lightness
 
     def __iter__(self):
-       return (x for x in (
-           self.red.intensity,
-           self.red.darkest_fourth,
-           self.red.second_fourth,
-           self.red.third_fourth,
-           self.red.lightest_fourth,
+        return (x for x in (
+            self.red.intensity,
+            self.red.darkest_fourth,
+            self.red.second_fourth,
+            self.red.third_fourth,
+            self.red.lightest_fourth,
 
-           self.green.intensity,
-           self.green.darkest_fourth,
-           self.green.second_fourth,
-           self.green.third_fourth,
-           self.green.lightest_fourth,
+            self.green.intensity,
+            self.green.darkest_fourth,
+            self.green.second_fourth,
+            self.green.third_fourth,
+            self.green.lightest_fourth,
 
-           self.blue.intensity,
-           self.blue.darkest_fourth,
-           self.blue.second_fourth,
-           self.blue.third_fourth,
-           self.blue.lightest_fourth,
+            self.blue.intensity,
+            self.blue.darkest_fourth,
+            self.blue.second_fourth,
+            self.blue.third_fourth,
+            self.blue.lightest_fourth,
 
-           self.adjusted.x,
-           self.adjusted.y,
+            self.adjusted.x,
+            self.adjusted.y,
 
-           self.suspicious,
-      ))
+            self.suspicious,
+       ))
 
     def CSV(self):
         return ",".join(str(x) for x in self)

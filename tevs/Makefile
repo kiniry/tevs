@@ -1,5 +1,5 @@
 
-all: reset test run clean
+all: reset test run
 
 run: reset
 	@./main.py
