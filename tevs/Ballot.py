@@ -54,7 +54,7 @@ class Ballot(object): #XXX a better name may be something like BallotAnalyzer
     def ProcessPages(self):
         for page in self.pages:
             self.FindLandmarks(page)
-            self.BuildLayout(page)
+            self.GetLayout(page)
             self.CapturePageInfo(page)
         return self.results #each page has its results?
 
@@ -77,7 +77,7 @@ class Ballot(object): #XXX a better name may be something like BallotAnalyzer
         page.rot, page.xoff, page.yoff = r, x, y
         return r, x, y
 
-    def BuildLayout(self, page):
+    def GetLayout(self, page):
         """When no layout is found for a page, we analyze the image,
         and construct a layout that we can use on all similiar page"""
         code = self.GetLayoutCode(page)
@@ -91,7 +91,6 @@ class Ballot(object): #XXX a better name may be something like BallotAnalyzer
             raise BallotException('No layout was built')
         tmpl = page.as_template(code, contests)
         self.extensions.template_cache[code] = tmpl
-        page.template = tmpl
         return tmpl
 
     def CapturePageInfo(self, page):
@@ -294,7 +293,7 @@ class IStats(object):
         return ",".join(str(x) for x in self)
 
     def __repr__(self):
-        return repr(self.__dict__)
+        return str(self.__dict__)
 
 def _stats_CSV_header_line():
     return (
@@ -345,7 +344,7 @@ class VoteData(object):
         self.number = number
 
     def __repr__(self):
-        return repr(self.__dict__)
+        return str(self.__dict__)
 
     def CSV(self):
         "return this vote as a line in CSV format"
@@ -483,7 +482,7 @@ class Choice(Region):
      def __init__(self, x, y, description):
          super(Choice, self).__init__(x, y, description)
 
-     def __str__(self):
+     def __repr__(self):
          return "\n\t".join(str(p) for p in self.__dict__.iteritems())
 
 class Contest(Region): #XXX prop is weird, what do we do with it?
@@ -500,19 +499,19 @@ class Contest(Region): #XXX prop is weird, what do we do with it?
      def append(self, choice):
          self.choices.append(choice)
 
-     def __str__(self):
+     def __repr__(self):
          s = "Contest:%s, prop:%s\n" % (self.description, self.prop)
          s += "\n\t".join(str(s) for s in self.choices)
          return s
 
 
-class BallotPage(object):
+class _scannedPage(object):
     def __init__(self, dpi, xoff, yoff, rot):
         self.dpi = int(dpi)
         self.xoff, self.yoff = int(xoff), int(yoff)
         self.rot = float(rot)
 
-class Page(BallotPage):
+class Page(_scannedPage):
     """A ballot page represented by an image and a Template"""
     def __init__(self, dpi=0, xoff=0, yoff=0, rot=0.0, filename=None, image=None, template=None, number=0):
         super(Page, self).__init__(dpi, xoff, yoff, rot)
@@ -528,10 +527,10 @@ class Page(BallotPage):
         self.template = t
         return t
 
-    def __str__(self):
+    def __repr__(self):
         return str(self.__dict__)
 
-class Template(BallotPage):
+class Template(_scannedPage):
     """A ballot page that has been fully mapped and is used as a
     template for similiar pages"""
     def __init__(self, dpi, xoff, yoff, rot, precinct, contests):
@@ -542,7 +541,7 @@ class Template(BallotPage):
     def append(self, contest):
         self.contests.append(contest)
 
-    def __str__(self):
+    def __repr__(self):
         return str(self.__dict__)
 
 def Template_to_XML(ballot):
