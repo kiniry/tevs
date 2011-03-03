@@ -2,6 +2,20 @@
 
 import site; site.addsitedir("/home/jimmy/tevs") #XXX
 from Ballot import *
+import logging
+import sys
+
+class _const(object):
+    pass
+
+sys.modules["const"] = _const()
+
+const.logger = logging
+
+def NilXtnz():
+    return Extensions(
+        transformer=lambda *_: lambda x, y: (x,y),
+    )
 
 def CONCHO(*a):
     """each arg is a contest, a list of x,y,w,h, a description; and a
@@ -20,11 +34,14 @@ def CONCHO(*a):
     """
     ret, all = [], []
     for n in a:
-        con = Contest(*n[:-1])
-        for c in n[-1]:
+        con = Contest(*n[:6])
+        if len(n) < 7:
+            continue
+        for c in n[6:]:
             cho = Choice(*c[:3])
             #patch in extra info for concho_vs_vd to read
-            cho.cd, cho.v, cho.wi, cho.a = c[2:6]
+            cho.cd = n[5]
+            cho.v, cho.wi, cho.a = c[3:6]
             #set stats if available
             cho.ss = None if len(c) < 7 else c[6]
             con.append(cho)
@@ -35,25 +52,38 @@ def CONCHO(*a):
 def concho_vs_vd(chos, vds):
     """Takes the second return of CONCHO and the ballot results and
     makes sure everything is the same"""
+    ret = True
     for ch, vd in zip(chos, vds):
-        if not all(
-                ch.cd          == vd.contest,
-                ch.v           == vd.was_voted,
-                ch.wi          == vd.is_writein,
-                ch.a           == vd.ambiguous,
-                ch.description == vd.choice,
-                ch.x           == vd.coords[0],
-                ch.y           == vd.coords[1],
-                stats_cmp(ch.ss,  vd.stats)
-            ):
-            return False
-    return True
+        if any((
+                ch.cd          != vd.contest,
+                ch.v           != vd.was_voted,
+                ch.wi          != vd.is_writein,
+                ch.a           != vd.ambiguous,
+                ch.description != vd.choice,
+                ch.x           != vd.coords[0],
+                ch.y           != vd.coords[1],
+                not stats_cmp(ch.ss,  vd.stats)
+            )):
+            print
+            print ch.cd,":"
+            if ch.cd != vd.contest:
+                print vd.contest
+            for l,a,b in (
+                    ("voted",ch.v,vd.was_voted),
+                    ("wrin",ch.wi,vd.is_writein),
+                    ("ambig",ch.a,vd.ambiguous),
+                    ("desc",ch.description,vd.choice),
+                    ("x",ch.x,vd.coords[0]),
+                    ("y",ch.y,vd.coords[1])):
+                if a != b:
+                    print l, a, b
+            if ch.ss is not None:
+                print "stats", stats_cmp(ch.ss, vd.stats)
+            ret = False
+    return ret
 
 def stats_cmp(a, b):
     if a is None: #ie, we don't care about this
         return True
-    for x, xp in zip(a, b):
-        if x != xp:
-            return False
-    return True
+    return all(x != xp for x, xp in zip(a, b))
 
