@@ -68,7 +68,7 @@ class HartBallot(Ballot.Ballot):
             im.size[0] - adj(0.4), adj(1.5)
         )))
     
-        bar_cutoff = 224
+        bar_cutoff = 224 #XXX should be in config
         if uls < bar_cutoff or ul2s < bar_cutoff:
             if urs < bar_cutoff:
                 im.rotate(180)
@@ -200,6 +200,7 @@ class HartBallot(Ballot.Ballot):
             1
         ))
 
+        #can be in separate func?
         cropx = stats.adjusted.x
         cropy = stats.adjusted.y
         crop = page.image.crop((
@@ -209,16 +210,17 @@ class HartBallot(Ballot.Ballot):
             cropy + margin + oh
         ))
 
+        #can be in separate func?
         voted, ambiguous = self.extensions.IsVoted(crop, stats, choice)
         writein = False
         if voted:
            writein = self.extensions.IsWriteIn(crop, stats, choice)
         if writein:
-            crop = im.crop((
-                 cropx  - margin,
-                 cropy  - margin,
-                 cropx  + self.writein_xoff + margin,
-                 cropyy + self.writein_yoff + margin
+            crop = page.image.crop((
+                 cropx - margin,
+                 cropy - margin,
+                 cropx + self.writein_xoff + margin,
+                 cropy + self.writein_yoff + margin
             ))
 
         return cropx, cropy, stats, crop, voted, writein, ambiguous
