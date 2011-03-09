@@ -55,13 +55,13 @@ def concho_vs_vd(chos, vds):
     ret = True
     for ch, vd in zip(chos, vds):
         if any((
-                ch.cd          != vd.contest,
+                len(ch.cd)     -  len(vd.contest) >= 5,
                 ch.v           != vd.was_voted,
                 ch.wi          != vd.is_writein,
                 ch.a           != vd.ambiguous,
-                ch.description != vd.choice,
-                ch.x           != vd.coords[0],
-                ch.y           != vd.coords[1],
+                len(ch.description) - len(vd.choice) >= 5,
+                ch.x           -  vd.coords[0] >= 3,
+                ch.y           -  vd.coords[1] >= 3,
                 not stats_cmp(ch.ss,  vd.stats)
             )):
             print

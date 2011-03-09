@@ -28,7 +28,7 @@ def flip_test():
     im = im.crop(testrec)
     hb = new("testdata/hart1_flipped.jpg", None)
     hbim = hb.pages[0].image.crop(testrec)
-    #XXX we flip now bug the jpg artifacting disallows this comparison
+    #XXX we flip now but the jpg artifacting disallows this comparison
     for a, b in zip(im.tostring(), hbim.tostring()):
         assert a == b
 
