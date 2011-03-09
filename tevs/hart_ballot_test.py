@@ -21,14 +21,15 @@ import hart_ballot
 
 new = hart_ballot.HartBallot
 
-def flip_test(): #XXX we apparently do not flip
+def flip_test():
     reset()
-    hb = new("testdata/hart1_flipped.jpg", None)
+    testrec = (200, 200, 400, 400)
     im = Image.open("testdata/hart1.jpg").convert("RGB")
-    # we take a "random" square to compare 
-    hbim = hb.pages[0].image.crop((0, 0, 100, 100))
-    im = im.crop((0, 0, 100, 100))
-    for a, b in zip(im.getdata(), hbim.getdata()):
+    im = im.crop(testrec)
+    hb = new("testdata/hart1_flipped.jpg", None)
+    hbim = hb.pages[0].image.crop(testrec)
+    #XXX we flip now bug the jpg artifacting disallows this comparison
+    for a, b in zip(im.tostring(), hbim.tostring()):
         assert a == b
 
 def find_landmarks_test():

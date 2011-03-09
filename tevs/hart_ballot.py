@@ -71,7 +71,7 @@ class HartBallot(Ballot.Ballot):
         bar_cutoff = 224 #XXX should be in config
         if uls < bar_cutoff or ul2s < bar_cutoff:
             if urs < bar_cutoff:
-                im.rotate(180)
+                im = im.rotate(180)
         return im
 
     def find_landmarks(self, page):
