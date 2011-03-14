@@ -1561,10 +1561,6 @@ before advancing to the next""","Enter delay:",self.delay_seconds)
       <menu action="Preferences">
         <menuitem action="Show vote overlay"/>
       </menu>
-      <menu action="Lists">
-      </menu>
-      <menu action="Help">
-      </menu>
     </menubar>
     </ui>'''
       
