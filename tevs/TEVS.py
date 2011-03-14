@@ -27,7 +27,7 @@ import pdb
 import os
 import subprocess
 import time
-from PIL import Image, ImageTk, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 from BBUtil import *
 #import copy
 import fnmatch
@@ -127,7 +127,7 @@ def timeout_func(app,spinner):
     return False
 
 
-INDEX_CHOICE = 4
+INDEX_CHOICE = 3
 INDEX_XCOORD = 22
 INDEX_YCOORD = 23
 INDEX_INTENSITY = 7
@@ -136,7 +136,6 @@ class Vote(object):
         # split the str into fields, and set values based on field contents
         try:
             fields = str.split(",")
-            #pdb.set_trace()
             self.choice = fields[INDEX_CHOICE]
             self.xcoord = int(fields[INDEX_XCOORD].replace("[","").replace("(",""))
             self.ycoord = int(fields[INDEX_YCOORD].replace("]","").replace(")",""))
