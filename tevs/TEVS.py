@@ -1559,18 +1559,11 @@ before advancing to the next""","Enter delay:",self.delay_seconds)
         <menuitem action="Quit"/>
       </menu>
       <menu action="Preferences">
-        <menuitem action="Set ballot folder"/>
-        <menuitem action="Set filename extension"/>
         <menuitem action="Show vote overlay"/>
-        <menuitem action="Delay each ballot"/>
-        <menuitem action="Count all images"/>
       </menu>
       <menu action="Lists">
-        <menuitem action="Files from external list"/>
-        <menuitem action="Files for precinct"/>
       </menu>
       <menu action="Help">
-        <menuitem action="Overview"/>
       </menu>
     </menubar>
     </ui>'''
