@@ -138,7 +138,7 @@ class Ballot(object): #XXX a better name may be something like BallotAnalyzer
         """this method applies any 90 or 180 degree
         transformation required to make im read top to
         bottom, left to right"""
-        raise NotImplementedError("subclasses must define a Flip method")
+        return im
 
     def get_layout_code(self, page):
         raise NotImplementedError("subclasses must define a get_layout_code method")
