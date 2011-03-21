@@ -30,7 +30,7 @@ class Ballot(object): #XXX a better name may be something like BallotAnalyzer
             try:
                 return self.flip(Image.open(fname).convert("RGB"))
             except:
-                util.fatal("Could not open %s", fname)
+                raise BallotException("Could not open %s", fname)
 
         self.pages = []
         def add_page(number, fname):
@@ -547,8 +547,9 @@ class Template(_scannedPage):
 def Template_to_XML(ballot):
     acc = ['<?xml version="1.0"?>\n<BallotSide']
     def attrs(**kw):
-        for name, value in kw.iteritems():
-            acc.extend((" ", str(name), "='", str(value), "'"))
+        for name, value in kw.iteritems(): #TODO change ' < > et al to &ent;
+            name, value = str(name), str(value)
+            acc.extend((" ", name, "='", value, "'"))
     ins = acc.append
 
     attrs(
@@ -615,7 +616,7 @@ def Template_from_XML(xml):
 
         contests.append(cur)
 
-    dpi, xoff, yoff, rot = int(dpi), int(dpi), int(yoff), float(rot)
+    dpi, xoff, yoff, rot = int(dpi), int(xoff), int(yoff), float(rot)
     return Template(dpi, xoff, yoff, rot, precinct, contests)
 
 class TemplateCache(object):
@@ -625,7 +626,8 @@ class TemplateCache(object):
         #attempt to prepopulate cache
         try:
             for file in os.listdir(location):
-                data = util.readfrom(file, "<") #default to text that will not parse
+                rfile = os.path.join(location, file)
+                data = util.readfrom(rfile, "<") #default to text that will not parse
                 try:
                     tmpl = Template_from_XML(data)
                 except ExpatError:
