@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import pdb
 import sys
 import os
 import os.path
@@ -172,7 +173,6 @@ def main():
          ballotfrom = Ballot.LoadBallotType(const.layout_brand)
      except KeyError as e:
          util.fatal("No such ballot type: " + const.layout_brand + ": check tevs.cfg")
-
      cache = Ballot.TemplateCache(util.root("templates"))
      extensions = Ballot.Extensions(template_cache=cache)
      
