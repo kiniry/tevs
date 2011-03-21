@@ -163,7 +163,7 @@ class HartBallot(Ballot.Ballot):
                        page.yoff + madj(4.5)
              ))
              zone = zone.rotate(-90) #make it left to right
-             barcode = self.extensions.ocr(zone)
+             barcode = self.extensions.ocr_engine(zone)
 
              #remove OCR errors specific to text guranteed numeric
              for bad, good in (("\n", ""),  (" ", ""),  ("O", "0"), ("o", "0"),
