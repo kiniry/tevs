@@ -1,5 +1,5 @@
-# HartBallot.py implements the interface defined (well, suggested)
-# in Ballot.py, in a Hart-specific way.
+# saguache_ballot.py implements the interface defined (well, suggested)
+# in Ballot.py, in a Saguache/ESS-specific way.
 # The Trachtenberg Election Verification System (TEVS)
 # is copyright 2009,2010 by Mitch Trachtenberg 
 # and is licensed under the GNU General Public License version 2.
@@ -38,11 +38,10 @@ class SaguacheBallot(Ballot.Ballot):
     correspond to the brand entry in tevs.cfg, the configuration file.
     """
 
-    brand = "Saguache"
-    transformer = rotator
-
     def __init__(self, images, extensions):
         #convert all our constants to locally correct values
+        # many of these conversions will go to Ballot.py,
+        # extenders will need to handle any new const values here, however
         adj = lambda f: int(round(const.dpi * f))
         self.oval_size = (
             adj(const.oval_width_inches),
@@ -56,10 +55,13 @@ class SaguacheBallot(Ballot.Ballot):
         self.allowed_corner_black = adj(const.allowed_corner_black_inches)
         super(SaguacheBallot, self).__init__(images, extensions)
 
-    def flip(self, im):
-        # not implemented for Saguache
-        print "Flip not implemented for Saguache."
-        return im
+    # Extenders do not need to supply even a stub flip
+    # because flip in Ballot.py will print a stub message in the absence
+    # of a subclass implementation
+    #def flip(self, im):
+    #    # not implemented for Saguache
+    #    print "Flip not implemented for Saguache."
+    #    return im
 
     def find_landmarks(self, page):
         """ retrieve landmarks for Saguache images, set tang, xref, yref
@@ -77,9 +79,8 @@ class SaguacheBallot(Ballot.Ballot):
         Ballots would be rejected at this stage if there is excessive
         black in any corner, potentially indicating a scanning problem.
 
-        Note that Ballot class current defines a no-op BallotException;
-        convert to a ballot exception which logs ballot issues if 
-        you wish.
+        Current error handling will generally log and terminate 
+        on first BallotException.
         """
         crop = page.image.crop((0,
                               0,
@@ -150,9 +151,10 @@ class SaguacheBallot(Ballot.Ballot):
         the code is taken from the front, with "BACK" prepended.
 
         To accomodate back-first ballots, we would need to add additional
-        handling.
+        handling.  Will be implemented as extended flip in class DuplexBallot
+        in Ballot.py
         """
-        (barcode,tm_list) = timing_marks(page.image,
+        barcode, tm_list = timing_marks(page.image,
                                          page.xoff,
                                          page.yoff,
                                          (const.dpi/8),
@@ -160,9 +162,9 @@ class SaguacheBallot(Ballot.Ballot):
         # If this is a back page, need different arguments
         # to timing marks call; so have failure on front test
         # trigger a back page test
-        if len(tm_list) <> 38:
+        if len(tm_list) != 38:
             inch_from_end = page.xoff + page.image.size[0] - const.dpi
-            (barcode,tm_list) = timing_marks(page.image,
+            barcode, tm_list = timing_marks(page.image,
                                              inch_from_end,
                                              page.yoff,
                                              -(const.dpi/8),
@@ -196,6 +198,8 @@ class SaguacheBallot(Ballot.Ballot):
         object.  These functions may be overriden. XXX Example!
         """
         x, y = choice.coords()
+        x = int(x)
+        y = int(y)
         iround = lambda x: int(round(x))
         margin = iround(.03 * const.dpi)
 
@@ -326,7 +330,13 @@ class SaguacheBallot(Ballot.Ballot):
                                     zoneend )
                         #print "Croplist to output",croplist
                         crop = page.image.crop(croplist)
-                        text = call_tess(crop)
+                        
+                        # The extensions object offers the ability
+                        # to provide the ocr and text cleanup functions
+                        # of your choice.
+                        text = self.extensions.ocr_engine(crop)
+                        text = self.extensions.ocr_cleaner(text)
+
                         zonestart = 0
                         zoneend = 0
                         print "Contest Text: %s" % (text,)
@@ -345,7 +355,8 @@ class SaguacheBallot(Ballot.Ballot):
                                     top_xy[0]+column_width - dpi/4, match + (dpi/3))
                         #print croplist
                         crop = page.image.crop(croplist)
-                        text = call_tess(crop)
+                        text = self.extensions.ocr_engine(crop)
+                        text = self.extensions.ocr_cleaner(text)
                         print "Oval (%d,%d): %s" % (top_xy[0],
                                                     match,
                                                     text.strip())
@@ -486,88 +497,6 @@ class SaguacheBallot(Ballot.Ballot):
                 contig = 0
         #print "Textzones start",textzones
         return textzones
-
-
-
-def call_tess(crop):
-    """get text from cropped region"""
-    jpg_name = "/tmp/crops/crop.jpg" 
-    tif_name = "/tmp/crops/crop.tif"
-    bare_name = "/tmp/crops/crop"
-    crop.save(jpg_name)
-    arglist = ["/usr/bin/convert","-compress","None"]
-    arglist.append(jpg_name)
-    arglist.append(tif_name)
-    p = subprocess.Popen(arglist,
-                         stdout = subprocess.PIPE,
-                         stderr = subprocess.PIPE
-                         )
-    errstuff = p.stderr.read()
-    outstuff = p.stdout.read()
-    sts = os.waitpid(p.pid,0)[1]
-    if len(errstuff)>100:
-        print errstuff
-    p = subprocess.Popen(["/usr/local/bin/tesseract", 
-                          tif_name, 
-                          bare_name],
-                         stdout = subprocess.PIPE,
-                         stderr = subprocess.PIPE
-                         )
-    errstuff = p.stderr.read()
-    outstuff = p.stdout.read()
-    sts = os.waitpid(p.pid,0)[1]
-    if len(errstuff)>100:
-        print errstuff
-    textfile = open(bare_name+".txt","r")
-
-    text = textfile.read()
-    textfile.close()
-    os.remove(jpg_name)
-    os.remove(tif_name)
-    os.remove(bare_name+".txt")
-    text = text.replace("|","l")
-    text = text.replace("lVI","M")
-    text = text.replace("lVl","M")
-    text = text.replace("IVl","M")
-    text = text.replace("IVI","M")
-    text = text.replace("'l'","T")
-    text = text.replace('&',"&amp;")
-    text = text.replace("'","&apos;")
-    text = text.replace('"',"&quot;")
-    text = text.strip()
-    text = text.replace("\n","//")
-    return text
-
-                
-def initialize_from_templates():
-     """Read layout info from templates directory."""
-     try:
-          # for each file in templates directory, 
-          # add contents to fronts dictionary in Ballot module,
-          # keyed by name; create None entry in backs dictionary
-          templates_path="./atemplates"
-          backtemplates_path="./backatemplates"
-          print "Reading templates from %s" % (templates_path,) 
-          for f in os.listdir(templates_path):
-               # skip templates not belonging to ESS
-               if f.find("A")<0: continue
-               print f,
-
-               ff = open("%s/%s" % (templates_path,f),"r")
-               template_text = ff.read()
-               xml_dict[f.replace(".xml","")] = template_text
-               ff.close()
-               try:
-                    ff = open("%s/%s" % (backtemplates_path,f),"r")
-                    template_text = ff.read()
-                    backxml_dict[f.replace(".xml","")] = template_text
-                    ff.close()
-               except: 
-                    pass
-          print
-     except Exception, e:
-          print "Could not load existing template entries."
-          pdb.set_trace()
 
 
 

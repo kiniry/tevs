@@ -1,3 +1,4 @@
+import pdb
 import os
 from xml.dom import minidom
 from xml.parsers.expat import ExpatError
@@ -138,7 +139,7 @@ class Ballot(object): #XXX a better name may be something like BallotAnalyzer
         """this method applies any 90 or 180 degree
         transformation required to make im read top to
         bottom, left to right"""
-        raise NotImplementedError("subclasses must define a Flip method")
+        return im
 
     def get_layout_code(self, page):
         raise NotImplementedError("subclasses must define a get_layout_code method")
@@ -548,6 +549,17 @@ def Template_to_XML(ballot):
     acc = ['<?xml version="1.0"?>\n<BallotSide']
     def attrs(**kw):
         for name, value in kw.iteritems():
+            name, value = str(name), str(value)
+            name = name.replace("'","&apos;")
+            value = value.replace("'","&apos;")
+            name = name.replace('"',"&quot;")
+            value = value.replace('"',"&quot;")
+            name = name.replace("&","&amp;")
+            value = value.replace("&","&amp;")
+            name = name.replace("<","&lt;")
+            value = value.replace("<","&lt;")
+            name = name.replace(">","&gt;")
+            value = value.replace(">","&gt;")
             acc.extend((" ", str(name), "='", str(value), "'"))
     ins = acc.append
 
@@ -586,8 +598,16 @@ def Template_to_XML(ballot):
     return "".join(acc)
 
 def Template_from_XML(xml):
-    doc = minidom.parseString(xml)
-
+    doc = None
+    try:
+         if len(xml)<5:
+              print "Length of xml is ",len(xml)
+              doc = None
+         else:
+              doc = minidom.parseString(xml)
+    except ExpatError,e:
+         print e
+         pdb.set_trace()
     tag = lambda root, name: root.getElementsByTagName(name)
     def attrs(root, *attrs):
         for attr in attrs:
@@ -615,7 +635,7 @@ def Template_from_XML(xml):
 
         contests.append(cur)
 
-    dpi, xoff, yoff, rot = int(dpi), int(dpi), int(yoff), float(rot)
+    dpi, xoff, yoff, rot = int(dpi), int(xoff), int(yoff), float(rot)
     return Template(dpi, xoff, yoff, rot, precinct, contests)
 
 class TemplateCache(object):
@@ -625,9 +645,13 @@ class TemplateCache(object):
         #attempt to prepopulate cache
         try:
             for file in os.listdir(location):
-                data = util.readfrom(file, "<") #default to text that will not parse
+                rfile = os.path.join(location, file)
+                data = util.readfrom(rfile, "<") #default to text that will not parse
                 try:
+                    print "Calling template from xml with data from",rfile,file,data[:80]
                     tmpl = Template_from_XML(data)
+                    print type(tmpl)
+                    print "[",tmpl,"]"
                 except ExpatError:
                     if data != "<":
                         const.logger.exception("Could not parse " + file)
