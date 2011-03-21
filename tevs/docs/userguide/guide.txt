@@ -353,7 +353,7 @@ which is located in ~/Imaging-1.1.7
 Although a central GUI will be provided to enable push button operation,
 TEVS subsystems are just scripts that can be run from the command line.
 Scanning is controlled from ~/bin/scanloop.py; counting (or data extraction) from
-~/bin/extraction.py; display from ~/bin/TEVS.py.  The extraction program can be started
+~/bin/main.py; display from ~/bin/TEVS.py.  The extraction program can be started
 as soon as the scanning program has placed some files in ~/bin/unproc; by default,
 the extraction program will exit as soon as the next sequential file 
 is not found.  The display program can be run at any time, but it can only
@@ -363,10 +363,6 @@ which a results file has been written to the ~/data/results directory.
 The display program cannot alter the data in the ~/data/results directory, and
 so nothing you do with the display program will affect the data that has been
 extracted from the images.  
-.PP
-Once the extraction program has processed all image files, ~/bin/summarize.py
-can be run to merge all results and generate totals for the contests and
-candidates.
 .SUBHEAD "Scanning"
 .PP
 "python scanloop.py" runs a GUI which invokes the non-GUI python script
@@ -389,7 +385,7 @@ jpgs, and numbering these jpegs as though they had been scanned.
 .SUBHEAD "Counting"
 .PP
 There is no GUI associated with extracting the votes from the 
-images: you simply run the command "python extraction.py".
+images: you simply run the command "python main.py".
 As extraction proceeds, however, you can simultaneously run the 
 command "python TEVS.py" to display the ballots which have been
 scanned and the votes which have been read.
@@ -593,148 +589,142 @@ that may be overridden when creating an instance of the Extensions class. The
 default extensions should suffice for most situations.
 Therefore, reading a new kind of ballot consists of creating a subclass of
 Ballot that implements a few methods to analyze the scanned image.
+.PP
+To create a subclass of Ballot, create a file in the same directory as
+Ballot.py named brand_ballot.py where brand is the name of this kind of ballot,
+in all lowercase. In the file, define a class named BrandBallot that subclasses
+the Ballot class, and is written in CamelCase as shown. Afterwards this class
+may be loaded with the helper, in Ballot.py, LoadBallotType by
+LoadBallotType("brand"). The string describing the brand may have any case. If
+you wish to use your new kind of ballot with main.py, all you need to do is
+change the brand setting in tevs.cfg to the name of your brand. This
+configuration parameter is passed to LoadBallotType by main.py.
 .SUBHEAD  
 "Ballot Class Methods"
+The Ballot class does as much work as possible and requires that
+only a few methods for gathering information about the layout be overridden.
+CamelCase methods are the public interface of Ballot and are not meant to be
+overridden. Each method in CamelCase that needs to be extended by a subclass
+has a method in lower_and_underscore that it calls. For example, FindLandmarks
+calls find_landmarks.
+.PP
+__init__ creates a Ballot. It takes two parameters, images and extensions.
+Extensions is an instance of a the Extension class. images is either the name
+of a file or a list of filenames. __init__ opens and calls flip on each image.
+N.B.: If your subclass requires any initilization in order to execute its flip
+method, it should do so before initialzing its superclass.
+.PP
+flip takes an image, determines if it is upside down and if so rotates it right
+side up and returns the corrected image. 
+This is a nonessential method and is not required to be overridden in
+subclasses; however, if it is not it always return the image exactly as it is
+given regardless of whether it is upside down.
 .PP
 ProcessPages analyzes each page and tabulates the results. It returns a list of 
 VoteData.
 ProcessPages is a helper that, for each page in turn calls: FindLandmarks,
 GetLayout, and CapturePageInfo.
 .PP
-FindLandmarks find known features of a Page's image and uses this information
+FindLandmarks finds known features of a Page's image and uses this information
 to compute, save, and return: a rotation (the amount an image has been tilted by a
 scanner) and the x and y offsets specifying where the upper left corner of the
 ballot inside the image starts. It may raise a BallotException error if no such
 landmarks have been found. FindLandmarks calls find_landmarks, which must be
 defined in each subclass of Ballot.
 .PP
-find_landmarks
-
+find_landmarks is the per ballot version of FindLandmarks. It is given a Page
+and returns a rotation and x and y offsets. No template information will be
+avaliable at calltime. 
 .PP
-GetLayout calls GetLayoutCode and looks it up in the cache specified by
+GetLayout calls GetLayoutCode and looks up the returned code
+in the cache specified by
 the template_cache attribute of the Ballot's instance of Extensions. If the
 code is not cached, GetLayout calls build_layout, which must be defined in each
 subclass of Ballot, to generate a template. It then saves this template in the
-cache and returns it.
+cache, attaches it to the page, and returns it.
 .PP
-build_layout
-
+build_layout is given a page and returns a list of Contest's to be used as a
+template by other images with the same layout code. See also the ocr routine in
+ocr.py.
 .PP
 GetLayoutCode finds and returns a string to identify the template of a ballot,
 such as a barcode's value. It calls get_layout_code, which must be defined in
 each subclass of Ballot. It may raise a BallotException if no such information
 can be found in a particular image.
 .PP
-get_layout_code
-
+get_layout_code is called with a Page and finds and returns a string to identify a ballot.
+No template information will be avaliable at compile time. It is up to
+get_layout_code to return a valid code that can identify ballot images with
+similiar layouts.
 .PP
-CapturePageInfo
-
+CapturePageInfo takes a page and returns a list of VoteData. It walks the tree
+of information in the layout and extracts images of all the vote
+opportunitites. There is no capture_page_info as there is no need to override
+it. All of the information is in the layout. The functions that decide whether
+an opportunity has been voted or whether it is a write in can be changed with
+the Extensions class.
+.SUBHEAD "Other classes"
 .PP
-Each implementation will depend upon the location and characteristics
-of the region to be analyzed.
+IStats is a bag of statistics calculated from vote opportunities.
 .PP
-Each implementation should set the ballot instance's layout_code attribute
-to an integer and should then give the value of self.layout_code as its
-return value.  It may also set self.code_string to a text representation
-of the integer.
+VoteData is essentially a named tuple whose fields contain all of the
+information extracted for a single vote oppurtunity. A list of VoteData may be
+written to CSV with the results_to_CSV which returns a generator. To create a
+mosaic use results_to_mosaic, which returns an image.
 .PP
-ValidateLayoutCode, if present, is a method which determines whether
-the layout code is acceptable and returns True if it is or False if 
-it is not.  When it deems a layout code invalid, it must write
-the code and filename to a log file and terminate further processing
-of the ballot.  Typically, an invalid layout code will occur when
-the layout code area of the ballot image is damaged.
-
+Choice is a node in a template representing an individual vote oppurtunity.
 .PP
-GetFront(Back)Layout searches the Ballot class' front(back)_dict 
-dictionary using the layout_code (or code_string) as a key.  
-If a layout is found, it is retrieved as self.front(back)_layout.  
-If not, BuildFront(Back)Layout is called.
+Contest is a node in a template representing the contest that its children
+Choice's belong to.
 .PP
-Layouts are generated in XML format, with a hierarchy of BallotSide, Contest,
-and Oval nodes. (Oval name must change to VoteOp or VOP.)  
+Page is a single page in a ballot. It holds the image data of the ballot, the
+filename the image came from, and the template data.
 .PP
-BallotSide attributes include
-dpi, precinct, lx (landmark x), ly (landmark y) and rot (rotation).
+Template contains the tree of Contest's and Choice's that comprise the layout
+information of a ballot.
 .PP
-Contest attributes include prop (boolean indicating whether this contest
-has human candidates or is a proposition or measure), text indicating the
-title text for the contest, x, y, x2 and y2 indicating a bounding box
-for the contest on the image, and maxv, indicating the maximum number
-of votes allowable in the contest.
+TemplateCache keeps track of Template instances by their layout codes. When
+created it loads all previous templates from disk. To write all the templates
+in the cache to disk call the save method.
 .PP
-Oval attributes include text, indicating the choice text for the oval, x and y 
-indicating the location of the upper left corner of the vote opportunity.
+Template_to_XML and Template_from_XML serialize and deserialize an instance of
+a Template to XML files. These are called internally by TemplateCache.
 .PP
-Once built, layouts are stored in the front(back)_layout_dict dictionaries,
-and are optionally preserved in long-term storage in order to allow them
-to be read back in at the start of any subsequent session.  If layouts
-are preserved, it is important to provide the user an option for clearing
-all preserved layouts.
+IsVoted takes an image, an IStat, and a Choice and returns two booleans. The
+first is whether the image in question contains a vote and the second is
+whether the vote is ambiguous. IsVoted tests the mean intensity and mean
+darkness against a pair of thresholds. It registers a vote if either test
+passes and a vote as ambiguous if the
+two tests give differeng results.
 .PP
-CaptureVoteInfo captures information about regions of the images 
-of the current ballot using the stored template information 
-corresponding to the current ballot's code.  The information is
-stored in self.results as a list of VoteData instances, VoteData 
-being a class acting mostly like a C structure. 
+IsWriteIn takes an image, an IStat and a Choice and determines if an
+oppurtunity is a write in. Currently this is done based on the content of the
+Choice's description field.
 .PP
-If an implementation provides one or more entries in the Ballot class
-variable fine_adjust, each entry is treated as a method which may be
-called on the class instance.  The method is handed x and y coordinates
-believed to represent the current vote opportunity, and the method
-returns updated coordinates which may more accurately reflect the
-vote opportunity.
-for the 
+Extensions is a bag for the various extension objects and functions that a
+Ballot needs to do its processing but need not be tied to a particular kind of
+ballot subtype. The current extension points are:
+.LIST
+.ITEM
+ocr_engine \(em the function to call when an area of image needs to be turned
+into regular text. The default is ocr.tesseract, which fork-execs an instance
+of the Tesseract OCR engine.
+.ITEM
+ocr_cleaner \(em a function to be called on the text returned by ocr_engine to
+remove common textual artifacts of OCR'd text.
+.ITEM
+template_cache \(em the template cache to use. The default is NullCache.
+.ITEM
+IsWriteIn \(em see above
+.ITEM
+IsVoted \(em see above
+.ITEM
+transformer \(em a function to create a transformer object, for translating
+between template and page coordinates.
+.LIST OFF
 .PP
-Sufficient information must be
-stored in each VoteData instance that a subsequent program can
-determine the image file from which the vote opportunity was
-analyzed, the text corresponding to the contest, the text corresponding
-to the choice, the coordinates of the choice, and the relative lightness
-or darkness of the area whose upper left corner is represented by
-the stored coordinates.  Additional information may be stored by
-implementations by subclassing VoteData, which will need to provide 
-functions able to interpret the additional information in their subclass.
-.PP
-WriteVoteInfo takes information from a list of VoteData, and
-converts it to a series of CR-delimited CSV records in a single
-character string, which is returned.  No actual file is written
-by this function, but the returned string may be written to an
-external file to make it persistent.
-.PP
- ValidateLayoutCode to optionally test a given layout code to determine
-if it is acceptable for this election.  A false return can trigger
-an additional call to GetLayoutCode, with added optional arguments
-indicating the number of prior calls to GetLayoutCode for this image,
-the prior layout codes returned, and the reasons for prior rejection(s).
-Different levels of implementation of GetLayoutCode may simply fail
-if ValidateLayoutCode sends back a rejection, or may call upon 
-different strategies for locating an acceptable layout code.
-
-GetFrontLayout and GetBackLayout to retrieve previously stored layout
-information corresponding to a layout code; the layouts must contain
-sufficient information to allow a vote gathering function to locate
-all vote opportunities on the layout and merge statistics from each
-image with jurisdiction/contest/candidate information from the layout.
-
-BuildFrontLayout and BuildBackLayout to construct and store layout
-information for newly encountered layout codes;
-
-FineAdjustVote for taking coordinates provided by the layout, as
-adjusted by translation and rotation of the individual image, and
-returning further adjusted versions of the coordinates that precisely
-line up based on local landmarks.  This function is optional, called if 
-registered, and can be chained in a list.  The function returns None
-if there appears to be a problem in locating the vote target.
-
-CaptureVoteInfo for using layout information to process the ballot
-image and extract vote information;
-
-WriteVoteInfo for writing the extracted vote information to a file and,
-optionally, for calling registered output functions to save vote
-information using alternative mechanisms.
-
+An Extensions object uses these defaults if none are overridden by specifying
+keyword arguments whose keys are the extension points during construction.
 .HEAD "This Can't Work Because..."
 .SUBHEAD "...it will lead to vote buying and extortion."
 .PP
