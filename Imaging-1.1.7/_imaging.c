@@ -936,7 +936,7 @@ gethartlandmarks(Imaging im, int dpi, int need_vops)
   item = Py_BuildValue("(ii)", found_leftline_top,found_topline_left);
   if (!item){
     Py_DECREF(list);
-    return NULL
+    return NULL;
   }
   PyList_Append(list, item);
   item = Py_BuildValue("(ii)", found_rightline_top,found_topline_right);
