@@ -153,7 +153,7 @@ def main():
      # connect to db and open cursor
      try:
          conn = psycopg2.connect(database=const.dbname, user=const.dbpwd)
-     except DatabaseError as e:
+     except psycopg2.DatabaseError as e:
          util.fatal("Could not connect to database")
      cur = conn.cursor()
 
