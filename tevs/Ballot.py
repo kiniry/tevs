@@ -591,32 +591,36 @@ def Template_from_XML(xml):
 
     tag = lambda root, name: root.getElementsByTagName(name)
     def attrs(root, *attrs):
+        get = root.getAttribute
         for attr in attrs:
-            yield root.getAttribute(attr)
+            if type(attr) is tuple:
+                t, a = attr
+                yield t(get(a))
+            else:
+                yield get(attr)
 
     side = tag(doc, "BallotSide")[0]
     dpi, precinct, xoff, yoff, rot = attrs(
         side,
-        "dpi", "precinct", "lx", "ly", "rot"
+        (int, "dpi"), "precinct", (int, "lx"), (int, "ly"), (float, "rot")
     )
     contests = []
 
     for contest in tag(side, "Contest"):
         cur = Contest(*attrs(
             contest,
-            "x", "y", "x2", "y2",
+            (int, "x"), (int, "y"), (int, "x2"), (int, "y2"),
             "prop", "text"
         ))
 
         for choice in tag(contest, "oval"):
             cur.append(Choice(*attrs(
                  choice,
-                 "x", "y", "text"
+                 (int, "x"), (int, "y"), "text"
             )))
 
         contests.append(cur)
 
-    dpi, xoff, yoff, rot = int(dpi), int(xoff), int(yoff), float(rot)
     return Template(dpi, xoff, yoff, rot, precinct, contests)
 
 class TemplateCache(object):

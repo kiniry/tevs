@@ -129,9 +129,9 @@ def tesseract(zone):
 #XXX choice of OCR text cleaner should be config
 _scrub = re.compile(r'[^a-zA-Z0-9_ /]+')
 def clean_ocr_text(text):
-    "remove common ocr artifacts"t
+    "remove common ocr artifacts"
     text = text.strip(
-              )replace("\n",   "/"
+              ).replace("\n",   "/"
               ).replace(",",    "comma"
               ).replace("'",    'squot' #XXX remove these two: make serializers do their own escaping
               ).replace('"',    'dquot'
