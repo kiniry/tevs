@@ -353,7 +353,7 @@ which is located in ~/Imaging-1.1.7
 Although a central GUI will be provided to enable push button operation,
 TEVS subsystems are just scripts that can be run from the command line.
 Scanning is controlled from ~/bin/scanloop.py; counting (or data extraction) from
-~/bin/extraction.py; display from ~/bin/TEVS.py.  The extraction program can be started
+~/bin/main.py; display from ~/bin/TEVS.py.  The extraction program can be started
 as soon as the scanning program has placed some files in ~/bin/unproc; by default,
 the extraction program will exit as soon as the next sequential file 
 is not found.  The display program can be run at any time, but it can only
@@ -363,10 +363,6 @@ which a results file has been written to the ~/data/results directory.
 The display program cannot alter the data in the ~/data/results directory, and
 so nothing you do with the display program will affect the data that has been
 extracted from the images.  
-.PP
-Once the extraction program has processed all image files, ~/bin/summarize.py
-can be run to merge all results and generate totals for the contests and
-candidates.
 .SUBHEAD "Scanning"
 .PP
 "python scanloop.py" runs a GUI which invokes the non-GUI python script

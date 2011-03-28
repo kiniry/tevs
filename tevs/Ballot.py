@@ -1,4 +1,3 @@
-import pdb
 import os
 from xml.dom import minidom
 from xml.parsers.expat import ExpatError
@@ -31,7 +30,7 @@ class Ballot(object): #XXX a better name may be something like BallotAnalyzer
             try:
                 return self.flip(Image.open(fname).convert("RGB"))
             except:
-                util.fatal("Could not open %s", fname)
+                raise BallotException("Could not open %s", fname)
 
         self.pages = []
         def add_page(number, fname):
@@ -548,19 +547,9 @@ class Template(_scannedPage):
 def Template_to_XML(ballot):
     acc = ['<?xml version="1.0"?>\n<BallotSide']
     def attrs(**kw):
-        for name, value in kw.iteritems():
+        for name, value in kw.iteritems(): #TODO change ' < > et al to &ent;
             name, value = str(name), str(value)
-            name = name.replace("'","&apos;")
-            value = value.replace("'","&apos;")
-            name = name.replace('"',"&quot;")
-            value = value.replace('"',"&quot;")
-            name = name.replace("&","&amp;")
-            value = value.replace("&","&amp;")
-            name = name.replace("<","&lt;")
-            value = value.replace("<","&lt;")
-            name = name.replace(">","&gt;")
-            value = value.replace(">","&gt;")
-            acc.extend((" ", str(name), "='", str(value), "'"))
+            acc.extend((" ", name, "='", value, "'"))
     ins = acc.append
 
     attrs(
@@ -598,16 +587,8 @@ def Template_to_XML(ballot):
     return "".join(acc)
 
 def Template_from_XML(xml):
-    doc = None
-    try:
-         if len(xml)<5:
-              print "Length of xml is ",len(xml)
-              doc = None
-         else:
-              doc = minidom.parseString(xml)
-    except ExpatError,e:
-         print e
-         pdb.set_trace()
+    doc = minidom.parseString(xml)
+
     tag = lambda root, name: root.getElementsByTagName(name)
     def attrs(root, *attrs):
         for attr in attrs:
@@ -648,10 +629,7 @@ class TemplateCache(object):
                 rfile = os.path.join(location, file)
                 data = util.readfrom(rfile, "<") #default to text that will not parse
                 try:
-                    print "Calling template from xml with data from",rfile,file,data[:80]
                     tmpl = Template_from_XML(data)
-                    print type(tmpl)
-                    print "[",tmpl,"]"
                 except ExpatError:
                     if data != "<":
                         const.logger.exception("Could not parse " + file)
