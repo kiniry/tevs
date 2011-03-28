@@ -385,7 +385,7 @@ jpgs, and numbering these jpegs as though they had been scanned.
 .SUBHEAD "Counting"
 .PP
 There is no GUI associated with extracting the votes from the 
-images: you simply run the command "python main.py".
+images: you simply run the command "python extraction.py".
 As extraction proceeds, however, you can simultaneously run the 
 command "python TEVS.py" to display the ballots which have been
 scanned and the votes which have been read.
@@ -630,7 +630,12 @@ to compute, save, and return: a rotation (the amount an image has been tilted by
 scanner) and the x and y offsets specifying where the upper left corner of the
 ballot inside the image starts. It may raise a BallotException error if no such
 landmarks have been found. FindLandmarks calls find_landmarks, which must be
-defined in each subclass of Ballot.
+defined in each subclass of Ballot.  A straightforward approach to calculating
+a rotation argument which must be returned is to take landmarks from the
+left and right of the ballot and return the following: (right_y - left_y) 
+divided by (left_x - right_x).  This will be a close enough approximation for
+rotations of up to a few degrees, which should exceed any rotation returned
+from a scanner.
 .PP
 find_landmarks is the per ballot version of FindLandmarks. It is given a Page
 and returns a rotation and x and y offsets. No template information will be

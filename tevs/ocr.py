@@ -124,7 +124,7 @@ def tesseract(zone):
     finally:
         for p in (".tif", ".txt"):
             util.rmf(ft + p)
-    return text
+    return "".join([ c for c in text if ord(c)<128])
 
 #XXX choice of OCR text cleaner should be config
 _scrub = re.compile(r'[^a-zA-Z0-9_ /]+')
