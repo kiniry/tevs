@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import pdb
 import sys
 import os
 import os.path
@@ -8,7 +7,7 @@ import string
 
 import psycopg2
 
-import site; site.addsitedir("/home/mitch/tevs") #XXX
+import site; site.addsitedir(os.path.expanduser("~/tevs")) #XXX
 from PILB import Image, ImageStat, ImageDraw
 
 import const #To be deprecated
@@ -53,11 +52,8 @@ def get_nextnum(numlist):
      else:
          return int(util.readfrom("nexttoprocess.txt", 1))
 
-def insert_ballot(cur, search_key, name1, name2, fake=False):
+def insert_ballot(cur, search_key, name1, name2):
     "insert a ballot into db, returns id"
-    if fake:
-         print "FAKE INSERT BALLOT code_string %s file1 %s file2 %s" % (search_key,name1,name2)
-         return 0
     cur.execute("""INSERT INTO ballots (
 		 processed_at, 
 		 code_string, 
@@ -74,16 +70,10 @@ def insert_ballot(cur, search_key, name1, name2, fake=False):
 
     return ballot_id
 
-def save_voteinfo(cur, ballot_id, voteinfo, fake = False): #XXX needs to be updated
+def save_voteinfo(cur, ballot_id, voteinfo): #XXX needs to be updated
     "write voteinfo to db"
     for vd in voteinfo:
-        if fake:
-             print "INSERT VOTEOP adj_x %d adj_y %d red_int %d" % (
-                  vd.stats.adjusted.x,
-                  vd.stats.adjusted.y,
-                  vd.stats.red.intensity)
-        else:
-             cur.execute(
+        cur.execute(
             """INSERT INTO voteops (
                 ballot_id,
                 contest_text,
@@ -164,15 +154,14 @@ def main():
      try:
          conn = psycopg2.connect(database=const.dbname, user=const.dbpwd)
      except psycopg2.DatabaseError as e:
-         pass
-         #util.fatal("Could not connect to database")
-     cur = None
-     #cur = conn.cursor()
+         util.fatal("Could not connect to database")
+     cur = conn.cursor()
 
      try:
          ballotfrom = Ballot.LoadBallotType(const.layout_brand)
      except KeyError as e:
          util.fatal("No such ballot type: " + const.layout_brand + ": check tevs.cfg")
+
      cache = Ballot.TemplateCache(util.root("templates"))
      extensions = Ballot.Extensions(template_cache=cache)
      
@@ -196,7 +185,7 @@ def main():
 
           if not os.path.exists(name1):#TODO this should all be in a finally
               logger.info(base(name1) + " does not exist. No more records to process")
-              #conn.close()
+              conn.close()
               cache.save()
               sys.exit(0)
 
@@ -229,13 +218,12 @@ def main():
           searchkey = "$".join(p.template.precinct for p in ballot.pages)
           logger.info("processed " + searchkey)
 
-          ballot_id = insert_ballot(cur, searchkey[:14], name1, name2save, fake=True)
+          ballot_id = insert_ballot(cur, searchkey[:14], name1, name2save)
 
-          save_voteinfo(cur, ballot_id, ballot.results,fake=True) #XXX needs to be updated
+          save_voteinfo(cur, ballot_id, ballot.results) #XXX needs to be updated
 
           try:
-             #conn.commit()
-             pass
+              conn.commit()
           except psycopg2.DatabaseError as e:
              util.fatal("Could not commit vote information to database")
 
