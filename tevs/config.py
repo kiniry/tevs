@@ -89,41 +89,17 @@ def get_config():
      const.ballot_dpi = int(bdpi)
      const.dpi = const.ballot_dpi #oops
      const.template_dpi = int(tdpi)
+
      const.layout_brand = config.get("Layout","brand")
      const.on_new_layout = config.get("Mode","on_new_layout")
-     const.proc = config.get("Paths","proc")
-     const.unproc = config.get("Paths","unproc")
-     const.results = config.get("Paths","results")
-     const.writeins = config.get("Paths","writeins")
-     const.boxes_root = config.get("Paths","boxes_root")
 
      save_vops = config.get("Mode","save_vops")
      const.save_vops = save_vops.strip() == "True"
 
      const.root = config.get("Paths", "root")
-     pfs = config.get("Paths","procformatstring")
-     ufs = config.get("Paths","unprocformatstring")
-     rfs = config.get("Paths","resultsformatstring")
-     mfs = config.get("Paths","masksformatstring")
-     templates_path = config.get("Paths","templates")
-     backtemplates_path = config.get("Paths","backtemplates")
-     const.procformatstring = pfs.replace(
-         "thousands","%03d").replace("units","%06d")
-     const.unprocformatstring = ufs.replace(
-         "thousands","%03d").replace("units","%06d") 
-     const.resultsformatstring = rfs.replace(
-         "thousands","%03d").replace("units","%06d")
-     const.masksformatstring = mfs.replace(
-         "thousands","%03d").replace("units","%06d")
-     const.templates_path = templates_path
-     const.backtemplates_path = backtemplates_path
 
      const.dbname = config.get("Database", "name")
      const.dbpwd  = config.get("Database", "password")
 
-     logger.info( "Ballot width in inches %f"%const.ballot_width_inches)
-     logger.info( "Ballot height in inches %f"%const.ballot_height_inches)
-     logger.info( "Voteop width in inches %f"%const.oval_width_inches)
-     logger.info( "Voteop height in inches %f"%const.oval_height_inches)
      return logger
 
