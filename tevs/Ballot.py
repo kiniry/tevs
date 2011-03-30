@@ -535,7 +535,7 @@ class Template(_scannedPage):
     template for similiar pages"""
     def __init__(self, dpi, xoff, yoff, rot, precinct, contests):
         super(Template, self).__init__(dpi, xoff, yoff, rot)
-        self.precinct = precinct
+        self.precinct = precinct #TODO should be barcode
         self.contests = contests
 
     def append(self, contest):
