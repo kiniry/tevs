@@ -1,7 +1,7 @@
 # saguache_ballot.py implements the interface defined (well, suggested)
 # in Ballot.py, in a Saguache/ESS-specific way.
 # The Trachtenberg Election Verification System (TEVS)
-# is copyright 2009,2010 by Mitch Trachtenberg 
+# is copyright 2009, 2010 by Mitch Trachtenberg 
 # and is licensed under the GNU General Public License version 2.
 # (see LICENSE file for details.)
 
@@ -13,11 +13,8 @@ from datetime import datetime
 import logging
 import math
 import os
-import pdb
 import sys
-import subprocess
 import time
-import xml.dom.minidom
 
 from PILB import Image, ImageStat, ImageDraw, ImageFont
 import Ballot
@@ -55,19 +52,11 @@ class SaguacheBallot(Ballot.Ballot):
         self.allowed_corner_black = adj(const.allowed_corner_black_inches)
         super(SaguacheBallot, self).__init__(images, extensions)
 
-    # Extenders do not need to supply even a stub flip
-    # because flip in Ballot.py will print a stub message in the absence
-    # of a subclass implementation
-    #def flip(self, im):
-    #    # not implemented for Saguache
-    #    print "Flip not implemented for Saguache."
-    #    return im
-
     def find_landmarks(self, page):
         """ retrieve landmarks for Saguache images, set tang, xref, yref
 
         Landmarks for the Saguache Ballot will be the 
-        (x,y) pairs at the center of the two upper plus in a circle
+        (x, y) pairs at the center of the two upper plus in a circle
         registration marks.
 
         They are searched for in the upper left and upper right
@@ -86,12 +75,12 @@ class SaguacheBallot(Ballot.Ballot):
                               0,
                               const.dpi,
                               const.dpi))
-        (a,b) = find_plus_target(crop,const.dpi)
+        (a, b) = find_plus_target(crop, const.dpi)
         crop = page.image.crop((page.image.size[0] - const.dpi,
                               0,
                               page.image.size[0],
                               const.dpi))
-        (c,d) = find_plus_target(crop,const.dpi)
+        (c, d) = find_plus_target(crop, const.dpi)
         if a == -1 or b == -1 or c == -1 or d == -1:
             raise Ballot.BallotException("Could not find landmarks")
         # adjust c to ballot coordinates from crop coordinates
@@ -172,7 +161,7 @@ class SaguacheBallot(Ballot.Ballot):
 
 
         page.tm_list = tm_list
-        print "Barcode [%s]" % (barcode,)
+        print "Barcode [%s]" % (barcode, )
         if len(barcode)<2:
             barcode = "BACK"+self.pages[0].barcode
         page.barcode = barcode
@@ -287,7 +276,7 @@ class SaguacheBallot(Ballot.Ballot):
 
         return regionlist
 
-    def build_regions(self,page,tm_list,dpi,stop=True,verbose=False):
+    def build_regions(self, page, tm_list, dpi, stop=True, verbose=False):
         """ Build regions returns a list of Contests found on the page"""
         regionlist = []
         onethird = int(round(dpi/3.))
@@ -305,14 +294,14 @@ class SaguacheBallot(Ballot.Ballot):
             column_width = 2*dpi
         for top_xy in top_columns:
             matched = []
-            ovals = self.column_oval_search(page,top_xy[0])
-            textzones = self.column_textzone_search(page,top_xy[0]+(column_width/2))
+            ovals = self.column_oval_search(page, top_xy[0])
+            textzones = self.column_textzone_search(page, top_xy[0]+(column_width/2))
             ovals.sort()
             textzones.sort()
             zonestart = 0
             zoneend = 0
             for textzone in textzones:
-                #print "Processing textzone at (%d,%d)" % (top_xy[0],textzone)
+                #print "Processing textzone at (%d, %d)" % (top_xy[0], textzone)
                 match =  0
                 # any text beginning from 1/16" above the oval 
                 # to 1/6" below
@@ -328,7 +317,7 @@ class SaguacheBallot(Ballot.Ballot):
                                     zonestart,
                                     top_xy[0]+column_width - dpi/4,
                                     zoneend )
-                        #print "Croplist to output",croplist
+                        #print "Croplist to output", croplist
                         crop = page.image.crop(croplist)
                         
                         # The extensions object offers the ability
@@ -339,7 +328,7 @@ class SaguacheBallot(Ballot.Ballot):
 
                         zonestart = 0
                         zoneend = 0
-                        print "Contest Text: %s" % (text,)
+                        print "Contest Text: %s" % (text, )
                         regionlist.append(
                             Ballot.Contest(top_xy[0],
                                            zonestart,
@@ -351,18 +340,18 @@ class SaguacheBallot(Ballot.Ballot):
                     # get text for ovals only once
                     if match not in matched:
                         #print "-->(not previously matched.)"
-                        croplist = (top_xy[0]+dpi/4,match - (dpi/50),
+                        croplist = (top_xy[0]+dpi/4, match - (dpi/50),
                                     top_xy[0]+column_width - dpi/4, match + (dpi/3))
                         #print croplist
                         crop = page.image.crop(croplist)
                         text = self.extensions.ocr_engine(crop)
                         text = self.extensions.ocr_cleaner(text)
-                        print "Oval (%d,%d): %s" % (top_xy[0],
+                        print "Oval (%d, %d): %s" % (top_xy[0],
                                                     match,
                                                     text.strip())
                         if len(regionlist)>0:
                                 regionlist[-1].append( 
-                                    Ballot.Choice(top_xy[0],match,text)
+                                    Ballot.Choice(top_xy[0], match, text)
                                     )
                         # now enter the just matched oval into a list
                         # of already printed ovals
@@ -376,14 +365,14 @@ class SaguacheBallot(Ballot.Ballot):
                     # there was another dark zone not quite long enough 
                     # to become a text zone
                     zoneend = textzone + (dpi/32) + (dpi/16)
-                    #print "Textzone at y %d is not associated with an oval." % (textzone,)
+                    #print "Textzone at y %d is not associated with an oval." % (textzone, )
         return regionlist
 
     def column_oval_search(self, page, top_x, dpi=300):
         """return list of probable oval y offsets"""
         # ovals will be 1/4" followed by minimum 1/6" horiz guard zone
         # and 1/10" tall followed by minimum 1/10" vertical guard zone
-        print "Column oval search for column w/ top_x = ",top_x
+        print "Column oval search for column w/ top_x = ", top_x
         oval_width = self.oval_size[0]
         oval_height = self.oval_size[1]
 
@@ -392,7 +381,7 @@ class SaguacheBallot(Ballot.Ballot):
         contig = 0
         print top_x
         skip = 0
-        for y in range(page.dpi,image.size[1] - page.dpi,1):
+        for y in range(page.dpi, image.size[1] - page.dpi, 1):
             # skip is set to 1/4" when oval found, 
             # because ovals will be separated at 1/3" minimum
             if skip > 0: 
@@ -417,7 +406,7 @@ class SaguacheBallot(Ballot.Ballot):
                 #  no dark pixel centered approx 1/20" down
                 #  another dark pixel centered approx 1/10" down
                 #  and a dark pixel on either side approx 1/20" down
-                for y2 in range(y+oval_height-2,y+oval_height+2):
+                for y2 in range(y+oval_height-2, y+oval_height+2):
                     croplist2 = (top_x,
                                  y2,
                                  top_x + oval_width,
@@ -425,13 +414,13 @@ class SaguacheBallot(Ballot.Ballot):
                     crop2 = image.crop(croplist2)
                     cropstat2 = ImageStat.Stat(crop2)
                     # croplist three represents the oval center
-                    croplist3 = (top_x+(3*page.dpi/32),y+(oval_height/2),top_x+(5*page.dpi/32),y+(oval_height/2)+1)
+                    croplist3 = (top_x+(3*page.dpi/32), y+(oval_height/2), top_x+(5*page.dpi/32), y+(oval_height/2)+1)
                     crop3 = image.crop(croplist3)
                     cropstat3 = ImageStat.Stat(crop3)
-                    croplist4 = (top_x-(page.dpi/16),y+(oval_height/2),top_x+(page.dpi/16),y+(oval_height/2)+1)
+                    croplist4 = (top_x-(page.dpi/16), y+(oval_height/2), top_x+(page.dpi/16), y+(oval_height/2)+1)
                     crop4 = image.crop(croplist4)
                     cropstat4 = ImageStat.Stat(crop4)
-                    croplist5 = (top_x-((3*page.dpi)/16),y+(oval_height/2),top_x+((5*page.dpi)/16),y+(oval_height/2)+1)
+                    croplist5 = (top_x-((3*page.dpi)/16), y+(oval_height/2), top_x+((5*page.dpi)/16), y+(oval_height/2)+1)
                     crop5 = image.crop(croplist5)
                     cropstat5 = ImageStat.Stat(crop5)
                     # cropstat3 must not have dark pixels
@@ -449,12 +438,12 @@ class SaguacheBallot(Ballot.Ballot):
             if possible:
 
                 # to right of oval from oval top for 18/100" down
-                croplist1 = (top_x+(5*page.dpi/16),y,top_x+((6*page.dpi)/16),y+((18*page.dpi)/100))
+                croplist1 = (top_x+(5*page.dpi/16), y, top_x+((6*page.dpi)/16), y+((18*page.dpi)/100))
                 crop1 = image.crop(croplist1)
                 cropstat1 = ImageStat.Stat(crop1)
                 # beneath oval for 1/10" from oval start for 1/3" horiz
-                croplist2 = (top_x,y+((12*page.dpi)/100),
-                             top_x + (page.dpi/3),y+((18*page.dpi/100)))
+                croplist2 = (top_x, y+((12*page.dpi)/100),
+                             top_x + (page.dpi/3), y+((18*page.dpi/100)))
                 crop2 = image.crop(croplist2)
                 cropstat2 = ImageStat.Stat(crop2)
                 # if no dark pixel in guard zone, this is very likely an oval
@@ -465,17 +454,17 @@ class SaguacheBallot(Ballot.Ballot):
                     skip = page.dpi/4
                     changelist.append(y)
 
-        #print "Ovalstarts",changelist
+        #print "Ovalstarts", changelist
         return changelist
 
     def column_textzone_search(self, page, top_x):
-        print "Column textzone search for column w/ center x = ",top_x
+        print "Column textzone search for column w/ center x = ", top_x
         textzones = []
         contig = 0
         dpi = page.dpi
         image = page.image
         #skip = 0
-        for y in range(dpi,image.size[1] - dpi,1):
+        for y in range(dpi, image.size[1] - dpi, 1):
             #if skip>0:
             #    skip -= 1
             #    continue
@@ -495,16 +484,16 @@ class SaguacheBallot(Ballot.Ballot):
                     contig += 1
             else:
                 contig = 0
-        #print "Textzones start",textzones
+        #print "Textzones start", textzones
         return textzones
 
 
 
-def find_plus_target(image,dpi=300,
+def find_plus_target(image, dpi=300,
                      full_span_inches=0.18,
                      line_width_inches=0.01,
                      circle_radius_inches=0.03):
-    """return ulc of the center of first "+" target in the image, or -1,-1"""
+    """return ulc of the center of first "+" target in the image, or -1, -1"""
     full_span_pixels = int(round(full_span_inches * dpi))
     line_width_pixels = int(round(line_width_inches * dpi))
     circle_radius_pixels = int(round(circle_radius_inches * dpi))
@@ -519,14 +508,14 @@ def find_plus_target(image,dpi=300,
     # at full span width less 2 pixels
     # If pass, all situation is likely; optionally check further;
     # possibly for white black white seq of one or more quadrants
-    for y in range(0,image.size[1]-full_span_pixels):
+    for y in range(0, image.size[1]-full_span_pixels):
         for x in range(circle_radius_pixels, image.size[0]-circle_radius_pixels):
-            if (image.getpixel((x,y))[0] < 128 
-                and image.getpixel((x-1,y))[0]>=128 
-                and image.getpixel((x+(2*line_width_pixels),y))[0]>=128):
-                if ((image.getpixel((x,y+full_span_pixels-2))[0]<128
-                    or image.getpixel((x+1,y+full_span_pixels-2))[0]<128
-                    or image.getpixel((x-1,y+full_span_pixels-2))[0]<128)
+            if (image.getpixel((x, y))[0] < 128 
+                and image.getpixel((x-1, y))[0]>=128 
+                and image.getpixel((x+(2*line_width_pixels), y))[0]>=128):
+                if ((image.getpixel((x, y+full_span_pixels-2))[0]<128
+                    or image.getpixel((x+1, y+full_span_pixels-2))[0]<128
+                    or image.getpixel((x-1, y+full_span_pixels-2))[0]<128)
                     and (image.getpixel((x+(2*line_width_pixels),
                                          y+full_span_pixels - 2))[0]>=128)):
                     try:
@@ -548,12 +537,12 @@ def find_plus_target(image,dpi=300,
                                                 y + (full_span_pixels/5)))
                             whitestat2 = ImageStat.Stat(white2)
                             if whitestat1.mean[0]>224 and whitestat2.mean[0]>224:
-                                return (x,y+(full_span_pixels/2))
+                                return (x, y+(full_span_pixels/2))
                     except:
                         pass
-    return (-1,-1)
+    return (-1, -1)
                     
-def timing_marks(image,x,y,backup,dpi):
+def timing_marks(image, x, y, backup, dpi):
     """locate timing marks and code, starting from ulc + symbol"""
     # go out from + towards left edge by 1/8", whichever is closer
     # down from + target to first dark, then left to first white
@@ -572,9 +561,9 @@ def timing_marks(image,x,y,backup,dpi):
     blacks_above = 0
     blacks_below = 0
     for search_inc in range(sixth):
-        if image.getpixel((search_x,initial_y + search_inc))[0]<128:
+        if image.getpixel((search_x, initial_y + search_inc))[0]<128:
             blacks_below += 1
-        if image.getpixel((search_x,initial_y - search_inc))[0]<128:
+        if image.getpixel((search_x, initial_y - search_inc))[0]<128:
             blacks_above += 1
     final_y = initial_y + ((blacks_below-blacks_above)/2)
     top_y = initial_y - blacks_above
@@ -583,7 +572,7 @@ def timing_marks(image,x,y,backup,dpi):
     misses = 0
     for search_inc in range(dpi):
         if search_x > search_inc:
-            if image.getpixel((search_x-search_inc,final_y))[0]<128:
+            if image.getpixel((search_x-search_inc, final_y))[0]<128:
                 blacks_behind += 1
                 misses = 0
             else:
@@ -594,48 +583,48 @@ def timing_marks(image,x,y,backup,dpi):
     misses = 0
     for search_inc in range(dpi):
         if search_x > search_inc:
-            if image.getpixel((search_x+search_inc,final_y))[0]<128:
+            if image.getpixel((search_x+search_inc, final_y))[0]<128:
                 blacks_ahead += 1
                 misses = 0
             else:
                 misses += 1
             if misses > 1:
                 break
-    #print "At y =",final_y,"width is",blacks_behind+blacks_ahead
+    #print "At y =", final_y, "width is", blacks_behind+blacks_ahead
     left_x = search_x - blacks_behind
-    #print "ULC = (",search_x - blacks_behind,top_y,")"
+    #print "ULC = (", search_x - blacks_behind, top_y, ")"
     retlist.append( (search_x - blacks_behind, top_y) )
     # now go down 1/2" and find next ulc, checking for drift
     top_y += half
     code_string = ""
     zero_block_count = 0
     while True:
-        (left_x,top_y) = adjust_ulc(image,left_x,top_y)
+        (left_x, top_y) = adjust_ulc(image, left_x, top_y)
         if left_x == -1: break
         # check for large or small block to side of timing mark
         if backup > 0:
             # dealing with a left side, proper orientation; get block 
-            block = block_type(image,dpi/4,left_x+half,top_y+twelfth)
+            block = block_type(image, dpi/4, left_x+half, top_y+twelfth)
         else:
             block=0
         if block==0: 
             zero_block_count += 1
         elif block==1:
-            code_string = "%s%dA" % (code_string,zero_block_count)
+            code_string = "%s%dA" % (code_string, zero_block_count)
             zero_block_count = 0
         elif block==2:
-            code_string = "%s%dB" % (code_string,zero_block_count)
+            code_string = "%s%dB" % (code_string, zero_block_count)
             zero_block_count = 0
             
-        retlist.append((left_x,top_y))
+        retlist.append((left_x, top_y))
         # now go down repeated 1/3" and find next ulc's until miss
         top_y += third
     # try finding the last at 1/2" top to top
     left_x = retlist[-1][0]
     top_y = retlist[-1][1]
     top_y += half
-    (left_x,top_y) = adjust_ulc(image,left_x,top_y)
-    retlist.append((left_x,top_y))
+    (left_x, top_y) = adjust_ulc(image, left_x, top_y)
+    retlist.append((left_x, top_y))
     
     return (code_string, retlist)
     # get length of first block; 3/4" signals left, 1/4" signals right
@@ -646,11 +635,11 @@ def timing_marks(image,x,y,backup,dpi):
     # at v-center of each timing mark, search out horizontally for length
     # for existence and length of additional block
 
-def block_type(image,pixtocheck,x,y):
+def block_type(image, pixtocheck, x, y):
     """check line for quarter inch and return pct below 128 intensity"""
     intensity = 0
-    for testx in range(x,x+pixtocheck):
-        intensity += image.getpixel((testx,y))[0]
+    for testx in range(x, x+pixtocheck):
+        intensity += image.getpixel((testx, y))[0]
     intensity = intensity/pixtocheck
     if intensity > 192:
         retval = 0
@@ -661,23 +650,23 @@ def block_type(image,pixtocheck,x,y):
     return retval
 
 
-def adjust_ulc(image,left_x,top_y):
+def adjust_ulc(image, left_x, top_y):
     target_intensity = 255
     max_adjust = 5
     while max_adjust > 0 and target_intensity > 128:
         max_adjust -= 1
-        left_target_intensity = image.getpixel((left_x-2,top_y))[0]
-        target_intensity = image.getpixel((left_x,top_y))[0]
-        right_target_intensity = image.getpixel((left_x+2,top_y))[0]
-        above_target_intensity = image.getpixel((left_x,top_y-2))[0]
-        above_right_target_intensity = image.getpixel((left_x+2,top_y-2))[0]
-        above_left_target_intensity = image.getpixel((left_x-2,top_y-2))[0]
-        below_target_intensity = image.getpixel((left_x,top_y+2))[0]
-        below_left_target_intensity = image.getpixel((left_x-2,top_y+2))[0]
-        below_right_target_intensity = image.getpixel((left_x+2,top_y+2))[0]
-        #print above_left_target_intensity,above_target_intensity,above_right_target_intensity
-        #print left_target_intensity,target_intensity,right_target_intensity
-        #print below_left_target_intensity,below_target_intensity,below_right_target_intensity
+        left_target_intensity = image.getpixel((left_x-2, top_y))[0]
+        target_intensity = image.getpixel((left_x, top_y))[0]
+        right_target_intensity = image.getpixel((left_x+2, top_y))[0]
+        above_target_intensity = image.getpixel((left_x, top_y-2))[0]
+        above_right_target_intensity = image.getpixel((left_x+2, top_y-2))[0]
+        above_left_target_intensity = image.getpixel((left_x-2, top_y-2))[0]
+        below_target_intensity = image.getpixel((left_x, top_y+2))[0]
+        below_left_target_intensity = image.getpixel((left_x-2, top_y+2))[0]
+        below_right_target_intensity = image.getpixel((left_x+2, top_y+2))[0]
+        #print above_left_target_intensity, above_target_intensity, above_right_target_intensity
+        #print left_target_intensity, target_intensity, right_target_intensity
+        #print below_left_target_intensity, below_target_intensity, below_right_target_intensity
         if below_target_intensity > 64 and target_intensity > 64:
             left_x += 2
         elif below_left_target_intensity <= 127:
@@ -687,10 +676,10 @@ def adjust_ulc(image,left_x,top_y):
         elif above_right_target_intensity <= 127:
             top_y -= 2
     if max_adjust == 0: 
-        return(-1,-1)
-    return (left_x,top_y)
+        return(-1, -1)
+    return (left_x, top_y)
 
-def column_markers(image,tm_marker,dpi,min_runlength_inches=.2,zonelength_inches=.25):
+def column_markers(image, tm_marker, dpi, min_runlength_inches=.2, zonelength_inches=.25):
     """given timing marks, find column x offsets"""
     columns = []
     top_y = tm_marker[1]
@@ -713,24 +702,24 @@ def column_markers(image,tm_marker,dpi,min_runlength_inches=.2,zonelength_inches
         endx = image.size[0]-dpi
         incrementx = 1
         
-    for x in range(startx,endx,incrementx):
+    for x in range(startx, endx, incrementx):
         # if we lose the line,
-        if image.getpixel((x,top_y))[0]>64:
+        if image.getpixel((x, top_y))[0]>64:
             # go up or down looking for black pixel
-            if image.getpixel((x,top_y-1))[0]<image.getpixel((x,top_y+1))[0]:
+            if image.getpixel((x, top_y-1))[0]<image.getpixel((x, top_y+1))[0]:
                 top_y -= 1
             else:
                 top_y += 1
-        if image.getpixel((x,top_y+twelfth))[0] < 128:
+        if image.getpixel((x, top_y+twelfth))[0] < 128:
             black_runlength += 1
             if black_runlength >= min_runlength:
                 if run_backwards:
                     # instead of subtracting min_runlength
                     # subtract true_pixel_width_of_votezone
                     # to establish actual minimum x of votezone
-                    columns.append((x+min_runlength-true_pixel_width_of_votezone,top_y))
+                    columns.append((x+min_runlength-true_pixel_width_of_votezone, top_y))
                 else:
-                    columns.append((x-black_runlength,top_y))
+                    columns.append((x-black_runlength, top_y))
                 black_runlength = 0
                 black_run_misses = 0
         else:
