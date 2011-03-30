@@ -1,12 +1,12 @@
 from PIL import Image
 
 #thresholds for colors
-low_bin = 64
-med_bin = 128
-hi_bin  = 192
+lowest_bin = chr(64)
+low_bin = chr(128)
+high_bin  = chr(192)
 
 def cropstats(im, x, y):
-    data = im.getdata()
+    data = im.load()
     columns = im.size[0]
     rows = im.size[1]
     tot = [0, 0, 0]
@@ -17,37 +17,36 @@ def cropstats(im, x, y):
     highest = [0, 0, 0]
     interior_dark = 0
 
-    n = 0
+    rl = rows/3
+    rh = (2*rows)/3
+    cl = columns/3
+    ch = (2*columns)/3
     for r in range(rows):
         for c in range(columns):
-            datum = data[n]
+            datum = data[c, r]
             for color in range(3):
-                tot[color] += datum[color]
-                if datum[color] < low_bin:
+                dc = datum[color]
+                tot[color] += dc
+                if dc < lowest_bin:
                     lowest[color] += 1
-                elif datum[color] < med_bin:
+                elif dc < low_bin:
                     low[color] += 1
-                elif datum[color] < hi_bin:
+                elif dc < high_bin:
                     high[color] += 1
-                else: # highest ( <255 )
-                    highest[color] += 1
-                if ((r > rows/3) and (r < (2*rows)/3) 
-                     and (c > columns/3) and (c < (2*columns)/3)
-                     ):
-                    if datum[color] < hi_bin:
+                    if all(r > rl, r < rh, c > cl, c < ch):
                         interior_dark += 1
-            n += 1
+                else: #highest_bin
+                    highest[color] +=1
 
-    #n = rows*columns
-    for color in range(3):
-        avg[color] = float(tot[color])/n
+    rc = float(rows * columns)
+    #for color in range(3):
+    #    avg[color] = tot[color] / rc
 
     # return the information, for now, as cropstats in PILB;
     # later, put in Istats form
     retlist = []
-    colorname = ("red", "green", "blue")
     for color in range(3):
-        retlist.append(avg[color])
+        retlist.append(tot[color] / rc)
         retlist.append(lowest[color])
         retlist.append(low[color])
         retlist.append(high[color])
