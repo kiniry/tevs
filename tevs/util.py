@@ -4,9 +4,8 @@ import errno
 import const
 
 def root(*dir):
-    "convert a dir to a root relative path"
-    dir = (const.root,) + dir
-    return os.path.join(*dir)
+    "convert a data dir to a root relative path"
+    return os.path.join(const.root, *dir)
 
 def fatal(msg, *p):
     "log fatal messages and exit"
