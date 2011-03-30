@@ -1,248 +1,147 @@
 #!/usr/bin/env python
 import sys
 import os
-import os.path
 import errno
 import string
 
-import psycopg2
-
 import site; site.addsitedir(os.path.expanduser("~/tevs")) #XXX
-from PILB import Image, ImageStat, ImageDraw
+from PILB import Image, ImageStat, ImageDraw #XXX only here so we break
 
 import const #To be deprecated
 import config
-
 import util
+import db
+import next
 import Ballot
 BallotException = Ballot.BallotException
 
-def build_dirs(n):
-     """create any necessary new directories using paths from tevs.cfg"""
-     # generate filenames using the new image number(s)
-     # create additional subdirectories as needed 
-     # in proc, results, masks directories
-     name1 = const.unprocformatstring % (n/1000, n)
-     name2 = const.unprocformatstring % ((n+1)/1000, n+1)
-     procname1 = const.procformatstring % (n/1000, n)
-     procname2 = const.procformatstring % ((n+1)/1000, n+1)
-     resultsfilename = const.resultsformatstring % (n/1000, n)
-     masksfilename1 = const.masksformatstring % (n/1000, n)
-     masksfilename2 = const.masksformatstring % ((n+1)/1000, n+1)
-     for item in (name1,
-                  name2,
-                  procname1,
-                  procname2,
-                  resultsfilename, 
-                  masksfilename1,
-                  masksfilename2):
-          util.mkdirp(os.path.dirname(item))
-     return name1, name2, procname1, procname2, resultsfilename
-
-def save_nextnum(n):
-     """Save number in nexttoprocess.txt"""
-     n += 2
-     util.writeto("nexttoprocess.txt", str(n))
-     return n
-
-def get_nextnum(numlist):
-     """get next number for processing from list or persistent file"""
-     if len(numlist) > 0:
-          n, numlist = numlist[0], numlist[1:]
-     else:
-         return int(util.readfrom("nexttoprocess.txt", 1))
-
-def insert_ballot(cur, search_key, name1, name2):
-    "insert a ballot into db, returns id"
-    cur.execute("""INSERT INTO ballots (
-		 processed_at, 
-		 code_string, 
-		 file1, file2) 
-		 VALUES (now(), %s, %s, %s) RETURNING ballot_id ;""",
-	      (search_key, name1, name2)
-	      )
-    sql_ret = cur.fetchall()
-
+def remove_partial(fname):
     try:
-        ballot_id = int(sql_ret[0][0])
-    except ValueError as e:
-        util.fatal("Corrupt ballot_id")
+        os.unlink(fname)
+    except KeyboardInterrupt:
+        raise
+    except Exception: #bad form but we really don't care
+        pass
 
-    return ballot_id
+def dirn(dir, n): # where dir is the "unrooted" name
+    return util.root(dir, "%03d" % (n/1000,))
 
-def save_voteinfo(cur, ballot_id, voteinfo): #XXX needs to be updated
-    "write voteinfo to db"
-    for vd in voteinfo:
-        cur.execute(
-            """INSERT INTO voteops (
-                ballot_id,
-                contest_text,
-                choice_text,
-
-                original_x,
-                original_y,
-                adjusted_x,
-                adjusted_y,
-
-                red_mean_intensity,
-                red_darkest_pixels,
-                red_darkish_pixels,
-                red_lightish_pixels,
-                red_lightest_pixels,
-
-                green_mean_intensity,
-                green_darkest_pixels,
-                green_darkish_pixels,
-                green_lightish_pixels,
-                green_lightest_pixels,
-
-                blue_mean_intensity,
-                blue_darkest_pixels,
-                blue_darkish_pixels,
-                blue_lightish_pixels,
-                blue_lightest_pixels,
-
-                was_voted
-            ) VALUES (
-                %s, %s, %s,  
-                %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, 
-                %s, %s, %s, %s, %s, 
-                %s, %s, %s, %s, %s, 
-                %s
-            )""",
-            (
-                ballot_id,
-                vd.contest[:80],
-                vd.choice[:80],
-
-                vd.coords[0],
-                vd.coords[1],
-                vd.stats.adjusted.x,
-                vd.stats.adjusted.y, 
-
-                vd.stats.red.intensity,
-                vd.stats.red.darkest_fourth,
-                vd.stats.red.second_fourth,
-                vd.stats.red.third_fourth,
-                vd.stats.red.lightest_fourth,
-
-                vd.stats.green.intensity,
-                vd.stats.green.darkest_fourth,
-                vd.stats.green.second_fourth,
-                vd.stats.green.third_fourth,
-                vd.stats.green.lightest_fourth,
-
-                vd.stats.blue.intensity,
-                vd.stats.blue.darkest_fourth,
-                vd.stats.blue.second_fourth,
-                vd.stats.blue.third_fourth,
-                vd.stats.blue.lightest_fourth,
-
-                vd.was_voted
-            )
-        )
+def filen(dir, n): #where dir is from dirn
+    return os.path.join(dir, "%06d" % n)
 
 def main():
-     # get command line arguments
-     config.get_args()
+    # get command line arguments
+    config.get_args()
 
-     # read configuration from tevs.cfg and set constants for this run
-     logger = config.get_config()
+    # read configuration from tevs.cfg and set constants for this run
+    logger = config.get_config()
 
-     # connect to db and open cursor
-     try:
-         conn = psycopg2.connect(database=const.dbname, user=const.dbpwd)
-     except psycopg2.DatabaseError as e:
-         util.fatal("Could not connect to database")
-     cur = conn.cursor()
+    #create initial top level dirs, if they do not exist
+    for p in ("templates", "results", "proc", "unproc"):
+        util.mkdirp(util.root(p))
 
-     try:
-         ballotfrom = Ballot.LoadBallotType(const.layout_brand)
-     except KeyError as e:
-         util.fatal("No such ballot type: " + const.layout_brand + ": check tevs.cfg")
+    #XXX nexttoprocess.txt belongs under data root?
+    next_ballot = next.File("nexttoprocess.txt", 2)
 
-     cache = Ballot.TemplateCache(util.root("templates"))
-     extensions = Ballot.Extensions(template_cache=cache)
-     
-     numlist = []
-     try:
-          with open("numlist.txt", "r") as f:
-              numlist = [int(line) for line in f]
-     except IOError:
-          pass #no numlist.txt
-     except ValueError as e:
-          util.fatal("Malformed numlist.txt")
+    # connect to db and open cursor
+    try:
+        dbc = db.PostgresDB(const.dbname, const.dbpwd)
+    except db.DatabaseError:
+        util.fatal("Could not connect to database")
 
-     base = os.path.basename
-     # While ballot images exist in the directory specified in tevs.cfg,
-     # create ballot from images, get landmarks, get layout code, get votes.
-     # Write votes to database and results directory.  Repeat.
-     while True:
-          #Preprocessing
-          n = get_nextnum(numlist)
-          name1, name2, procname1, procname2, resultsfilename = build_dirs(n)
+    try:
+        ballotfrom = Ballot.LoadBallotType(const.layout_brand)
+    except KeyError as e:
+        util.fatal("No such ballot type: " + const.layout_brand + ": check tevs.cfg")
 
-          if not os.path.exists(name1):#TODO this should all be in a finally
-              logger.info(base(name1) + " does not exist. No more records to process")
-              conn.close()
-              cache.save()
-              sys.exit(0)
+    cache = Ballot.TemplateCache(util.root("templates"))
+    extensions = Ballot.Extensions(template_cache=cache)
+   
+    base = os.path.basename
+    # While ballot images exist in the directory specified in tevs.cfg,
+    # create ballot from images, get landmarks, get layout code, get votes.
+    # Write votes to database and results directory.  Repeat.
+    try:
+        for n in next_ballot:
+            unproc1 = filen(dirn("unproc", n), n) + ".jpg"
+            unproc2 = filen(dirn("unproc", n + 1), n + 1) + ".jpg"
+            if not os.path.exists(unproc1):
+                logger.info(base(unproc1) + " does not exist. No more records to process")
+                break
+            if not os.path.exists(unproc2):
+                logger.info(base(unproc2) + " does not exist.")
+                logger.info("Warning: " + base(unproc1) + 
+                    " will not be processed. Quitting.")
+                break
 
-          #Processing
+            #Processing
 
-          logger.info("Processing: %s: %s & %s" % (n, base(name1), base(name2)))
+            logger.info("Processing: %s: %s & %s" % 
+                (n, base(unproc1), base(unproc2))
+            )
 
-          names = [name1, name2]
-          name2save = name2
-          if not os.path.exists(name2):
-              names = name1
-              name2save = "<No such file>"
-          try:
-              ballot = ballotfrom(names, extensions)
-              results = ballot.ProcessPages()
-          except BallotException as e:
-              util.fatal("Could not analyze ballot")
+            names = [unproc1, unproc2]
+            unproc2save = unproc2
+            if not os.path.exists(unproc2):
+                names = unproc1
+                unproc2save = "<No such file>"
+            try:
+                ballot = ballotfrom(names, extensions)
+                results = ballot.ProcessPages()
+            except BallotException as e:
+                util.fatal("Could not analyze ballot")
 
-          csv = Ballot.results_to_CSV(results)
-          moz = Ballot.results_to_mosaic(results)
+            csv = Ballot.results_to_CSV(results)
+            moz = Ballot.results_to_mosaic(results)
 
-          #Write all data
-          try:
-              moz.save(resultsfilename.replace("txt", "jpg")) #XXX should add to config file
-          except Exception as e: #TODO what exceptions does boximage.save throw?
-              util.fatal("Could not write vote boxes to disk")
+            #Write all data
 
-          util.genwriteto(resultsfilename, csv)
+            #make dirs:
+            proc1d = dirn("proc", n)
+            proc2d = dirn("proc", n + 1)
+            resultsd = dirn("results", n)
+            for p in (proc1d, proc2d, resultsd):
+                util.mkdirp(p)
 
-          searchkey = "$".join(p.template.precinct for p in ballot.pages)
-          logger.info("processed " + searchkey)
+            #write csv and mosaic
+            resultsfilename = filen(resultsd, n)
+            util.genwriteto(resultsfilename + ".txt", csv)
+            try:
+                moz.save(resultsfilename + ".jpg")
+            except Exception as e: #TODO what exceptions does boximage.save throw?
+                #do not let partial results give us a false sense of security
+                remove_partial(resultsfilename + ".txt")
+                util.fatal("Could not write vote boxes to disk")
 
-          ballot_id = insert_ballot(cur, searchkey[:14], name1, name2save)
+            #write to the database
+            try:
+                dbc.insert(ballot)
+            except db.DatabaseError:
+                remove_partial(results_filename + ".txt")
+                remove_partial(results_filename + ".jpg")
+                util.fatal("Could not commit vote information to database")
 
-          save_voteinfo(cur, ballot_id, ballot.results) #XXX needs to be updated
+            #Post-processing
 
-          try:
-              conn.commit()
-          except psycopg2.DatabaseError as e:
-             util.fatal("Could not commit vote information to database")
+            # move the images from unproc to proc
+            proc1 = filen(proc1d, n) + ".jpg"
+            proc2 = filen(proc2d, n + 1) + ".jpg"
+            try:
+                os.rename(unproc1, proc1)
+            except OSError as e:
+                util.fatal("Could not rename %s", unproc1)
 
-          #Post-processing
-
-          # move the images from unproc to proc
-          try:
-               os.rename(name1, procname1)
-          except OSError as e:
-               util.fatal("Could not rename %s", name1)
-
-          try:
-               if os.path.exists(name2): #in case ballot isn't 2 sided
-                   os.rename(name2, procname2)
-          except OSError as e:
-               util.fatal("Could not rename %s", name2)
-
-          #All processing and post processsing succesful, record
-          n = save_nextnum(n) #XXX should really only write to disk once at end
+            try:
+                os.rename(unproc2, proc2)
+            except OSError as e:
+                util.fatal("Could not rename %s", unproc2)
+    finally:
+        cache.save()
+        dbc.close()
+        next_ballot.save()
 
 if __name__ == "__main__":
     main()
+    #import cProfile as profile
+    #profile.Profile.bias = 3.15e-6
+    #profile.run('main()', 'prof.%s' % sys.argv[1])
