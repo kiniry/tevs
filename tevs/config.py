@@ -4,6 +4,15 @@ import logging
 import const
 import sys
 
+def yesno(cfg, grp, itm):
+    so = cfg.get(grp, itm)
+    s = so.strip().lower()
+    if s in "yes y true t".split():
+        return True
+    if s in "no n false f".split():
+        return False
+    raise ValueError("% is not a valid choice for %s in %s" % (so, grp, itm))
+
 def get_args():
      """Get command line arguments"""
      try:
@@ -53,24 +62,24 @@ def get_config():
      const.logger = logger
 
      # then both log and print other config info for this run
-     bwi = config.get("Sizes","ballot_width_inches")
-     bhi = config.get("Sizes","ballot_height_inches")
-     owi = config.get("Sizes","oval_width_inches")
-     ohi = config.get("Sizes","oval_height_inches")
-     cthoi = config.get("Sizes","candidate_text_horiz_offset_inches")
-     vthoi = config.get("Sizes","vote_target_horiz_offset_inches")
-     cwi = config.get("Sizes","candidate_text_width_inches")
-     chi = config.get("Sizes","candidate_text_height_inches")
-     mchi = config.get("Sizes","minimum_contest_height_inches")
-     acbi = config.get("Sizes","allowed_corner_black_inches")
-     allowed_tangent = config.get("Sizes","allowed_tangent")
+     bwi = config.get("Sizes", "ballot_width_inches")
+     bhi = config.get("Sizes", "ballot_height_inches")
+     owi = config.get("Sizes", "oval_width_inches")
+     ohi = config.get("Sizes", "oval_height_inches")
+     cthoi = config.get("Sizes", "candidate_text_horiz_offset_inches")
+     vthoi = config.get("Sizes", "vote_target_horiz_offset_inches")
+     cwi = config.get("Sizes", "candidate_text_width_inches")
+     chi = config.get("Sizes", "candidate_text_height_inches")
+     mchi = config.get("Sizes", "minimum_contest_height_inches")
+     acbi = config.get("Sizes", "allowed_corner_black_inches")
+     allowed_tangent = config.get("Sizes", "allowed_tangent")
 
-     vit = config.get("Votes","vote_intensity_threshold")
-     dpt = config.get("Votes","dark_pixel_threshold")
-     pit = config.get("Votes","problem_intensity_threshold")
+     vit = config.get("Votes", "vote_intensity_threshold")
+     dpt = config.get("Votes", "dark_pixel_threshold")
+     pit = config.get("Votes", "problem_intensity_threshold")
 
-     tdpi = config.get("Scanner","template_dpi")
-     bdpi = config.get("Scanner","ballot_dpi")
+     tdpi = config.get("Scanner", "template_dpi")
+     bdpi = config.get("Scanner", "ballot_dpi")
 
      const.ballot_width_inches = float(bwi)
      const.ballot_height_inches = float(bhi)
@@ -90,15 +99,14 @@ def get_config():
      const.dpi = const.ballot_dpi #oops
      const.template_dpi = int(tdpi)
 
-     const.layout_brand = config.get("Layout","brand")
-     const.on_new_layout = config.get("Mode","on_new_layout")
+     const.layout_brand = config.get("Layout", "brand")
+     const.on_new_layout = config.get("Mode", "on_new_layout")
 
-     save_vops = config.get("Mode","save_vops")
-     const.save_vops = save_vops.lower().strip() == "true"
+     const.save_vops = yesno(config, "Mode", "save_vops")
 
      const.root = config.get("Paths", "root")
 
-     const.use_db = config.get("Database", "use_db").lower().strip() == "true"
+     const.use_db = yesno(config, "Database", "use_db")
      const.dbname = config.get("Database", "name")
      const.dbpwd  = config.get("Database", "password")
 
