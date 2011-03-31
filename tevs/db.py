@@ -20,6 +20,7 @@ class PostgresDB(object):
             self.conn.close()
         except DatabaseError: 
             pass
+
     def insert(self, ballot):
         #NB all db queries are decalred as strings after the method body for
         #clarity
@@ -42,42 +43,48 @@ class PostgresDB(object):
         try:
             ballot_id = int(sql_ret[0][0])
         except ValueError as e:
+            self.conn.rollback()
             raise DatabaseError("Corrupt ballot_id")
 
         # write each result into our record
 
         for vd in ballot.results:
-            cur.execute(_pg_ins, (
-                    ballot_id,
-                    vd.contest[:80],
-                    vd.choice[:80],
+            try:
+                cur.execute(_pg_ins, (
+                        ballot_id,
+                        vd.contest[:80],
+                        vd.choice[:80],
 
-                    vd.coords[0],
-                    vd.coords[1],
-                    vd.stats.adjusted.x,
-                    vd.stats.adjusted.y, 
+                        vd.coords[0],
+                        vd.coords[1],
+                        vd.stats.adjusted.x,
+                        vd.stats.adjusted.y, 
 
-                    vd.stats.red.intensity,
-                    vd.stats.red.darkest_fourth,
-                    vd.stats.red.second_fourth,
-                    vd.stats.red.third_fourth,
-                    vd.stats.red.lightest_fourth,
+                        vd.stats.red.intensity,
+                        vd.stats.red.darkest_fourth,
+                        vd.stats.red.second_fourth,
+                        vd.stats.red.third_fourth,
+                        vd.stats.red.lightest_fourth,
 
-                    vd.stats.green.intensity,
-                    vd.stats.green.darkest_fourth,
-                    vd.stats.green.second_fourth,
-                    vd.stats.green.third_fourth,
-                    vd.stats.green.lightest_fourth,
+                        vd.stats.green.intensity,
+                        vd.stats.green.darkest_fourth,
+                        vd.stats.green.second_fourth,
+                        vd.stats.green.third_fourth,
+                        vd.stats.green.lightest_fourth,
 
-                    vd.stats.blue.intensity,
-                    vd.stats.blue.darkest_fourth,
-                    vd.stats.blue.second_fourth,
-                    vd.stats.blue.third_fourth,
-                    vd.stats.blue.lightest_fourth,
+                        vd.stats.blue.intensity,
+                        vd.stats.blue.darkest_fourth,
+                        vd.stats.blue.second_fourth,
+                        vd.stats.blue.third_fourth,
+                        vd.stats.blue.lightest_fourth,
 
-                    vd.was_voted
+                        vd.was_voted
+                    )
                 )
-            )
+            except:
+                self.conn.rollback()
+                raise
+
 
         self.conn.commit()
 
