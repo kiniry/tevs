@@ -9,13 +9,6 @@
 Code for determining votes from 
 ES&S ballots from Saguache County, Colorado
 """
-from datetime import datetime
-import logging
-import math
-import os
-import sys
-import time
-
 from PILB import Image, ImageStat, ImageDraw, ImageFont
 import Ballot
 import const
