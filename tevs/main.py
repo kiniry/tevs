@@ -38,6 +38,7 @@ def mark_error(*files):
             shutil.copy2(file, util.root("errors", os.path.basename(file)))
         except IOError:
             util.fatal("Could not copy unprocessable file to errors dir")
+    return len(files)
 
 def main():
     # get command line arguments
@@ -70,6 +71,7 @@ def main():
     else:
         dbc = db.NullDB()
 
+    total_proc, total_unproc = 0, 0
     base = os.path.basename
     # While ballot images exist in the directory specified in tevs.cfg,
     # create ballot from images, get landmarks, get layout code, get votes.
@@ -82,7 +84,7 @@ def main():
                 logger.info(base(unproc1) + " does not exist. No more records to process")
                 break
             if not os.path.exists(unproc2):
-                mark_error(unproc1)
+                total_unproc += mark_error(unproc1)
                 logger.info(base(unproc2) + " does not exist.")
                 break
 
@@ -97,7 +99,7 @@ def main():
                 ballot = ballotfrom(names, extensions)
                 results = ballot.ProcessPages()
             except BallotException as e:
-                mark_errors(*names)
+                total_unproc += mark_error(*names)
                 logger.exception("Could not process %s and %s" % names)
                 continue
 
@@ -147,10 +149,13 @@ def main():
                 os.rename(unproc2, proc2)
             except OSError as e:
                 util.fatal("Could not rename %s", unproc2)
+            total_proc += 2
     finally:
         cache.save()
         dbc.close()
         next_ballot.save()
+        print total_proc, "ballots processed."
+        print total_unproc, "ballots could NOT be processed."
 
 if __name__ == "__main__":
     main()
