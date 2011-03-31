@@ -43,12 +43,6 @@ def main():
     #XXX nexttoprocess.txt belongs under data root?
     next_ballot = next.File("nexttoprocess.txt", 2)
 
-    # connect to db and open cursor
-    try:
-        dbc = db.PostgresDB(const.dbname, const.dbpwd)
-    except db.DatabaseError:
-        util.fatal("Could not connect to database")
-
     try:
         ballotfrom = Ballot.LoadBallotType(const.layout_brand)
     except KeyError as e:
@@ -57,6 +51,15 @@ def main():
     cache = Ballot.TemplateCache(util.root("templates"))
     extensions = Ballot.Extensions(template_cache=cache)
    
+    # connect to db and open cursor
+    if const.use_db:
+        try:
+            dbc = db.PostgresDB(const.dbname, const.dbpwd)
+        except db.DatabaseError:
+            util.fatal("Could not connect to database")
+    else:
+        dbc = db.NullDB()
+
     base = os.path.basename
     # While ballot images exist in the directory specified in tevs.cfg,
     # create ballot from images, get landmarks, get layout code, get votes.
