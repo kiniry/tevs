@@ -94,10 +94,11 @@ def get_config():
      const.on_new_layout = config.get("Mode","on_new_layout")
 
      save_vops = config.get("Mode","save_vops")
-     const.save_vops = save_vops.strip() == "True"
+     const.save_vops = save_vops.lower().strip() == "true"
 
      const.root = config.get("Paths", "root")
 
+     const.use_db = config.get("Database", "use_db").lower().strip() == "true"
      const.dbname = config.get("Database", "name")
      const.dbpwd  = config.get("Database", "password")
 
