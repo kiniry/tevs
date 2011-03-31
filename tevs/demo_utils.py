@@ -72,3 +72,14 @@ def YesNo(inp):
     if inp in ("no", "n"):
         return False
     raise ValueError()
+
+class Enum(object):
+    def __init__(self, *a):
+        self.items = a
+    def valid_range(self):
+        return ", ".join(self.items)
+    def __call__(self, v):
+        if v not in self.items:
+            raise ValueError(v + " not in " + self.valid_range())
+        return v
+
