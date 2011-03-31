@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import sys
 import os
+import shutil
 import errno
 import string
 
@@ -29,6 +30,15 @@ def dirn(dir, n): # where dir is the "unrooted" name
 def filen(dir, n): #where dir is from dirn
     return os.path.join(dir, "%06d" % n)
 
+
+def mark_error(*files):
+    for file in files:
+        const.logger.error("Could not process ballot " + file)
+        try:
+            shutil.copy2(file, util.root("errors", os.path.basename(file)))
+        except IOError:
+            util.fatal("Could not copy unprocessable file to errors dir")
+
 def main():
     # get command line arguments
     config.get_args()
@@ -37,7 +47,7 @@ def main():
     logger = config.get_config()
 
     #create initial top level dirs, if they do not exist
-    for p in ("templates", "results", "proc", "unproc"):
+    for p in ("templates", "results", "proc", "unproc", "errors"):
         util.mkdirp(util.root(p))
 
     #XXX nexttoprocess.txt belongs under data root?
@@ -72,9 +82,8 @@ def main():
                 logger.info(base(unproc1) + " does not exist. No more records to process")
                 break
             if not os.path.exists(unproc2):
+                mark_error(unproc1)
                 logger.info(base(unproc2) + " does not exist.")
-                logger.info("Warning: " + base(unproc1) + 
-                    " will not be processed. Quitting.")
                 break
 
             #Processing
@@ -83,16 +92,14 @@ def main():
                 (n, base(unproc1), base(unproc2))
             )
 
-            names = [unproc1, unproc2]
-            unproc2save = unproc2
-            if not os.path.exists(unproc2):
-                names = unproc1
-                unproc2save = "<No such file>"
+            names = (unproc1, unproc2)
             try:
                 ballot = ballotfrom(names, extensions)
                 results = ballot.ProcessPages()
             except BallotException as e:
-                util.fatal("Could not analyze ballot")
+                mark_errors(*names)
+                logger.exception("Could not process %s and %s" % names)
+                continue
 
             csv = Ballot.results_to_CSV(results)
             moz = Ballot.results_to_mosaic(results)
@@ -120,6 +127,8 @@ def main():
             try:
                 dbc.insert(ballot)
             except db.DatabaseError:
+                #dbc does not commit if there is an error, just need to remove 
+                #partial files
                 remove_partial(results_filename + ".txt")
                 remove_partial(results_filename + ".jpg")
                 util.fatal("Could not commit vote information to database")
