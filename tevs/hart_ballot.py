@@ -13,9 +13,9 @@ import time
 from PILB import Image, ImageStat
 import Ballot
 import const
-import util
 from ocr import ocr
-from adjust import rotator
+
+from cropstats import cropstats
 
 class HartBallot(Ballot.Ballot):
     """Class representing ballots from Hart Intersystems.
@@ -25,7 +25,6 @@ class HartBallot(Ballot.Ballot):
     """
 
     brand = "Hart"
-    transformer = rotator
 
     def __init__(self, images, extensions):
         #convert all our constants to locally correct values
@@ -192,23 +191,36 @@ class HartBallot(Ballot.Ballot):
         #XXX end move into transformer (which should now just take a page obj)
 
         ow, oh = self.oval_size
-        stats = Ballot.IStats(page.image.cropstats(
-            const.dpi,
-            self.vote_target_horiz_offset, #XXX is this the only part that can't be pulled out of this specific ballot kind?!
-            x, y,
-            ow, oh,
-            1
-        ))
+        #stats = Ballot.IStats(page.image.cropstats(
+        #    const.dpi,
+        #    self.vote_target_horiz_offset, #XXX is this the only part that can't be pulled out of this specific ballot kind?!
+        #    x, y,
+        #    ow, oh,
+        #    1
+        #))
 
         #can be in separate func?
-        cropx = stats.adjusted.x
-        cropy = stats.adjusted.y
+        #cropx = stats.adjusted.x
+        #cropy = stats.adjusted.y
+        #crop = page.image.crop((
+        #    cropx - margin,
+        #    cropy - margin,
+        #    cropx + margin + ow, 
+        #    cropy + margin + oh
+        #))
+
+
+        # Below is using the pure python cropstats:
+        cropx, cropy = x, y
         crop = page.image.crop((
-            cropx - margin,
-            cropy - margin,
-            cropx + margin + ow, 
-            cropy + margin + oh
+            x - margin,
+            y - margin,
+            x + margin + ow,
+            y + margin + oh
         ))
+        stats = Ballot.IStats(cropstats(crop, x, y))
+        # end pure python cropstats
+
 
         #can be in separate func?
         voted, ambiguous = self.extensions.IsVoted(crop, stats, choice)

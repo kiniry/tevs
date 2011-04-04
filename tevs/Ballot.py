@@ -86,6 +86,7 @@ class Ballot(object): #XXX a better name may be something like BallotAnalyzer
             page.template = tmpl
             return tmpl
 
+        #TODO derotate image before trying to build layout. bilinear
         contests = self.build_layout(page)
         if len(contests) == 0:
             raise BallotException('No layout was built')
@@ -486,7 +487,7 @@ class Choice(Region):
          return "\n\t".join(str(p) for p in self.__dict__.iteritems())
 
 class Contest(Region): #XXX prop is weird, what do we do with it?
-     def __init__(self, x, y, w, h, prop, description):
+     def __init__(self, x, y, w, h, prop, description): #XXX rename w, h -> x2, y2
          super(Contest, self).__init__(x, y, description)
          self.w = w
          self.h = h

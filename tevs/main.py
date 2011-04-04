@@ -52,7 +52,7 @@ def main():
         util.mkdirp(util.root(p))
 
     #XXX nexttoprocess.txt belongs under data root?
-    next_ballot = next.File("nexttoprocess.txt", 2)
+    next_ballot = next.File("nexttoprocess.txt", const.num_pages)
 
     try:
         ballotfrom = Ballot.LoadBallotType(const.layout_brand)
@@ -78,11 +78,19 @@ def main():
     # Write votes to database and results directory.  Repeat.
     try:
         for n in next_ballot:
+            unprocs = [filen(dirn("unproc", n + m), n + m) + ".jpg" 
+                        for m in range(const.num_pages)]
             unproc1 = filen(dirn("unproc", n), n) + ".jpg"
             unproc2 = filen(dirn("unproc", n + 1), n + 1) + ".jpg"
-            if not os.path.exists(unproc1):
-                logger.info(base(unproc1) + " does not exist. No more records to process")
+            #do this for each
+            if not os.path.exists(unprocs[0]):
+                logger.info(base(unprocs[0]) + " does not exist. No more records to process")
                 break
+            for i, f in enumerate(unprocs[1:]):
+                if not os.path.exists(f):
+                    #mark all i-1 and report
+                    #halt
+
             if not os.path.exists(unproc2):
                 total_unproc += mark_error(unproc1)
                 logger.info(base(unproc2) + " does not exist.")

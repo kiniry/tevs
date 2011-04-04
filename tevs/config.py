@@ -101,6 +101,7 @@ def get_config():
      const.dpi = const.ballot_dpi #oops
      const.template_dpi = int(tdpi)
 
+     const.num_pages = int(config.get("images_per_ballot"))
      const.layout_brand = config.get("Layout", "brand")
      const.on_new_layout = config.get("Mode", "on_new_layout")
 
