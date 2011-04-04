@@ -47,6 +47,10 @@ def get_config():
 
     path = lambda v: os.path.expanduser(config.get("Paths", v))
     const.root = path("root")
+    try:
+        const.incoming = path("incoming")
+    except ConfigParser.NoOptionError:
+        const.incoming = os.path.join(const.root, "unproc")
 
     # first, get log file name so log can be opened
     const.logfilename = os.path.join(const.root, "log.txt")

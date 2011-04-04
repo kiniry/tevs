@@ -24,8 +24,14 @@ def remove_partial(fname):
     except Exception: #bad form but we really don't care
         pass
 
+def _fn(n):
+    return "%03d" % (n/1000,)
+
+def incomingn(n):
+    return filen(os.path.join(const.incoming, _fn(n)), n) + ".jpg"
+
 def dirn(dir, n): # where dir is the "unrooted" name
-    return util.root(dir, "%03d" % (n/1000,))
+    return util.root(dir, _fn(n))
 
 def filen(dir, n): #where dir is from dirn
     return os.path.join(dir, "%06d" % n)
@@ -48,10 +54,9 @@ def main():
     logger = config.get_config()
 
     #create initial top level dirs, if they do not exist
-    for p in ("templates", "results", "proc", "unproc", "errors"):
+    for p in ("templates", "results", "proc", "errors"):
         util.mkdirp(util.root(p))
 
-    #XXX nexttoprocess.txt belongs under data root?
     next_ballot = next.File(util.root("nexttoprocess.txt"), const.num_pages)
 
     try:
@@ -78,8 +83,7 @@ def main():
     # Write votes to database and results directory.  Repeat.
     try:
         for n in next_ballot:
-            unprocs = [filen(dirn("unproc", n + m), n + m) + ".jpg" 
-                        for m in range(const.num_pages)]
+            unprocs = [incomingn(n + m) for m in range(const.num_pages)]
             if not os.path.exists(unprocs[0]):
                 logger.info(base(unprocs[0]) + " does not exist. No more records to process")
                 break

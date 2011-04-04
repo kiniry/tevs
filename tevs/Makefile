@@ -1,4 +1,5 @@
 ROOT=~/data
+INCOMING=~/data/unproc
 
 all: reset run
 
@@ -6,7 +7,7 @@ run: reset
 	@./main.py
 
 reset: clean
-	@cp -r ${ROOT}/proc/* ~/data/unproc 2>/dev/null || true
+	@cp -r ${ROOT}/proc/* ${INCOMING} 2>/dev/null || true
 	@rm -rf ${ROOT}/proc/*
 	@rm -rf ${ROOT}/errors/*
 	@cat ${ROOT}/log.txt >>${ROOT}/log.old 2>/dev/null || true
