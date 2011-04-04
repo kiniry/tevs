@@ -14,7 +14,7 @@ def yesno(cfg, grp, itm):
     raise ValueError("% is not a valid choice for %s in %s" % (so, grp, itm))
 
 
-def get_config(cfg_file):
+def get_config(cfg_file="tevs.cfg"):
     config = ConfigParser.ConfigParser()
     config.read(cfg_file)
 
