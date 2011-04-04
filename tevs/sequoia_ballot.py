@@ -12,20 +12,29 @@ from PILB import Image,ImageStat
 from demo_utils import *
 import pdb
 import ocr
-
+from cropstats import cropstats
+block_zone_upper_y = 0.4
+block_zone_lower_y = 1.1
+block_zone_width = 0.8
+minimum_repeats = 0.05
+v_offset_to_dash_center = 0.03
+column1_offset = 2.95
+column2_offset = 5.95
 
 def get_offsets_and_tangent_from_blocks(im,dpi,dash_sep_in_pixels):
     """ locate marks at top left, right of image"""
-    croptop = int(round(0.4 * dpi))
-    cropbottom = int(round(1.1 * dpi))
+    iround = lambda x: int(round(x))
+    adj = lambda f: int(round(const.dpi * f))
+    croptop = adj(block_zone_upper_y )
+    cropbottom = adj(block_zone_lower_y)
     leftstart = 0
-    leftend = int(round(0.8 * dpi))
-    rightstart = im.size[0] - int(round(0.8*dpi))
+    leftend = adj(block_zone_width)
+    rightstart = im.size[0] - adj(block_zone_width)
     rightend = im.size[0] - 1
     vertical_dist_top_dashes = dash_sep_in_pixels
-    vertical_dist_block_dashes = int(round(dpi * .17))
-    
-    leftstart, croptop, leftend, cropbottom = int(round(leftstart)), int(round(croptop)), int(round(leftend)), int(round(cropbottom))
+    vertical_dist_block_dashes = iround(dpi * .17)
+    scanoffset1 = 0.1
+
     leftcrop = im.crop((leftstart,croptop,leftend,cropbottom))
     rightcrop = im.crop((rightstart,croptop,rightend,cropbottom))
     # scan down left 1/3 of leftcrop 
@@ -34,7 +43,7 @@ def get_offsets_and_tangent_from_blocks(im,dpi,dash_sep_in_pixels):
     contig = 0
     leftstarty = 0
     rightstarty = 0
-    scanx = int(round(dpi*.1))
+    scanx = adj(scanoffset1)
     for n in range(dpi/2):
         pix1 = leftcrop.getpixel((0+scanx,n))
         pix2 = leftcrop.getpixel((0+scanx*2,n))
@@ -42,14 +51,14 @@ def get_offsets_and_tangent_from_blocks(im,dpi,dash_sep_in_pixels):
         pix4 = leftcrop.getpixel((0+scanx*2,n+vertical_dist_top_dashes))
         if (pix1[0]<128 or pix2[0]<128)and (pix3[0]<128 or pix4[0]<128):
             contig = contig + 1
-            if contig > (dpi * 0.05):
-                leftstarty = n - (dpi * 0.05)
+            if contig > adj(minimum_repeats):
+                leftstarty = n - adj(minimum_repeats)
                 break
         else:
             contig = 0
     contig = 0
-    scanx1 = rightcrop.size[0] - int(round(dpi*.1)) 
-    scanx2 = rightcrop.size[0] - int(round(dpi*.3))
+    scanx1 = rightcrop.size[0] - adj(scanoffset1) 
+    scanx2 = rightcrop.size[0] - adj(3*scanoffset1)
     for n in range(dpi/2):
         pix1 = rightcrop.getpixel((scanx1,n))
         pix2 = rightcrop.getpixel((scanx2,n))
@@ -57,55 +66,64 @@ def get_offsets_and_tangent_from_blocks(im,dpi,dash_sep_in_pixels):
         pix4 = rightcrop.getpixel((scanx2,n+vertical_dist_top_dashes))
         if (pix1[0]<128 or pix2[0]<128) and (pix1[0]<128 or pix2[0]<128):
             contig = contig + 1
-            if contig > (dpi * 0.05):
-                rightstarty = n - (dpi * 0.05)
+            if contig > adj(minimum_repeats):
+                rightstarty = n - adj(minimum_repeats)
                 break
         else:
             contig = 0
-    leftdashcentery = leftstarty + (0.03 * dpi)
-    rightdashcentery = rightstarty + (0.03 * dpi)
-    leftdashcentery, rightdashcentery = int(round(leftdashcentery)),int(round(rightdashcentery))
+    leftdashcentery = leftstarty + adj(v_offset_to_dash_center)
+    rightdashcentery = rightstarty + adj(v_offset_to_dash_center)
+
     # now go leftward from scanx
     # along the center of the top dash until white or off edge
     leftstartx = 0
-    scanx = int(0.2 * dpi)
+    scanx = adj(0.2)
     for n in range(scanx):
         pix = leftcrop.getpixel(((scanx - n),
                                  leftdashcentery+ vertical_dist_top_dashes))
         if pix[0]>128:
             leftstartx = scanx - n
             break
-    scanx = int(0.3 * dpi)
+    scanx = adj(0.3)
     return( leftstartx,
             leftstarty+croptop,
             rightstart,
             rightstarty+croptop,
-            (rightstarty-leftstarty)/(im.size[0]-(0.6*dpi)))        
+            (rightstarty-leftstarty)/(im.size[0]-adj(0.6)))        
 
 def get_code_from_blocks(im,dpi,leftstartx,leftstarty,rightstartx,rightstarty,tilt):
     """read dash blocks at top left,right of image and return encoded int"""
-    leftstartx = int(round(leftstartx))
-    leftstarty = int(round(leftstarty))
-    rightstartx = int(round(rightstartx))
-    rightstarty = int(round(rightstarty))
+    iround = lambda x: int(round(x))
+    adj = lambda f: int(round(const.dpi * f))
+    leftstartx = iround(leftstartx)
+    leftstarty = iround(leftstarty)
+    rightstartx = iround(rightstartx)
+    rightstarty = iround(rightstarty)
     leftcrop = im.crop(
         (leftstartx,
          leftstarty,
-         int(round(leftstartx+(dpi*0.8))),
-         int(round(leftstarty+(2*dpi)))))
+         leftstartx+adj(0.8),
+         leftstarty+adj(2)
+         )
+        )
 
     rightcrop = im.crop(
         (rightstartx,
          rightstarty,
          im.size[0]-1,
-         int(rightstarty+(2*dpi))))
+         rightstarty+adj(2)
+         )
+        )
+
+    leftdashcentery = adj(v_offset_to_dash_center)
+    rightdashcentery = adj(v_offset_to_dash_center)
     leftdashcentery = (0.03 * dpi)
     rightdashcentery = (0.03 * dpi)
-    leftdashcentery, rightdashcentery = int(round(leftdashcentery)),int(round(rightdashcentery))
+
     # now go leftward from scanx
     # along the center of the top dash until white or off edge
     leftstartx = 0
-    scanx = int(round(dpi*0.4))
+    scanx = adj(0.4)
     for n in range(scanx):
         pix = leftcrop.getpixel(((scanx - n),leftdashcentery))
         if pix[0]>128:
@@ -121,8 +139,8 @@ def get_code_from_blocks(im,dpi,leftstartx,leftstarty,rightstartx,rightstarty,ti
     accum = 0
     for n in range(1,9):
         accum = accum * 2
-        testspot = ((int(round(0.3 * dpi)),
-                     int(round(.045 * dpi) + (n * 0.17 * dpi))))
+        testspot = ((adj(0.3),
+                     adj(.045) + adj(n * 0.17)))
 
         pix = leftcrop.getpixel(testspot)
         if pix[0]<128:
@@ -130,8 +148,8 @@ def get_code_from_blocks(im,dpi,leftstartx,leftstarty,rightstartx,rightstarty,ti
 
     for n in range(1,9):
         accum = accum * 2
-        testspot = (int(round(rightstartx + (0.3 * dpi))),
-                    int(round((.045 * dpi) + (n * 0.17 * dpi))))
+        testspot = (rightstartx + adj(0.3),
+                    adj(.045) + (n * adj(0.17)))
 
         pix = rightcrop.getpixel(testspot)
         if pix[0]<128:
@@ -147,24 +165,22 @@ def build_template(im,dpi,code,xoff,yoff,tilt,front=True):
     # first set will be at just under 3" to right of xoff
     # next set will be at 6" to right of xoff.  
     # Both sets will be at least 0.08" tall after 0.1 inches.
+    iround = lambda x: int(round(x))
+    adj = lambda f: int(round(const.dpi * f))
     regionlist = []
     n = 0
-    for x in (xoff+int(2.95*dpi),xoff+int(6.*dpi)):
+    for x in (xoff+adj(column1_offset),xoff+adj(column2_offset)):
         # skip the code block if you're on a front
         if n==0 and front:
             starty = int(yoff + int(1.5*dpi))
         else:
             starty = int(yoff - 1)
         adjx,adjy = x,starty # XXX assuming ballot derotated by here
-        #print "Starty initially",starty,"adjxy",adjx,adjy
         # turn search on only when 0.6" of thick black line encountered
-        #adjx = int(adjx)
-        #adjy = int(adjy)
-        
         contig = 0
         for y in range(adjy,im.size[1]):
             all_black_line = True
-            for x2 in range(int(adjx+(dpi*0.1)),int(adjx+(dpi*0.5))):
+            for x2 in range(int(adjx+adj(0.1)),int(adjx+adj(0.5))):
                 pix = im.getpixel((x2,y))
                 if pix[0]>128:
                     all_black_line = False
@@ -173,55 +189,64 @@ def build_template(im,dpi,code,xoff,yoff,tilt,front=True):
                 contig = contig + 1
             else:
                 contig = 0
-            if contig > (0.05 * dpi):
+            if contig > adj(0.05):
                 if n==0:starty = y
                 break
-        if n==0:starty = starty + int(0.2 * dpi)
+        if n==0:starty = starty + adj(0.2)
         # starty is now 0.2 inches below the first 0.6" dash of first column; 
         # arrows may be encountered from here until the column's height less
         # less 1.1 inches
         contig = 0
-        searchx1 = x + int(0.15 * dpi)
-        searchx2 = x + int(0.55 * dpi)
-        #print "Starty",starty
+        # search at .15 inches in for first half of arrow
+        searchx1 = x + adj(0.15)
+        # search at .55 inches in for second half of arrow
+        searchx2 = x + adj(0.55)
+
         skip = 0
         contest_x = 0
         contest_y = 0
-        for y in range(int(starty),int(im.size[1]-(dpi*1.2))):
+        # stop looking for arrows at 1.2 inches up from the bottom 
+        for y in range(int(starty),int(im.size[1]-adj(1.2))):
             if skip > 0:
                 skip = skip - 1
                 continue
             pix1 = im.getpixel((searchx1,y))
             pix2 = im.getpixel((searchx2,y))
+            # look for .05 vertical inches of dark
+            # in vertical strips that contain left
+            # and right halves of arrow
             if pix1[0]<128 and pix2[0]<128:
                 contig = contig + 1
-                if contig > (dpi * 0.05):
+                if contig > adj(0.05):
                     # this is an arrow
                     ll_x,ll_y = ((x,y))
 
                     if ll_x > (im.size[0] - 5):
                         ll_x = (im.size[0] - 5)
-                    if ll_y > (im.size[1] - (dpi/2)):
-                        ll_y = (im.size[1] - (dpi/2))
-                    if ll_x < int(2.5*dpi):
-                        ll_x = int(2.5*dpi)
-                    if ll_y < int(dpi/2):
-                        ll_y = int(dpi/2)
+                    if ll_y > (im.size[1] - adj(0.5)):
+                        ll_y = (im.size[1] - adj(0.5))
+                    if ll_x < adj(2.5):
+                        ll_x = adj(2.5)
+                    if ll_y < adj(0.5):
+                        ll_y = adj(0.5)
                     text,contest_text,contest_loc = get_text_for_arrow_at(im,ll_x,ll_y-contig-(0.04*dpi),const.dpi)
                     pdb.set_trace()
                     print text,contest_text,contest_loc
-                    # new contest location? append contest, store new location
+                    # new contest location? append contest, store contest size
                     if ((contest_x != contest_loc[0]) 
                         and contest_y != contest_loc[1]):
-                        regionlist.append(Ballot.Contest(contest_x,contest_y,199,5*const.dpi,0,contest_text))
+                        regionlist.append(Ballot.Contest(contest_x,contest_y,199,adj(5),0,contest_text))
                         contest_x = contest_loc[0]
                         contest_y = contest_loc[1]
+                    else:
+                        # update the bottom of the contest's bounding box
+                        regionlist[-1].h = ll_y + adj(0.2)
                     regionlist[-1].append(Ballot.Choice(ll_x, ll_y, text))
                     
 
                     # skip past arrow
                     #y = y + (0.2 * dpi)
-                    skip = (dpi * 0.2)
+                    skip = adj(0.2)
                     # reset contig
                     contig = 0
     print regionlist
@@ -231,6 +256,8 @@ def build_template(im,dpi,code,xoff,yoff,tilt,front=True):
 def get_text_for_arrow_at(im,x,y,global_dpi):
     """use tesseract to retrieve text corresponding to left of arrow"""
     # find center of arrow
+    iround = lambda x: int(round(x))
+    adj = lambda f: int(round(const.dpi * f))
     fortieth = int(global_dpi/40.)
     topline = int(y - fortieth)
     bottomline = int(y + int(global_dpi * .22))
@@ -261,7 +288,7 @@ def get_text_for_arrow_at(im,x,y,global_dpi):
     topline += 1
     # need to back up to beginning of column, now using 2.25 inches
     crop_x = x - (global_dpi*2.25)
-    crop_x = int(round(crop_x))
+    crop_x = iround(crop_x)
     if crop_x<0:crop_x = 0
 
     if topline < 0: topline = 0
@@ -276,6 +303,7 @@ def get_text_for_arrow_at(im,x,y,global_dpi):
                     int(x),
                     int(bottomline)))
     text = ocr.tesseract(crop)
+    choice_topline = int(topline)
     # now repeat process but going up until thicker black; 
     # that will be the top of the contest
     contig = 0
@@ -295,7 +323,7 @@ def get_text_for_arrow_at(im,x,y,global_dpi):
     contest_croplist = (int(crop_x),
                         int(topline),
                         int(x),
-                        int(topline + ( (2*global_dpi)/3 ) ) 
+                        int(choice_topline ) 
                         )
     crop = im.crop(contest_croplist)
     contest_text = ocr.tesseract(crop)
@@ -355,7 +383,9 @@ class SequoiaBallot(Ballot.Ballot):
         so it may be taken into account when future images are
         examined.
         """
-        dash_sep_in_pixels = int(round(const.dpi * 0.17))
+        iround = lambda x: int(round(x))
+        adj = lambda f: int(round(const.dpi * f))
+        dash_sep_in_pixels = adj(0.17)
         (a,b,c,d,tilt) = get_offsets_and_tangent_from_blocks(
             page.image,
             const.dpi,
@@ -413,11 +443,13 @@ class SequoiaBallot(Ballot.Ballot):
         it is usually a series of dashes or a bar code at a particular
         location on the ballot.
         """
+        iround = lambda x: int(round(x))
+        adj = lambda f: int(round(const.dpi * f))
         barcode = get_code_from_blocks(page.image,
                                        const.dpi,
                                        page.xoff,
                                        page.yoff,
-                                       page.image.size[0] - int(round(const.dpi * 0.8)),
+                                       page.image.size[0] - iround(const.dpi * 0.8),
                                        page.yoff,0) # XXX use rotation to recalc?
         # If this is a back page, need different arguments
         # to timing marks call; so have failure on front test
@@ -431,10 +463,11 @@ class SequoiaBallot(Ballot.Ballot):
         """Extract a single oval, or writein box, from the specified ballot.
         We'll tell you the coordinates, you tell us the stats
         """
+        iround = lambda x: int(round(x))
+        adj = lambda f: int(round(const.dpi * f))
         x, y = choice.coords()
         x = int(x)
         y = int(y)
-        iround = lambda x: int(round(x))
         margin = iround(.03 * const.dpi)
 
         #XXX BEGIN move into transformer
@@ -446,37 +479,19 @@ class SequoiaBallot(Ballot.Ballot):
         #XXX end move into transformer (which should now just take a page obj)
 
         ow, oh = self.oval_size
-        print """At %d dpi, on a scale of 0 to 255, 
-tell us the average intensity from (%d, %d) for width %d height %d, 
-given an offset from the specified x of %d
-""" % (const.dpi, x, y, ow, oh, self.vote_target_horiz_offset)
-        intensity = ask("Intensity", IntIn(0, 255))
-        lowest = ask("Lowest count", IntIn(0, 1000))
-        low = ask("Low count", IntIn(0, 1000))
-        high = ask("High count", IntIn(0, 1000))
-        highest = ask("Highest count", IntIn(0, 1000))
-        suspicious = ask("Value of suspicious", int)
-        ari, agi, abi  = intensity, intensity, intensity
-        lowestr, lowestg, lowestb = lowest, lowest, lowest
-        lowr, lowg, lowb = low, low, low
-        highestr, highestg, highestb = highest, highest, highest
-        highr, highg, highb = high, high, high
-        stats = Ballot.IStats(
-(ari, lowestr, lowr, highr, highestr,
-agi, lowestg, lowg, highg, highestg,
-abi, lowestb, lowb, highb, highestb, x, y, 0)
-        )
-
         #can be in separate func?
-        cropx = stats.adjusted.x
-        cropy = stats.adjusted.y
-        crop = page.image.crop((
-            cropx - margin,
+        cropx = x
+        cropy = y
+        cropy -= adj(.1)
+        croplist = (
+            cropx + self.vote_target_horiz_offset - margin ,
             cropy - margin,
-            cropx + margin + ow, 
+            cropx + self.vote_target_horiz_offset + margin + ow, 
             cropy + margin + oh
-        ))
-
+        )
+        crop = page.image.crop(croplist)
+        cropstat = ImageStat.Stat(crop)
+        stats = Ballot.IStats(cropstats(crop,cropx,cropy))
         #can be in separate func?
         
         voted, ambiguous = self.extensions.IsVoted(crop, stats, choice)
