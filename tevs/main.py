@@ -13,6 +13,8 @@ import util
 import db
 import next
 import Ballot
+
+
 BallotException = Ballot.BallotException
 
 def remove_partial(fname):
@@ -60,6 +62,7 @@ def main():
     else:
         dbc = db.NullDB()
 
+
     base = os.path.basename
     # While ballot images exist in the directory specified in tevs.cfg,
     # create ballot from images, get landmarks, get layout code, get votes.
@@ -73,9 +76,8 @@ def main():
                 break
             if not os.path.exists(unproc2):
                 logger.info(base(unproc2) + " does not exist.")
-                logger.info("Warning: " + base(unproc1) + 
-                    " will not be processed. Quitting.")
-                break
+                logger.info("Warning: " + base(unproc2) + 
+                    " will not be processed. Single sided.")
 
             #Processing
 
@@ -135,7 +137,8 @@ def main():
                 util.fatal("Could not rename %s", unproc1)
 
             try:
-                os.rename(unproc2, proc2)
+                if unproc2save != "<No such file>":
+                    os.rename(unproc2, proc2)
             except OSError as e:
                 util.fatal("Could not rename %s", unproc2)
     finally:
