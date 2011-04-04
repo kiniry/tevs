@@ -9,14 +9,17 @@
 # Mitch Trachtenberg / PO Box 1352 / Trinidad, CA 95570
 # mjtrac@gmail.com
 
-# TEVS.py is the graphical user interface and entry point for TEVS
+# show_ballots.py is the graphical user interface for viewing results
 # Search "version" below for version number.
 
 # 1) get zoom info from slider to resize drawing areas
 # 2) remove start/end/now and replace with image>
+import os
+import site; site.addsitedir(os.path.expanduser("~/tevs"))
 import const
-import ConfigParser
+import config
 import exceptions
+import getopt
 import logging
 import pygtk
 pygtk.require('2.0')
@@ -24,7 +27,6 @@ import gobject
 import gtk
 
 import pdb
-import os
 import subprocess
 import time
 from PIL import Image, ImageDraw, ImageFont
@@ -109,6 +111,36 @@ def testFunc(filenum,filename):
    print retval
    return retval
 """
+def get_args():
+    """Get command line arguments"""
+    try:
+        opts, args = getopt.getopt(sys.argv[1:],
+                                    "tdc:",
+                                    ["templates",
+                                     "debug",
+                                     "config="
+                                    ]
+                                   ) 
+    except getopt.GetoptError:
+        sys.stderr.write(
+            "usage: %s -tdc --templates --debug --config=file" % sys.argv[0]
+        )
+        sys.exit(2)
+    templates_only = False
+    debug = False
+    config = "tevs.cfg"
+    for opt, arg in opts:
+        if opt in ("-t", "--templates"):
+            templates_only = True
+        if opt in ("-d", "--debug"):
+            debug = True
+        if opt in ("-c", "--config"):
+            config = arg
+
+    const.templates_only = templates_only
+    const.debug = debug
+    return config
+
 
 def import_code(code):
     import imp
@@ -1845,43 +1877,23 @@ def on_delete_event(widget, event):
 
 if __name__ == '__main__':
     # read configuration from tevs.cfg and set constants for this run
-    config = ConfigParser.ConfigParser()
-    config.read("tevs.cfg")
+    cfg_file = get_args()
+
+    # read configuration from tevs.cfg and set constants for this run
+    logger = config.get_config(cfg_file)
+
     
     # first, get log file name so log can be opened
-    const.logfilename = config.get("Paths","logfilename")
-    logging.basicConfig(filename=(const.logfilename)+"x",level=logging.DEBUG)
+    logging.basicConfig(filename=(const.logfilename),level=logging.DEBUG)
     logger = logging.getLogger("display")
     print const.logfilename
     # then both log and print other config info for this run
-    bwi = config.get("Sizes","ballot_width_inches")
-    cti = config.get("Sizes","candidate_text_height_inches")
-    bhi = config.get("Sizes","ballot_height_inches")
-    owi = config.get("Sizes","oval_width_inches")
-    ohi = config.get("Sizes","oval_height_inches")
-    vit = config.get("Votes","vote_intensity_threshold")
-    const.ballot_width_inches = float(bwi)
-    const.candidate_text_inches = float(cti)
-    const.ballot_height_inches = float(bhi)
-    const.oval_width_inches = float(owi)
-    const.oval_height_inches = float(ohi)
-    const.vote_intensity_threshold = int(vit)
-    const.layout_brand = config.get("Layout","brand")
-    const.proc = config.get("Paths","proc")
-    const.unproc = config.get("Paths","unproc")
-    const.results = config.get("Paths","results")
-    pfs = config.get("Paths","procformatstring")
-    ufs = config.get("Paths","unprocformatstring")
-    rfs = config.get("Paths","resultsformatstring")
-    mfs = config.get("Paths","masksformatstring")
-    const.procformatstring = pfs.replace(
-        "thousands","%03d").replace("units","%06d")
-    const.unprocformatstring = ufs.replace(
-        "thousands","%03d").replace("units","%06d") 
-    const.resultsformatstring = rfs.replace(
-        "thousands","%03d").replace("units","%06d")
-    const.masksformatstring = mfs.replace(
-        "thousands","%03d").replace("units","%06d")
+    const.proc = const.root + "/proc"
+    const.unproc = const.root + "/unproc"
+    const.results = const.root + "/results"
+    const.procformatstring = const.proc + "/%03d/%06d"
+    const.unprocformatstring = const.unproc + "/%03d/%06d"
+    const.resultsformatstring = const.results + "/%03d/%06d"
     print "Ballot width in inches",const.ballot_width_inches
     print "Ballot height in inches",const.ballot_height_inches
     print "Voteop width in inches",const.oval_width_inches
@@ -1893,9 +1905,6 @@ if __name__ == '__main__':
     print const.unprocformatstring % (123456/1000,123456)
     print const.resultsformatstring
     print const.resultsformatstring % (123456/1000,123456)
-    print const.masksformatstring
-    print const.masksformatstring % (123456/1000,123456)
-
     window = gtk.Window(gtk.WINDOW_TOPLEVEL)
     window.connect("delete-event",on_delete_event)
     window.set_title("TEVS Ballot Browser, version %s" % (version,))
