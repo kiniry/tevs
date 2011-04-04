@@ -29,15 +29,18 @@ class DemoBallot(Ballot.Ballot):
         # many of these conversions will go to Ballot.py,
         # extenders will need to handle any new const values here, however
         adj = lambda f: int(round(const.dpi * f))
+        # this is the size of the printed vote target's bounding box
         self.oval_size = (
             adj(const.oval_width_inches),
             adj(const.oval_height_inches)
         )
+        # add these margins to the vote target's bounding box 
+        # when cropping and analyzing for votes
         self.oval_margin = adj(.03) #XXX length should be in config or metadata
         self.min_contest_height = adj(const.minimum_contest_height_inches)
         self.vote_target_horiz_offset = adj(const.vote_target_horiz_offset_inches)
-        self.writein_xoff = adj(2.5) #XXX
-        self.writein_yoff = adj(.6)
+        self.writein_xoff = adj(-2.5) #XXX
+        self.writein_yoff = adj(-.1)
         self.allowed_corner_black = adj(const.allowed_corner_black_inches)
         super(DemoBallot, self).__init__(images, extensions)
 
@@ -61,19 +64,19 @@ class DemoBallot(Ballot.Ballot):
         examined.
         """
         a = ask("""Enter the x coordinate of an upper left landmark;
-if your template is not offset or tilted, it will be 150.  If there's no
+if your template is not offset or tilted, you could use 150.  If there's no
 such landmark, enter -1:
 """, int, -1)
         b = ask("""Now enter the corresponding y coordinate;
-if your template is not offset or tilted, it will be 75.  If there's no
+if your template is not offset or tilted, you could use 75.  If there's no
 such landmark, enter -1:
 """, int, -1)
         c = ask("""Enter the x coordinate of an upper RIGHT landmark;
-if your template is not offset or tilted, it will be 2050.  If there's no
+if your template is not offset or tilted, you could use 2050.  If there's no
 such landmark, enter -1:
 """, int, -1)
         d = ask("""Enter the corresponding y coordinate;
-if your template is not offset or tilted, it will be 75.  If there's no
+if your template is not offset or tilted, you could use 75.  If there's no
 such landmark, enter -1:
 """, int, -1)
         if -1 in (a, b, c, d):
@@ -145,6 +148,8 @@ such landmark, enter -1:
         """Extract a single oval, or writein box, from the specified ballot.
         We'll tell you the coordinates, you tell us the stats
         """
+        # choice coords should be the upper left hand corner 
+        # of the bounding box of the printed vote target
         x, y = choice.coords()
         x = int(x)
         y = int(y)
@@ -236,12 +241,16 @@ and the same for each choice in the contest.
                 contest = ask("Enter a contest name")
                 choices = ask("Enter a comma separated list of choices",
                     CSV())
+                # values are the x1,y1,x2,y2 of the bounding box of the contest
+                # bounding box, 0 for regular contest or 1 for proposition,
+                # and the text of the contest; we'll just dummy them here
                 regionlist.append(Ballot.Contest(column, 1, 199, 5*const.dpi, 0, contest))
                 for choice in choices:
-                    y_offset = ask("Enter the y offset for " + choice, int)
-                    regionlist[-1].append(Ballot.Choice(column, y_offset, choice))
-                if regionlist[-1] is None: #XXX how would this ever fire?
-                    break
-            
+                    x_offset = ask("Enter the x offset of the upper left hand corner \nof the printed vote target for " + choice, int)
+                    y_offset = ask("Enter the y offset of the upper left hand corner \nof the printed vote target for " + choice, int)
+                    # values are the x,y of the upper left corner
+                    # of the printed vote opportunity, 
+                    # and the text of the choice
+                    regionlist[-1].append(Ballot.Choice(x_offset, y_offset, choice))
         return regionlist
 
