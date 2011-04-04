@@ -1,0 +1,2 @@
+#!/bin/sh
+find ~/tevs | grep 'py$' | xargs grep -n '#XXX' 
