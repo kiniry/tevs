@@ -12,23 +12,26 @@ from PILB import Image,ImageStat
 from demo_utils import *
 import ocr
 from cropstats import cropstats
-block_zone_upper_y = 0.4
-block_zone_lower_y = 1.1
-block_zone_width = 0.8
+block_zone_upper_y = 0.5
+block_zone_width_to_crop = 0.7
+block_zone_width = 0.57
+block_zone_height = 1.5
 minimum_repeats = 0.05
 v_offset_to_dash_center = 0.03
+v_delta_dash_to_dash = 0.17
 column1_offset = 2.95
 column2_offset = 5.95
+right_block_offset = 6.0
 
 def get_offsets_and_tangent_from_blocks(im,dpi,dash_sep_in_pixels):
     """ locate marks at top left, right of image"""
     iround = lambda x: int(round(x))
     adj = lambda f: int(round(const.dpi * f))
     croptop = adj(block_zone_upper_y )
-    cropbottom = adj(block_zone_lower_y)
+    cropbottom = croptop + dpi
     leftstart = 0
-    leftend = adj(block_zone_width)
-    rightstart = im.size[0] - adj(block_zone_width)
+    leftend = adj(block_zone_width_to_crop)
+    rightstart = im.size[0] - adj(block_zone_width_to_crop)
     rightend = im.size[0] - 1
     vertical_dist_top_dashes = dash_sep_in_pixels
     vertical_dist_block_dashes = iround(dpi * .17)
@@ -36,7 +39,7 @@ def get_offsets_and_tangent_from_blocks(im,dpi,dash_sep_in_pixels):
 
     leftcrop = im.crop((leftstart,croptop,leftend,cropbottom))
     rightcrop = im.crop((rightstart,croptop,rightend,cropbottom))
-    # scan down left 1/3 of leftcrop 
+    # scan down strip at scanoffset1 of leftcrop 
     # and right 1/3 of rightcrop, looking for 
     # first stretch of black lasting dpi * .05
     contig = 0
@@ -48,7 +51,7 @@ def get_offsets_and_tangent_from_blocks(im,dpi,dash_sep_in_pixels):
         pix2 = leftcrop.getpixel((0+scanx*2,n))
         pix3 = leftcrop.getpixel((0+scanx,n+vertical_dist_top_dashes))
         pix4 = leftcrop.getpixel((0+scanx*2,n+vertical_dist_top_dashes))
-        if (pix1[0]<128 or pix2[0]<128)and (pix3[0]<128 or pix4[0]<128):
+        if (pix1[0]<128 or pix2[0]<128) and (pix3[0]<128 or pix4[0]<128):
             contig = contig + 1
             if contig > adj(minimum_repeats):
                 leftstarty = n - adj(minimum_repeats)
@@ -63,7 +66,7 @@ def get_offsets_and_tangent_from_blocks(im,dpi,dash_sep_in_pixels):
         pix2 = rightcrop.getpixel((scanx2,n))
         pix3 = rightcrop.getpixel((scanx1,n+vertical_dist_top_dashes))
         pix4 = rightcrop.getpixel((scanx2,n+vertical_dist_top_dashes))
-        if (pix1[0]<128 or pix2[0]<128) and (pix1[0]<128 or pix2[0]<128):
+        if (pix1[0]<128 or pix2[0]<128) and (pix3[0]<128 or pix4[0]<128):
             contig = contig + 1
             if contig > adj(minimum_repeats):
                 rightstarty = n - adj(minimum_repeats)
@@ -83,63 +86,56 @@ def get_offsets_and_tangent_from_blocks(im,dpi,dash_sep_in_pixels):
         if pix[0]>128:
             leftstartx = scanx - n
             break
-    scanx = adj(0.3)
+
+    rightstartx = 0
+    for n in range(scanx):
+        pix = rightcrop.getpixel(((scanx - n),
+                                 rightdashcentery+ vertical_dist_top_dashes))
+        if pix[0]>128:
+            rightstartx = scanx - n
+            break
+
     return( leftstartx,
             leftstarty+croptop,
-            rightstart,
+            rightstart + rightstartx,
             rightstarty+croptop,
-            (rightstarty-leftstarty)/(im.size[0]-adj(0.6)))        
+            (rightstarty-leftstarty)/(im.size[0]-adj(block_zone_width_to_crop)))        
 
-def get_code_from_blocks(im,dpi,leftstartx,leftstarty,rightstartx,rightstarty,tilt):
+def get_code_from_blocks(im,dpi,leftstartx,leftstarty,rightstartx,rightstarty):
     """read dash blocks at top left,right of image and return encoded int"""
     iround = lambda x: int(round(x))
     adj = lambda f: int(round(const.dpi * f))
     leftstartx = iround(leftstartx)
     leftstarty = iround(leftstarty)
-    rightstartx = iround(rightstartx)
     rightstarty = iround(rightstarty)
     leftcrop = im.crop(
         (leftstartx,
          leftstarty,
-         leftstartx+adj(0.8),
-         leftstarty+adj(2)
+         leftstartx+adj(block_zone_width_to_crop),
+         leftstarty+adj(block_zone_height)
          )
         )
 
     rightcrop = im.crop(
-        (rightstartx,
+        (leftstartx + adj(right_block_offset),
          rightstarty,
          im.size[0]-1,
-         rightstarty+adj(2)
+         rightstarty+adj(block_zone_height)
          )
         )
 
     leftdashcentery = adj(v_offset_to_dash_center)
     rightdashcentery = adj(v_offset_to_dash_center)
-    leftdashcentery = (0.03 * dpi)
-    rightdashcentery = (0.03 * dpi)
 
-    # now go leftward from scanx
-    # along the center of the top dash until white or off edge
-    leftstartx = 0
-    scanx = adj(0.4)
-    for n in range(scanx):
-        pix = leftcrop.getpixel(((scanx - n),leftdashcentery))
-        if pix[0]>128:
-            leftstartx = scanx - n
-            break
-    for n in range(scanx):
-        pix = rightcrop.getpixel(((scanx - n),rightdashcentery))
-        if pix[0]>128:
-            rightstartx = scanx - n
-            break
+
+    scanx = adj(block_zone_width_to_crop/2.)
     # to capture code, check the eight possible code zones of each crop
     # starting with left, continuing to right
     accum = 0
     for n in range(1,9):
         accum = accum * 2
         testspot = ((adj(0.3),
-                     adj(.045) + adj(n * 0.17)))
+                     adj(.045) + adj(n * v_delta_dash_to_dash)))
 
         pix = leftcrop.getpixel(testspot)
         if pix[0]<128:
@@ -147,8 +143,8 @@ def get_code_from_blocks(im,dpi,leftstartx,leftstarty,rightstartx,rightstarty,ti
 
     for n in range(1,9):
         accum = accum * 2
-        testspot = (rightstartx + adj(0.3),
-                    adj(.045) + (n * adj(0.17)))
+        testspot = ((adj(0.3),
+                    adj(.045) + adj(n * v_delta_dash_to_dash)))
 
         pix = rightcrop.getpixel(testspot)
         if pix[0]<128:
@@ -246,7 +242,6 @@ def build_template(im,dpi,code,xoff,yoff,tilt,front=True):
                     skip = adj(0.2)
                     # reset contig
                     contig = 0
-    print regionlist
     return regionlist
 
 def get_text_for_arrow_at(im,x,y,global_dpi):
@@ -298,7 +293,8 @@ def get_text_for_arrow_at(im,x,y,global_dpi):
                     int(topline),
                     int(x),
                     int(bottomline)))
-    text = ocr.tesseract(crop)
+    text = ocr.tesseract(crop) # XXX self.extensions once in class
+    text = ocr.clean_ocr_text(text)# XXX self.extensions once in class
     choice_topline = int(topline)
     # now repeat process but going up until thicker black; 
     # that will be the top of the contest
@@ -322,9 +318,10 @@ def get_text_for_arrow_at(im,x,y,global_dpi):
                         int(choice_topline ) 
                         )
     crop = im.crop(contest_croplist)
-    contest_text = ocr.tesseract(crop)
+    contest_text = ocr.tesseract(crop)# XXX self.extensions once in class
+    contest_text = ocr.clean_ocr_text(contest_text)# XXX self.extensions once in class
     text = text.replace("\n"," ").strip()
-    contest_text = contest_text.replace("\n"," ").strip()
+    contest_text = contest_text.replace("\n"," ").replace(",","").strip()
 
     return text, contest_text, contest_croplist
 
@@ -429,7 +426,6 @@ class SequoiaBallot(Ballot.Ballot):
             raise Ballot.BallotException(
                 "Tilt %f of %s exceeds %f" % (rot, page.filename, const.allowed_tanget)
             )
-
         return rot, xoff, yoff 
 
     def get_layout_code(self, page):
@@ -441,12 +437,15 @@ class SequoiaBallot(Ballot.Ballot):
         """
         iround = lambda x: int(round(x))
         adj = lambda f: int(round(const.dpi * f))
+
         barcode = get_code_from_blocks(page.image,
                                        const.dpi,
                                        page.xoff,
                                        page.yoff,
-                                       page.image.size[0] - iround(const.dpi * 0.8),
-                                       page.yoff,0) # XXX use rotation to recalc?
+                                       page.image.size[0] 
+                                       + page.xoff - adj(0.65),
+                                       page.yoff  
+                                       + (-page.rot * page.image.size[0]))    
         # If this is a back page, need different arguments
         # to timing marks call; so have failure on front test
         # trigger a back page test
