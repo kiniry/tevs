@@ -247,7 +247,6 @@ def build_template(im,dpi,code,xoff,yoff,tilt,front=True):
                     # reset contig
                     contig = 0
     print regionlist
-    pdb.set_trace()
     return regionlist
 
 def get_text_for_arrow_at(im,x,y,global_dpi):
