@@ -27,7 +27,9 @@ def get_args():
                                     ]
                                    ) 
     except getopt.GetoptError:
-        print "usage: %s -tdc --templates --debug --config=file" % sys.argv[0]
+        sys.stderr.write(
+            "usage: %s -tdc --templates --debug --config=file" % sys.argv[0]
+        )
         sys.exit(2)
     templates_only = False
     debug = False
@@ -38,12 +40,10 @@ def get_args():
         if opt in ("-d", "--debug"):
             debug = True
         if opt in ("-c", "--config"):
-            print opt, arg
             config = arg
 
     const.templates_only = templates_only
     const.debug = debug
-    print config
     return config
 
 def remove_partial(fname):
