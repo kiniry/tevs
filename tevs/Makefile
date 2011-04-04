@@ -9,8 +9,8 @@ reset: clean
 	@cp -r ${ROOT}/proc/* ~/data/unproc 2>/dev/null || true
 	@rm -rf ${ROOT}/proc/*
 	@rm -rf ${ROOT}/errors/*
-	@cat ${ROOT}/tevs_log.txt >>${ROOT}/tevs_log.txt.old 2>/dev/null || true
-	@rm -f ${ROOT}/tevs_log.txt
+	@cat ${ROOT}/log.txt >>${ROOT}/log.old 2>/dev/null || true
+	@rm -f ${ROOT}/log.txt
 	@echo 1 >${ROOT}/nexttoprocess.txt
 
 reset-templates: reset

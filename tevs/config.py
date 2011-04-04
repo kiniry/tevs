@@ -46,8 +46,10 @@ def get_config():
     config.read("tevs.cfg")
 
     path = lambda v: os.path.expanduser(config.get("Paths", v))
+    const.root = path("root")
+
     # first, get log file name so log can be opened
-    const.logfilename = path("logfilename")
+    const.logfilename = os.path.join(const.root, "log.txt")
     if const.debug:
         logging.basicConfig(filename=const.logfilename, level=logging.DEBUG)
     else:
@@ -100,8 +102,6 @@ def get_config():
     const.on_new_layout = config.get("Mode", "on_new_layout")
 
     const.save_vops = yesno(config, "Mode", "save_vops")
-
-    const.root = path("root")
 
     const.use_db = yesno(config, "Database", "use_db")
     const.dbname = config.get("Database", "name")
