@@ -1,4 +1,4 @@
-# demo_ballot.py implements the interface 
+# sequoia_ballot.py implements the interface 
 # in Ballot.py, as a guide to those extending TEVS to new ballot types.
 # The Trachtenberg Election Verification System (TEVS)
 # is copyright 2009, 2010 by Mitch Trachtenberg 
@@ -13,8 +13,6 @@ from demo_utils import *
 import pdb
 import ocr
 
-def rotate_pt_by(a,b,c,d,e):
-    return (a,b)
 
 def get_offsets_and_tangent_from_blocks(im,dpi,dash_sep_in_pixels):
     """ locate marks at top left, right of image"""
@@ -157,7 +155,7 @@ def build_template(im,dpi,code,xoff,yoff,tilt,front=True):
             starty = int(yoff + int(1.5*dpi))
         else:
             starty = int(yoff - 1)
-        adjx,adjy = x,starty # XXX rotate_pt_by(x,starty,-tilt,xoff,yoff)
+        adjx,adjy = x,starty # XXX assuming ballot derotated by here
         #print "Starty initially",starty,"adjxy",adjx,adjy
         # turn search on only when 0.6" of thick black line encountered
         #adjx = int(adjx)
@@ -193,13 +191,13 @@ def build_template(im,dpi,code,xoff,yoff,tilt,front=True):
             if skip > 0:
                 skip = skip - 1
                 continue
-            pix1 = im.getpixel(rotate_pt_by(searchx1,y,-tilt,xoff,yoff))
-            pix2 = im.getpixel(rotate_pt_by(searchx2,y,-tilt,xoff,yoff))
+            pix1 = im.getpixel((searchx1,y))
+            pix2 = im.getpixel((searchx2,y))
             if pix1[0]<128 and pix2[0]<128:
                 contig = contig + 1
                 if contig > (dpi * 0.05):
                     # this is an arrow
-                    ll_x,ll_y = rotate_pt_by(x,y,-tilt,xoff,yoff)
+                    ll_x,ll_y = ((x,y))
 
                     if ll_x > (im.size[0] - 5):
                         ll_x = (im.size[0] - 5)
