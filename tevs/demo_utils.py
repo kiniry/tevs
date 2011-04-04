@@ -1,4 +1,3 @@
-
 def ask(prompt, verifier=str, default=None):
     """
     Ask user for a value with simple constraint checking and reprompting on
@@ -48,7 +47,7 @@ def ask(prompt, verifier=str, default=None):
 
 def _nverifier(typ):
     class i(object):
-        def __init__(self, hi, lo):
+        def __init__(self, lo, hi):
             self.hi, self.lo = hi, lo
         def __call__(self, v):
             x = typ(v)
@@ -56,7 +55,7 @@ def _nverifier(typ):
                 raise ValueError()
             return x
         def valid_range(self):
-            return "%s-%s" % (self.hi, self.lo)
+            return "%s-%s" % (self.lo, self.hi)
     return i
 
 IntIn = _nverifier(int)

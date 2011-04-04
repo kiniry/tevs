@@ -86,7 +86,8 @@ def main():
             if not os.path.exists(unproc2):
                 total_unproc += mark_error(unproc1)
                 logger.info(base(unproc2) + " does not exist.")
-                break
+                logger.info("Warning: " + base(unproc2) + 
+                    " will not be processed. Single sided.")
 
             #Processing
 
