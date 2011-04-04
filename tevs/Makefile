@@ -11,7 +11,7 @@ reset: clean
 	@rm -rf ${ROOT}/errors/*
 	@cat ${ROOT}/tevs_log.txt >>${ROOT}/tevs_log.txt.old 2>/dev/null || true
 	@rm -f ${ROOT}/tevs_log.txt
-	@echo 1 >nexttoprocess.txt
+	@echo 1 >${ROOT}/nexttoprocess.txt
 
 reset-templates: reset
 	@rm -f ${ROOT}/templates

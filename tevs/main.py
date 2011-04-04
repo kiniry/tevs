@@ -52,7 +52,7 @@ def main():
         util.mkdirp(util.root(p))
 
     #XXX nexttoprocess.txt belongs under data root?
-    next_ballot = next.File("nexttoprocess.txt", const.num_pages)
+    next_ballot = next.File(util.root("nexttoprocess.txt"), const.num_pages)
 
     try:
         ballotfrom = Ballot.LoadBallotType(const.layout_brand)
