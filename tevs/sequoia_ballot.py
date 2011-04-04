@@ -10,7 +10,6 @@ import const
 from adjust import rotator
 from PILB import Image,ImageStat
 from demo_utils import *
-import pdb
 import ocr
 from cropstats import cropstats
 block_zone_upper_y = 0.4
@@ -230,8 +229,6 @@ def build_template(im,dpi,code,xoff,yoff,tilt,front=True):
                     if ll_y < adj(0.5):
                         ll_y = adj(0.5)
                     text,contest_text,contest_loc = get_text_for_arrow_at(im,ll_x,ll_y-contig-(0.04*dpi),const.dpi)
-                    pdb.set_trace()
-                    print text,contest_text,contest_loc
                     # new contest location? append contest, store contest size
                     if ((contest_x != contest_loc[0]) 
                         and contest_y != contest_loc[1]):
