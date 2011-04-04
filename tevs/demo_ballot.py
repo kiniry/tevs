@@ -5,6 +5,7 @@
 # and is licensed under the GNU General Public License version 2.
 # (see LICENSE file for details.)
 
+
 import Ballot
 import const
 from adjust import rotator
