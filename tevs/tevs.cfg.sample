@@ -38,4 +38,3 @@ password=jimmy
 
 [Paths]
 root:~/data
-logfilename:~/data/tevs_log.txt
