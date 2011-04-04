@@ -41,6 +41,14 @@ class DemoBallot(Ballot.Ballot):
         self.allowed_corner_black = adj(const.allowed_corner_black_inches)
         super(DemoBallot, self).__init__(images, extensions)
 
+    # Extenders do not need to supply even a stub flip
+    # because flip in Ballot.py will print a stub message in the absence
+    # of a subclass implementation
+    #def flip(self, im):
+    #    # not implemented for Demo
+    #    print "Flip not implemented for Demo."
+    #    return im
+
     def find_landmarks(self, page):
         """ retrieve landmarks for a demo template, set tang, xref, yref
 
