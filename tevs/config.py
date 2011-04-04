@@ -3,6 +3,7 @@ import ConfigParser
 import logging
 import const
 import sys
+import os
 
 def yesno(cfg, grp, itm):
     so = cfg.get(grp, itm)
@@ -50,8 +51,9 @@ def get_config():
      config = ConfigParser.ConfigParser()
      config.read("tevs.cfg")
 
+     path = lambda v: os.path.expanduser(config.get("Paths", v))
      # first, get log file name so log can be opened
-     const.logfilename = config.get("Paths", "logfilename")
+     const.logfilename = path("logfilename")
      if const.debug:
           logging.basicConfig(filename=const.logfilename, level=logging.DEBUG)
      else:
@@ -104,7 +106,7 @@ def get_config():
 
      const.save_vops = yesno(config, "Mode", "save_vops")
 
-     const.root = config.get("Paths", "root")
+     const.root = path("root")
 
      const.use_db = yesno(config, "Database", "use_db")
      const.dbname = config.get("Database", "name")
