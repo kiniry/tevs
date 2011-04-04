@@ -1,6 +1,6 @@
 ROOT=~/data
 
-all: reset test run
+all: reset run
 
 run: reset
 	@./main.py
@@ -13,10 +13,13 @@ reset: clean
 	@rm -f ${ROOT}/tevs_log.txt
 	@echo 1 >nexttoprocess.txt
 
+reset-templates: reset
+	@rm -f ${ROOT}/templates
+
 clean:
 	@rm -f *.pyc
 
 test: *.py
 	@nosetests -q --with-doctest #--with-coverage --cover-erase --cover-html --cover-html-dir=coverage
 
-.PHONY: reset clean
+.PHONY: reset clean reset-templates
