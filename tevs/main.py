@@ -3,7 +3,7 @@ import sys
 import os
 import shutil
 import errno
-import string
+import getopt
 
 import site; site.addsitedir(os.path.expanduser("~/tevs")) #XXX
 from PILB import Image, ImageStat, ImageDraw #XXX only here so we break
@@ -15,6 +15,36 @@ import db
 import next
 import Ballot
 BallotException = Ballot.BallotException
+
+def get_args():
+    """Get command line arguments"""
+    try:
+        opts, args = getopt.getopt(sys.argv[1:],
+                                    "tdc:",
+                                    ["templates",
+                                     "debug",
+                                     "config="
+                                    ]
+                                   ) 
+    except getopt.GetoptError:
+        print "usage: %s -tdc --templates --debug --config=file" % sys.argv[0]
+        sys.exit(2)
+    templates_only = False
+    debug = False
+    config = "tevs.cfg"
+    for opt, arg in opts:
+        if opt in ("-t", "--templates"):
+            templates_only = True
+        if opt in ("-d", "--debug"):
+            debug = True
+        if opt in ("-c", "--config"):
+            print opt, arg
+            config = arg
+
+    const.templates_only = templates_only
+    const.debug = debug
+    print config
+    return config
 
 def remove_partial(fname):
     try:
@@ -48,10 +78,10 @@ def mark_error(*files):
 
 def main():
     # get command line arguments
-    config.get_args()
+    cfg_file = get_args()
 
     # read configuration from tevs.cfg and set constants for this run
-    logger = config.get_config()
+    logger = config.get_config(cfg_file)
 
     #create initial top level dirs, if they do not exist
     for p in ("templates", "results", "proc", "errors"):

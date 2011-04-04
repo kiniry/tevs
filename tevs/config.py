@@ -1,4 +1,3 @@
-import getopt
 import ConfigParser
 import logging
 import const
@@ -14,36 +13,10 @@ def yesno(cfg, grp, itm):
         return False
     raise ValueError("% is not a valid choice for %s in %s" % (so, grp, itm))
 
-def get_args():
-    """Get command line arguments"""
-    try:
-        opts, args = getopt.getopt(sys.argv[1:],
-                                    "tdrq",
-                                    [ "templates",
-                                      "debug",
-                                      "retry-on-missing",
-                                      "question-user"
-                                      ]
-                                    ) 
-    except getopt.GetoptError:
-        print "usage:"
-        sys.exit(2)
-    templates_only = False
-    debug = False
-    retry = False
-    question = False
-    for opt, arg in opts:
-        if opt in ("-t", "--templates"):
-             templates_only = True
 
-    const.templates_only = templates_only
-    const.debug = debug
-    const.retry = retry
-    const.question = question
-
-def get_config():
+def get_config(cfg_file):
     config = ConfigParser.ConfigParser()
-    config.read("tevs.cfg")
+    config.read(cfg_file)
 
     path = lambda v: os.path.expanduser(config.get("Paths", v))
     const.root = path("root")
