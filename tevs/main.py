@@ -33,7 +33,7 @@ def filen(dir, n): #where dir is from dirn
 
 def mark_error(*files):
     for file in files:
-        const.logger.error("Could not process ballot " + file)
+        const.logger.error("Could not process ballot " + os.path.basename(file))
         try:
             shutil.copy2(file, util.root("errors", os.path.basename(file)))
         except IOError:
@@ -80,35 +80,28 @@ def main():
         for n in next_ballot:
             unprocs = [filen(dirn("unproc", n + m), n + m) + ".jpg" 
                         for m in range(const.num_pages)]
-            unproc1 = filen(dirn("unproc", n), n) + ".jpg"
-            unproc2 = filen(dirn("unproc", n + 1), n + 1) + ".jpg"
-            #do this for each
             if not os.path.exists(unprocs[0]):
                 logger.info(base(unprocs[0]) + " does not exist. No more records to process")
                 break
             for i, f in enumerate(unprocs[1:]):
                 if not os.path.exists(f):
-                    #mark all i-1 and report
-                    #halt
-
-            if not os.path.exists(unproc2):
-                total_unproc += mark_error(unproc1)
-                logger.info(base(unproc2) + " does not exist.")
-                logger.info("Warning: " + base(unproc2) + 
-                    " will not be processed. Single sided.")
+                    logger.info(base(f) + " does not exist. Cannot proceed.")
+                    for j in range(i):
+                        logger.info(base(unprocs[j]) + " will NOT be processed")
+                    total_unproc += mark_error(*unprocs[:i-1])
+                    return
 
             #Processing
 
-            logger.info("Processing: %s: %s & %s" % 
-                (n, base(unproc1), base(unproc2))
+            logger.info("Processing: %s:\n %s" % 
+                (n, "".join("\t%s\n" % base(u) for u in unprocs))
             )
 
-            names = (unproc1, unproc2)
             try:
-                ballot = ballotfrom(names, extensions)
+                ballot = ballotfrom(unprocs, extensions)
                 results = ballot.ProcessPages()
             except BallotException as e:
-                total_unproc += mark_error(*names)
+                total_unproc += mark_error(*unprocs)
                 logger.exception("Could not process %s and %s" % names)
                 continue
 
@@ -119,9 +112,8 @@ def main():
 
             #make dirs:
             proc1d = dirn("proc", n)
-            proc2d = dirn("proc", n + 1)
             resultsd = dirn("results", n)
-            for p in (proc1d, proc2d, resultsd):
+            for p in (proc1d, resultsd):
                 util.mkdirp(p)
 
             #write csv and mosaic
@@ -147,24 +139,21 @@ def main():
             #Post-processing
 
             # move the images from unproc to proc
-            proc1 = filen(proc1d, n) + ".jpg"
-            proc2 = filen(proc2d, n + 1) + ".jpg"
-            try:
-                os.rename(unproc1, proc1)
-            except OSError as e:
-                util.fatal("Could not rename %s", unproc1)
-
-            try:
-                os.rename(unproc2, proc2)
-            except OSError as e:
-                util.fatal("Could not rename %s", unproc2)
-            total_proc += 2
+            procs = [filen(proc1d, n + m) + ".jpg"
+                        for m in range(const.num_pages)]
+            for a, b in zip(unprocs, procs):
+                try:
+                    os.rename(a, b)
+                except OSError as e:
+                    util.fatal("Could not rename %s", a)
+            total_proc += const.num_pages
     finally:
         cache.save()
         dbc.close()
         next_ballot.save()
-        print total_proc, "ballots processed."
-        print total_unproc, "ballots could NOT be processed."
+        print total_proc, "ballot(s) processed."
+        if total_unproc > 0:
+            print total_unproc, "ballot(s) could NOT be processed."
 
 if __name__ == "__main__":
     main()
