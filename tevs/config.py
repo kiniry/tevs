@@ -48,7 +48,16 @@ def get_config(cfg_file="tevs.cfg"):
     mchi = config.get("Sizes", "minimum_contest_height_inches")
     acbi = config.get("Sizes", "allowed_corner_black_inches")
     allowed_tangent = config.get("Sizes", "allowed_tangent")
-
+    try:
+        hsxoi = config.get("Sizes","hotspot_x_offset_inches")
+        const.hotspot_x_offset_inches = float(hsxoi)
+    except:
+        const.hotspot_x_offset_inches = 0.0
+    try:
+        hsyoi = config.get("Sizes","hotspot_y_offset_inches")
+        const.hotspot_y_offset_inches = float(hsyoi)
+    except:
+        const.hotspot_y_offset_inches = 0.0
     vit = config.get("Votes", "vote_intensity_threshold")
     dpt = config.get("Votes", "dark_pixel_threshold")
     pit = config.get("Votes", "problem_intensity_threshold")
