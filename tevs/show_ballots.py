@@ -203,15 +203,13 @@ class BallotVotes(object):
 
     def paint(self,drawable,gc,markup,xscalefactor,yscalefactor,imagedpi):
         for v in self.votelist:
-            #print "Multiplying v.xcoord by scalefactor",v.xcoord, xscalefactor
             scaledx = int(round(v.xcoord*xscalefactor))
-            #print "Multiplying v.ycoord by scalefactor",v.xcoord, yscalefactor
-            #print v.ycoord, yscalefactor
             scaledy = int(round(v.ycoord*yscalefactor))
-            # keep these in sync with the oval sizes in extraction.py,
-            # where we create boxes 25% larger than the actual ovals
             oval_height = int(const.oval_height_inches * imagedpi)
             oval_width = int(const.oval_width_inches * imagedpi)
+            scaledx += int(round(const.hotspot_x_offset_inches * imagedpi * xscalefactor))
+            scaledy += int(round(const.hotspot_y_offset_inches * imagedpi * yscalefactor))
+
             #oval_height = ((5.*imagedpi)/32.)
             #oval_width = ((5.*imagedpi)/16.)
             box_height = int(round(oval_height * yscalefactor))
@@ -543,11 +541,13 @@ class App():
         pass#print "Motion",self,da
 
     def button_press_cb(self, event, data):
-        print "Button",self,event, data
+        #print "Button",self,event, data
+        pass
 
     def key_press_cb(self, window, event):
-        print "Key",self,event
-        print event.string, self.leftnumber, self.rightnumber
+        #print "Key",self,event
+        #print event.string, self.leftnumber, self.rightnumber
+        pass
 
     def configure_cb(self, da, event, data):
         # from pygtk tutorial
