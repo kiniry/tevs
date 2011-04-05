@@ -169,12 +169,11 @@ class Vote(object):
         try:
             fields = str.split(",")
             self.choice = fields[INDEX_CHOICE]
-            self.xcoord = int(fields[INDEX_XCOORD].replace("[","").replace("(",""))
-            self.ycoord = int(fields[INDEX_YCOORD].replace("]","").replace(")",""))
-            self.intensity = int(fields[INDEX_INTENSITY])#.replace("(",""))
+            self.xcoord = int(float(fields[INDEX_XCOORD]))
+            self.ycoord = int(float(fields[INDEX_YCOORD]))
+            self.intensity = int(float(fields[INDEX_INTENSITY]))
         except:
             print fields
-            pdb.set_trace()
     def xcoord(self):
         return self._xcoord
 
@@ -187,7 +186,6 @@ class BallotVotes(object):
         imagenumberstr = "%06d." % imagenumber
         datafilename = const.resultsformatstring % (imagenumber/1000,imagenumber)
         df = None
-        #pdb.set_trace()
         try:
             df = open(datafilename,"r")
         except:
@@ -717,7 +715,6 @@ class App():
         try:
             cv = open(App.nonvotescsv)
             for line in cv:
-                #pdb.set_trace()
                 fields = line.split(",")
                 if (int(fields[7][:-1]) <= int(end)) and (fields[0] <> lastfield1):
                     App.all_images.append(fields[0])
@@ -1891,16 +1888,9 @@ if __name__ == '__main__':
     const.proc = const.root + "/proc"
     const.unproc = const.root + "/unproc"
     const.results = const.root + "/results"
-    const.procformatstring = const.proc + "/%03d/%06d"
-    const.unprocformatstring = const.unproc + "/%03d/%06d"
-    const.resultsformatstring = const.results + "/%03d/%06d"
-    print "Ballot width in inches",const.ballot_width_inches
-    print "Ballot height in inches",const.ballot_height_inches
-    print "Voteop width in inches",const.oval_width_inches
-    print "Voteop height in inches",const.oval_height_inches
-    print "Format string for processed files:", const.procformatstring
-    print "substituted with 123456", const.procformatstring % (123456/1000,123456)
-    print "Format string for unprocessed, results, and masks files:"
+    const.procformatstring = const.proc + "/%03d/%06d" + ".jpg"
+    const.unprocformatstring = const.unproc + "/%03d/%06d" + ".jpg"
+    const.resultsformatstring = const.results + "/%03d/%06d" + ".txt"
     print const.unprocformatstring
     print const.unprocformatstring % (123456/1000,123456)
     print const.resultsformatstring
