@@ -1,7 +1,10 @@
 import sys
 import os
 import errno
+import logging
 import const
+
+log = logging.getLogger('')
 
 def root(*dir):
     "convert a data dir to a root relative path"
@@ -11,7 +14,8 @@ def fatal(msg, *p):
     "log fatal messages and exit"
     if len(p) != 0:
         msg = msg % p
-    const.logger.exception(msg)
+    log.exception(msg)
+    log.critical("Cannot continue")
     sys.exit(1)
 
 def writeto(fname, data):
@@ -20,7 +24,7 @@ def writeto(fname, data):
         with open(fname, "w") as f:
             f.write(str(data))
     except OSError as e:
-        const.logger.exception("Could not write to %s" % fname)
+        log.exception("Could not write to %s" % fname)
         sys.exit(1)
 
 def genwriteto(fname, gen):
@@ -29,7 +33,7 @@ def genwriteto(fname, gen):
         with open(fname, "w") as f:
             f.writelines(gen)
     except OSError as e:
-        const.logger.exception("Could not write to %s" % fname)
+        log.exception("Could not write to %s" % fname)
         sys.exit(1)
 
 def readfrom(fname, default=None):
@@ -40,7 +44,7 @@ def readfrom(fname, default=None):
     except Exception as e:
         if default is not None:
             return default
-        const.logger.exception("Could not read from %s" % fname)
+        log.exception("Could not read from %s" % fname)
         sys.exit(1) 
 
 def mkdirp(*path):
@@ -53,7 +57,7 @@ def mkdirp(*path):
      except Exception as e:
          if e.errno == errno.EEXIST:
             return # an ignorable error, dir already exists
-         const.logger.exception("Could not create directory %s" % path)
+         log.exception("Could not create directory %s" % path)
          sys.exit(1)
 
 def rmf(*path):
@@ -66,7 +70,7 @@ def rmf(*path):
     except OSError as e:
         if e.errno == errno.ENOENT:
             return
-        const.logger.exception("Could not remove file " + path)
+        log.exception("Could not remove file " + path)
         sys.exit(1)
 
 def pairs(list):

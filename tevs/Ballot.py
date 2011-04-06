@@ -1,6 +1,7 @@
 import os
 from xml.dom import minidom
 from xml.parsers.expat import ExpatError
+import logging
 
 from PILB import Image, ImageDraw, ImageFont
 import const
@@ -50,6 +51,7 @@ class Ballot(object): #XXX a better name may be something like Analyzer or Extra
         self.extensions = extensions
         self.results = []
         self.laycode_cache = {}
+        self.log = logging.getLogger('')
 
     def MakeTemplates(self):
         """This is a helper method for when you ONLY want to make 
@@ -102,6 +104,7 @@ class Ballot(object): #XXX a better name may be something like Analyzer or Extra
         contests = self.build_layout(page)
         if len(contests) == 0:
             raise BallotException('No layout was built')
+        self.log.info("Ballot template %s created", code)
         contests = self.OCRDescriptions(page.image, contests)#XXX should this NOT be called automatically?
         tmpl = page.as_template(code, contests)
         self.extensions.template_cache[code] = tmpl
@@ -110,6 +113,7 @@ class Ballot(object): #XXX a better name may be something like Analyzer or Extra
     def OCRDescriptions(self, image, contests): #XXX should this NOT be called automatically?
         "This is handled automatically by BuildLayout"
         #TODO, walk template and OCR all descriptions
+        return contests
 
     def CapturePageInfo(self, page):
         "tabulate the votes on a single page"
@@ -131,7 +135,7 @@ class Ballot(object): #XXX a better name may be something like Analyzer or Extra
             results.append(VoteData(**kw))
 
         for contest in page.template.contests:
-            if int(contest.h) - int(contest.y) < self.min_contest_height: #XXX only defined insubclass!!!!!!
+            if int(contest.y2) - int(contest.y) < self.min_contest_height: #XXX only defined insubclass!!!!!!
                 for choice in contest.choices:
                      append(contest, choice) #mark all bad
                 continue
@@ -342,7 +346,7 @@ class VoteData(object):
                  number=-1):
         self.filename = filename
         self.precinct = precinct
-        self.contest = None
+        self.contest = contest
         if contest is not None:
             self.contest = contest.description
         self.choice = None
@@ -381,7 +385,7 @@ class VoteData(object):
             self.is_writein,
         ))
 
-def results_to_CSV(results, heading=False):
+def results_to_CSV(results, heading=False): #TODO need a results_from_CSV
     """Take a list of VoteData and return a generator of CSV 
     encoded information. If heading, insert a descriptive
     header line."""
@@ -506,7 +510,8 @@ class Region(object):
 class Choice(Region): #have two regions, one for text like in jurisdiction and contest and one for vop
      def __init__(self, x, y, description): #XXX need to add x2, y2, vop, axe description
          super(Choice, self).__init__(x, y, -1, -1) #XXX
-         self.VOP = None #XXX
+         self.VOP = None #XXX del
+         self.description = description #XXX change to None
 
 class VOP(Region):
     def __init__(self, x, y, x2, y2, IsWriteIn):
@@ -524,6 +529,10 @@ class Jurisdiction(Region):
 class Contest(Region): #XXX prop is weird, what do we do with it?
      def __init__(self, x, y, x2, y2, prop, description): #XXX axe prop/description
          super(Contest, self).__init__(x, y, x2, y2)
+         self.prop = prop #XXX del
+         self.w = x2 #XXX del
+         self.h = y2 #XXX del
+         self.description = description #XXX change to None
          self.choices = []
 
      def append(self, choice):
@@ -651,6 +660,7 @@ class TemplateCache(object):
     def __init__(self, location):
         self.cache = {}
         self.location = location
+        self.log = logging.getLogger('')
         #attempt to prepopulate cache
         try:
             for file in os.listdir(location):
@@ -660,12 +670,12 @@ class TemplateCache(object):
                     tmpl = Template_from_XML(data)
                 except ExpatError:
                     if data != "<":
-                        const.logger.exception("Could not parse " + file)
+                        self.log.exception("Could not parse " + file)
                     continue
                 fname = os.path.basename(file)
                 self.cache[fname] = tmpl
         except OSError:
-            const.logger.info("No templates found")
+            self.log.info("No templates found")
 
     def __call__(self, id):
         return self.__getitem__(id)
@@ -683,8 +693,10 @@ class TemplateCache(object):
         util.mkdirp(self.location)
         for id, template in self.cache.iteritems():
             fname = os.path.join(self.location, id)
-            xml = Template_to_XML(template)
-            util.writeto(fname, xml)
+            if not os.path.exists(fname):
+                xml = Template_to_XML(template)
+                util.writeto(fname, xml)
+                log.info("new template %s saved", fname)
 
 class NullTemplateCache(object):
     def __init__(self, loc):
