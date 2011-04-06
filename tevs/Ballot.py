@@ -514,9 +514,13 @@ class Choice(Region): #have two regions, one for text like in jurisdiction and c
          self.description = description #XXX change to None
 
 class VOP(Region):
-    def __init__(self, x, y, x2, y2, IsWriteIn):
+    def __init__(self, x, y, x2, y2, WriteIn=None):
         super(VOP, self).__init__(x, y, x2, y2)
-        self.IsWriteIn = IsWriteIn
+        self.WriteIn = WriteIn
+
+class WriteIn(Region):
+    def __init__(self, x, y, x2, y2):
+        super(VOP, self).__init__(x, y, x2, y2)
 
 class Jurisdiction(Region):
     def __init__(self, x, y, x2, y2):
