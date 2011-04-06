@@ -49,12 +49,12 @@ def get_config(cfg_file="tevs.cfg"):
     acbi = config.get("Sizes", "allowed_corner_black_inches")
     allowed_tangent = config.get("Sizes", "allowed_tangent")
     try:
-        hsxoi = config.get("Sizes","hotspot_x_offset_inches")
+        hsxoi = config.get("Sizes", "hotspot_x_offset_inches")
         const.hotspot_x_offset_inches = float(hsxoi)
     except ConfigParser.NoOptionError:
         const.hotspot_x_offset_inches = 0.0
     try:
-        hsyoi = config.get("Sizes","hotspot_y_offset_inches")
+        hsyoi = config.get("Sizes", "hotspot_y_offset_inches")
         const.hotspot_y_offset_inches = float(hsyoi)
     except ConfigParser.NoOptionError:
         const.hotspot_y_offset_inches = 0.0
