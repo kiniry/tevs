@@ -67,7 +67,9 @@ def filen(dir, n): #where dir is from dirn
     return os.path.join(dir, "%06d" % n)
 
 
-def mark_error(*files):
+def mark_error(e,*files):
+    if e is not None:
+        const.logger.error(e)
     for file in files:
         const.logger.error("Could not process ballot " + os.path.basename(file))
         try:
@@ -122,7 +124,7 @@ def main():
                     logger.info(base(f) + " does not exist. Cannot proceed.")
                     for j in range(i):
                         logger.info(base(unprocs[j]) + " will NOT be processed")
-                    total_unproc += mark_error(*unprocs[:i-1])
+                    total_unproc += mark_error(None, *unprocs[:i-1])
                     return
 
             #Processing
@@ -135,8 +137,8 @@ def main():
                 ballot = ballotfrom(unprocs, extensions)
                 results = ballot.ProcessPages()
             except BallotException as e:
-                total_unproc += mark_error(*unprocs)
-                logger.exception("Could not process %s and %s" % names)
+                total_unproc += mark_error(e, *unprocs)
+                logger.exception("Could not process ballot")
                 continue
 
             csv = Ballot.results_to_CSV(results)
