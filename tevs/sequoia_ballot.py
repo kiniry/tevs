@@ -23,8 +23,38 @@ column1_offset = 2.95
 column2_offset = 5.95
 right_block_offset = 6.0
 
+def black_white_black(crop,dpi,offset1,offset2):
+    """ return first y offset at which pattern condition is met, or -1 """
+    adj = lambda f: int(round(const.dpi * f))
+    vertical_dist_top_dashes = adj(v_delta_dash_to_dash)
+    vertical_dist_to_next_center = adj(v_delta_dash_to_dash * 1.25)
+    minimum_repeats = adj(0.02)
+    contig = 0
+    retval = -1
+    for n in range(dpi/2):
+        match = False
+        pix1 = crop.getpixel((offset1,n))
+        pix2 = crop.getpixel((offset2,n))
+        pix3 = crop.getpixel((offset1,n+((2*vertical_dist_top_dashes)/3)))
+        pix4 = crop.getpixel((offset2,n+((2*vertical_dist_top_dashes)/3)))
+        pix5 = crop.getpixel((offset1,n+vertical_dist_to_next_center))
+        pix6 = crop.getpixel((offset2,n+vertical_dist_to_next_center))
+        # need black/white/black with white at both points in center
+        if (pix1[0]<128 or pix2[0]<128)  and (pix3[0]>128 and pix4[0]>128) and (pix5[0]<128 or pix6[0]<128):
+            contig = contig + 1
+        else:
+            contig = 0
+        if contig > minimum_repeats:
+            retval = n - minimum_repeats
+            break
+
+    return retval
+        
+
 def get_offsets_and_tangent_from_blocks(im,dpi,dash_sep_in_pixels):
     """ locate marks at top left, right of image"""
+    found_left = False
+    found_right = False
     iround = lambda x: int(round(x))
     adj = lambda f: int(round(const.dpi * f))
     croptop = adj(block_zone_upper_y )
@@ -35,46 +65,23 @@ def get_offsets_and_tangent_from_blocks(im,dpi,dash_sep_in_pixels):
     rightend = im.size[0] - 1
     vertical_dist_top_dashes = dash_sep_in_pixels
     vertical_dist_block_dashes = iround(dpi * .17)
-    scanoffset1 = 0.1
 
     leftcrop = im.crop((leftstart,croptop,leftend,cropbottom))
     rightcrop = im.crop((rightstart,croptop,rightend,cropbottom))
-    # scan down strip at scanoffset1 of leftcrop 
-    # and right 1/3 of rightcrop, looking for 
-    # first stretch of black lasting dpi * .05
-    contig = 0
-    leftstarty = 0
-    rightstarty = 0
-    scanx = adj(scanoffset1)
-    for n in range(dpi/2):
-        pix1 = leftcrop.getpixel((0+scanx,n))
-        pix2 = leftcrop.getpixel((0+scanx*2,n))
-        pix3 = leftcrop.getpixel((0+scanx,n+vertical_dist_top_dashes))
-        pix4 = leftcrop.getpixel((0+scanx*2,n+vertical_dist_top_dashes))
-        if (pix1[0]<128 or pix2[0]<128) and (pix3[0]<128 or pix4[0]<128):
-            contig = contig + 1
-            if contig > adj(minimum_repeats):
-                leftstarty = n - adj(minimum_repeats)
-                break
-        else:
-            contig = 0
-    contig = 0
-    scanx1 = rightcrop.size[0] - adj(scanoffset1) 
-    scanx2 = rightcrop.size[0] - adj(3*scanoffset1)
-    for n in range(dpi/2):
-        pix1 = rightcrop.getpixel((scanx1,n))
-        pix2 = rightcrop.getpixel((scanx2,n))
-        pix3 = rightcrop.getpixel((scanx1,n+vertical_dist_top_dashes))
-        pix4 = rightcrop.getpixel((scanx2,n+vertical_dist_top_dashes))
-        if (pix1[0]<128 or pix2[0]<128) and (pix3[0]<128 or pix4[0]<128):
-            contig = contig + 1
-            if contig > adj(minimum_repeats):
-                rightstarty = n - adj(minimum_repeats)
-                break
-        else:
-            contig = 0
+
+    # look for black white black bar pattern and return y of pattern start
+    scanx = adj(0.1)
+    leftstarty = black_white_black(leftcrop,dpi,scanx,scanx*2)
+    if leftstarty == -1:
+        raise Ballot.BallotException("Failed to find left landmark.")
+
+    rightstarty = black_white_black(rightcrop,dpi,scanx,scanx*2)
+    if rightstarty == -1:
+        raise Ballot.BallotException("Failed to find right landmark.")
+
     leftdashcentery = leftstarty + adj(v_offset_to_dash_center)
     rightdashcentery = rightstarty + adj(v_offset_to_dash_center)
+
 
     # now go leftward from scanx
     # along the center of the top dash until white or off edge
