@@ -1877,17 +1877,9 @@ if __name__ == '__main__':
     cfg_file = get_args()
 
     # read configuration from tevs.cfg and set constants for this run
-    logger = config.get_config(cfg_file)
+    config.get(cfg_file)
+    logger = config.logger(const.logfilename)
 
-    
-    # first, get log file name so log can be opened
-    logging.basicConfig(filename=(const.logfilename),level=logging.DEBUG)
-    logger = logging.getLogger("display")
-    print const.logfilename
-    # then both log and print other config info for this run
-    const.proc = const.root + "/proc"
-    const.unproc = const.root + "/unproc"
-    const.results = const.root + "/results"
     const.procformatstring = const.proc + "/%03d/%06d" + ".jpg"
     const.unprocformatstring = const.unproc + "/%03d/%06d" + ".jpg"
     const.resultsformatstring = const.results + "/%03d/%06d" + ".txt"
@@ -1901,6 +1893,4 @@ if __name__ == '__main__':
     app = App(window)
     window.show_all()
     gtk.main()
-
-
 

@@ -285,8 +285,7 @@ class HartBallot(Ballot.Ballot):
         vboxes = []
         for startx in columnstarts:
              if startx <= 0:
-                  const.logger.info(
-                      "Negative startx passed to gethartvoteboxes")
+                  self.log.info("Negative startx passed to gethartvoteboxes")
              xss = page.image.gethartvoteboxes(startx, dpi2, dpi) #column_start, half inch down, dpi
              vboxes.append([ [xs[1], "v"] for xs in xss])
 

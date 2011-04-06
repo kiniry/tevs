@@ -10,8 +10,6 @@ class _const(object):
 
 sys.modules["const"] = _const()
 
-const.logger = logging
-
 def NilXtnz():
     return Extensions(
         transformer=lambda *_: lambda x, y: (x,y),
