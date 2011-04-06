@@ -23,7 +23,7 @@ def LoadBallotType(name):
     name = name[0].upper() + name[1:] + "Ballot"
     return getattr(module, name)
 
-class Ballot(object): #XXX a better name may be something like BallotAnalyzer
+class Ballot(object): #XXX a better name may be something like Analyzer or Extractor
     def __init__(self, images, extensions):
         #TODO should also take list of (fname, image) pairs 
         def iopen(fname):
@@ -54,7 +54,7 @@ class Ballot(object): #XXX a better name may be something like BallotAnalyzer
     def ProcessPages(self):
         for page in self.pages:
             self.FindLandmarks(page)
-            self.GetLayout(page)
+            self.BuildLayout(page)
             self.CapturePageInfo(page)
         return self.results #each page has its results?
 
@@ -77,7 +77,7 @@ class Ballot(object): #XXX a better name may be something like BallotAnalyzer
         page.rot, page.xoff, page.yoff = r, x, y
         return r, x, y
 
-    def GetLayout(self, page):
+    def BuildLayout(self, page):
         """When no layout is found for a page, we analyze the image,
         and construct a layout that we can use on all similiar page"""
         code = self.GetLayoutCode(page)
