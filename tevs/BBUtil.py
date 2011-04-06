@@ -63,9 +63,9 @@ def askstring(title,summarytext,labeltext,window):
     dialog.vbox.pack_start(gtk.Label(summarytext),True,True,0)
     dialog.vbox.pack_start(hbox, True, True, 0)
     label.show()
-        entry.show()
-        hbox.show()
-        dialog.vbox.show()
+    entry.show()
+    hbox.show()
+    dialog.vbox.show()
     retval = dialog.run()
     if retval == gtk.RESPONSE_ACCEPT:
         retstr = entry.get_text()
