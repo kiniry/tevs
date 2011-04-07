@@ -39,10 +39,13 @@ class File(object):
         util.writeto(self.next_file, str(self.next))
 
 class Simple(object):
+    def __init__(self, start=0, inc=1):
+        self.start, self.inc = start, inc
+
     def __iter__(self):
-        n = 0
+        n = self.start
         while True:
-            n += 1
+            n += self.inc
             yield n
 
     def save(self):
