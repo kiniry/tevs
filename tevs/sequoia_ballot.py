@@ -23,7 +23,12 @@ column1_offset = 2.95
 column2_offset = 5.95
 right_block_offset = 6.0
 
-def black_white_black(crop,dpi,offset1,offset2):
+# the function below overrides any IsWriteIn extension
+def IsWriteIn(im,stats,choice):
+    """ All we have to go on is a text-free box."""
+    return len(choice.description)<3
+
+def find_y_of_landmark_pattern(crop,dpi,offset1,offset2):
     """ return first y offset at which pattern condition is met, or -1 """
     adj = lambda f: int(round(const.dpi * f))
     vertical_dist_top_dashes = adj(v_delta_dash_to_dash)
@@ -71,11 +76,11 @@ def get_offsets_and_tangent_from_blocks(im,dpi,dash_sep_in_pixels):
 
     # look for black white black bar pattern and return y of pattern start
     scanx = adj(0.1)
-    leftstarty = black_white_black(leftcrop,dpi,scanx,scanx*2)
+    leftstarty = find_y_of_landmark_pattern(leftcrop,dpi,scanx,scanx*2)
     if leftstarty == -1:
         raise Ballot.BallotException("Failed to find left landmark.")
 
-    rightstarty = black_white_black(rightcrop,dpi,scanx,scanx*2)
+    rightstarty = find_y_of_landmark_pattern(rightcrop,dpi,scanx,scanx*2)
     if rightstarty == -1:
         raise Ballot.BallotException("Failed to find right landmark.")
 
@@ -359,8 +364,8 @@ class SequoiaBallot(Ballot.Ballot):
         self.oval_margin = adj(.03) #XXX length should be in config or metadata
         self.min_contest_height = adj(const.minimum_contest_height_inches)
         self.vote_target_horiz_offset = adj(const.vote_target_horiz_offset_inches)
-        self.writein_xoff = adj(2.5) #XXX
-        self.writein_yoff = adj(.6)
+        self.writein_xoff = adj(-2.9) #XXX
+        self.writein_yoff = adj(-0.2)
         self.allowed_corner_black = adj(const.allowed_corner_black_inches)
         super(SequoiaBallot, self).__init__(images, extensions)
 
@@ -499,15 +504,24 @@ class SequoiaBallot(Ballot.Ballot):
         voted, ambiguous = self.extensions.IsVoted(crop, stats, choice)
         writein = False
         if voted:
-           writein = self.extensions.IsWriteIn(crop, stats, choice)
-        if writein:
-            tell_us_about_writein_at((
-                 cropx - margin,
-                 cropy - margin,
-                 cropx + self.writein_xoff + margin,
-                 cropy + self.writein_yoff + margin
-            ))
-
+           # extension is overriden with local function for this ballot type   
+           writein = IsWriteIn(crop, stats, choice)
+           if writein:
+               x1 = min(self.writein_xoff+cropx,cropx)
+               x2 = max(self.writein_xoff+cropx,cropx)
+               y1 = min(self.writein_yoff+cropy,cropy + adj(.2))
+               y2 = max(self.writein_yoff+cropy,cropy + adj(.2))
+               writein_crop = page.image.crop((
+                       x1 - margin,
+                       y1 - margin,
+                       x2 + margin,
+                       y2 + margin
+                       ))
+               # until handled in Ballot.py, save writein to our directory
+               writein_name = "./"
+               writein_name += page.filename.split("/")[-1]
+               writein_name += "x%04dy%04d.jpg" % (choice.x,choice.y)
+               writein_crop.save(writein_name)
         return cropx, cropy, stats, crop, voted, writein, ambiguous
 
     def build_layout(self, page):
