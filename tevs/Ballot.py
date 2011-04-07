@@ -621,22 +621,23 @@ def Template_to_XML(ballot): #XXX needs to be updated for jurisdictions
 
     attrs(
         dpi=ballot.dpi,
-        precinct=ballot.precinct,
+        precinct=ballot.precinct,#XXX change to barcode?
         lx=ballot.xoff,
         ly=ballot.yoff,
         rot=ballot.rot
     )
     ins(">\n")
 
+    #TODO add jurisdictions loop
     for contest in ballot.contests:
         ins("\t<Contest")
         attrs(
-            prop=contest.prop,
+            prop=contest.prop,#XXX del
             text=contest.description,
             x=contest.x,
             y=contest.y,
-            x2=contest.w,
-            y2=contest.h
+            x2=contest.x2,
+            y2=contest.y2
         )
         ins(">\n")
 
@@ -645,9 +646,12 @@ def Template_to_XML(ballot): #XXX needs to be updated for jurisdictions
             attrs(
                 x=choice.x,
                 y=choice.y,
+                x2=choice.x2,
+                y2=choice.y2,
                 text=choice.description
             )
             ins(" />\n")
+            #TODO add loop for vops that checks for writeins
 
         ins("\t</Contest>\n")
     ins("</BallotSide>\n")
@@ -667,6 +671,7 @@ def Template_from_XML(xml): #XXX needs to be updated for jurisdictions
                 yield get(attr)
 
     side = tag(doc, "BallotSide")[0]
+    #XXX s/precinct/barcode/g
     dpi, precinct, xoff, yoff, rot = attrs(
         side,
         (int, "dpi"), "precinct", (int, "lx"), (int, "ly"), (float, "rot")
@@ -683,7 +688,9 @@ def Template_from_XML(xml): #XXX needs to be updated for jurisdictions
         for choice in tag(contest, "oval"):
             cur.append(Choice(*attrs(
                  choice,
-                 (int, "x"), (int, "y"), "text"
+                 (int, "x"), (int, "y"), 
+                 (int, "x2"), (int, "y2"),
+                 "text"
             )))
 
         contests.append(cur)
@@ -756,7 +763,7 @@ def IsVoted(im, stats, choice):
     ambiguous = intensity_test != darkness_test
     return voted, ambiguous
 
-def IsWriteIn(im, stats, choice):
+def IsWriteIn(im, stats, choice): #XXX build_layout must set
     """determine if box is actually a write in
     >>> test = lambda t: "ok" if IsWriteIn(None, None, Choice(0,0,t)) else None
     >>> test("Garth Marenghi")
