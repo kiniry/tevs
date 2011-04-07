@@ -133,8 +133,8 @@ def main():
 
             #Processing
 
-            log.info("Processing: %s:\n %s" % 
-                (n, "".join("\t%s\n" % base(u) for u in unprocs))
+            log.info("Processing %s:\n %s" % 
+                (n, "\n".join("\t%s" % base(u) for u in unprocs))
             )
 
             try:
