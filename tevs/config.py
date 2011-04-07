@@ -3,6 +3,7 @@ import logging
 import const
 import sys
 import os
+import errno
 
 def yesno(cfg, grp, itm):
     so = cfg.get(grp, itm)
@@ -13,8 +14,27 @@ def yesno(cfg, grp, itm):
         return False
     raise ValueError("% is not a valid choice for %s in %s" % (so, grp, itm))
 
+def logger(file):
+    level = logging.INFO
+    if const.debug:
+        level = logging.DEBUG
 
-def get_config(cfg_file="tevs.cfg"):
+    logging.basicConfig(
+        filename=file,
+        format="%(asctime)s: %(levelname)s: %(message)s",
+        level=level
+    )
+
+    logger = logging.getLogger('')
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    console.setFormatter(
+        logging.Formatter("%(message)s\n")
+    )
+    logger.addHandler(console)
+    return logger
+
+def get(cfg_file="tevs.cfg"):
     config = ConfigParser.ConfigParser()
     config.read(cfg_file)
 
@@ -26,15 +46,7 @@ def get_config(cfg_file="tevs.cfg"):
         const.incoming = os.path.join(const.root, "unproc")
 
     # first, get log file name so log can be opened
-    const.logfilename = os.path.join(const.root, "log.txt")
-    if const.debug:
-        logging.basicConfig(filename=const.logfilename, level=logging.DEBUG)
-    else:
-        logging.basicConfig(filename=const.logfilename, level=logging.INFO)
-
-    logger = logging.getLogger("extraction")
-    logger.addHandler(logging.StreamHandler(sys.stderr))
-    const.logger = logger
+    const.logfilename = os.path.join(const.root, "log.txt") #XXX only needed for scancontrol, view
 
     # then both log and print other config info for this run
     bwi = config.get("Sizes", "ballot_width_inches")
@@ -49,12 +61,12 @@ def get_config(cfg_file="tevs.cfg"):
     acbi = config.get("Sizes", "allowed_corner_black_inches")
     allowed_tangent = config.get("Sizes", "allowed_tangent")
     try:
-        hsxoi = config.get("Sizes","hotspot_x_offset_inches")
+        hsxoi = config.get("Sizes", "hotspot_x_offset_inches")
         const.hotspot_x_offset_inches = float(hsxoi)
     except ConfigParser.NoOptionError:
         const.hotspot_x_offset_inches = 0.0
     try:
-        hsyoi = config.get("Sizes","hotspot_y_offset_inches")
+        hsyoi = config.get("Sizes", "hotspot_y_offset_inches")
         const.hotspot_y_offset_inches = float(hsyoi)
     except ConfigParser.NoOptionError:
         const.hotspot_y_offset_inches = 0.0
@@ -92,6 +104,4 @@ def get_config(cfg_file="tevs.cfg"):
     const.use_db = yesno(config, "Database", "use_db")
     const.dbname = config.get("Database", "name")
     const.dbpwd  = config.get("Database", "password")
-
-    return logger
 

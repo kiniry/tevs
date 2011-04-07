@@ -63,7 +63,6 @@ def rotate_pt_by(x,y,deltatang,lx,ly):
     x = lx + (xforcalc * cosra - yforcalc * sinra)
     y = ly - (xforcalc * sinra + yforcalc * cosra)
 
-    #const.logger.debug("orig x,y (%d,%d) adjusted x,y (%d, %d)" % (origx, origy, x, y))
     return x, y
 
 
