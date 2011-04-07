@@ -252,6 +252,7 @@ and the same for each choice in the contest.
                     # values are the x,y of the upper left corner
                     # of the printed vote opportunity, 
                     # and the text of the choice
+                    #TODO add x2,y2
                     regionlist[-1].append(Ballot.Choice(x_offset, y_offset, choice))
         return regionlist
 
