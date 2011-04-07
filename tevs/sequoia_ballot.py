@@ -241,6 +241,7 @@ def build_template(im,dpi,code,xoff,yoff,tilt,front=True):
                     else:
                         # update the bottom of the contest's bounding box
                         regionlist[-1].h = ll_y + adj(0.2)
+                    #add x2, y2
                     regionlist[-1].append(Ballot.Choice(ll_x, ll_y, text))
                     
 

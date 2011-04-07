@@ -302,7 +302,6 @@ class HartBallot(Ballot.Ballot):
 
 def ocr(im, contests, dpi, x1, x2, splits, xtnz): #XXX can replace all of this with a single Page at some point?
     """ ocr runs ocr and assembles appends to the list of BtRegions"""
-    log.debug("ocr handed x1 = %d, dpi = %d" % (x1, dpi))
     box_type = ""
     nexty = None
     cand_horiz_off = int(round(
@@ -376,6 +375,7 @@ def ocr(im, contests, dpi, x1, x2, splits, xtnz): #XXX can replace all of this w
             C = Ballot.Choice(
                 x1 + vote_target_off,
                 croplist[1] - dpi_02,
+                #TODO add lower right point, remove text
                 text
             )
             contests[-1].append(C)
