@@ -134,6 +134,11 @@ such landmark, enter -1:
         The layout code must be determined on a vendor specific basis;
         it is usually a series of dashes or a bar code at a particular
         location on the ballot.
+
+        Layout codes may appear on both sides of the ballot, or only
+        on the fronts.  If the codes appear only on the front, you can
+        file the back layout under a layout code generated from the
+        front's layout code.
         """
         barcode = ask("""Enter a number as the simulated barcode,
         or -1 if your ballot is missing a barcode""", IntIn(0, 100), -1)
@@ -147,7 +152,11 @@ such landmark, enter -1:
 
     def extract_VOP(self, page, rotate, scale, choice):
         """Extract a single oval, or writein box, from the specified ballot.
-        We'll tell you the coordinates, you tell us the stats
+        We'll tell you the coordinates, you tell us the stats.  The
+        information gathered should enable the IsVoted function to 
+        make a reasonable decision about whether the area was voted,
+        but the data is also available to anyone else wanting to see
+        the raw statistics to make their own decision.
         """
         # choice coords should be the upper left hand corner 
         # of the bounding box of the printed vote target
@@ -204,12 +213,13 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
         if voted:
            writein = self.extensions.IsWriteIn(crop, stats, choice)
         if writein:
-            tell_us_about_writein_at((
-                 cropx - margin,
-                 cropy - margin,
-                 cropx + self.writein_xoff + margin,
-                 cropy + self.writein_yoff + margin
-            ))
+            print "Gather information about the write-in at",
+            print cropx - margin, cropy - margin,
+            print cropx + self.writein_xoff + margin,
+            print cropy + self.writein_yoff + margin
+            print "In this version, it's your responsibility to save"
+            print "the write-in images; in subsequent versions they"
+            print "will be saved by code in Ballot.py"
 
         return cropx, cropy, stats, crop, voted, writein, ambiguous
 
