@@ -101,19 +101,20 @@ class Ballot(object): #XXX a better name may be something like Analyzer or Extra
             return tmpl
 
         #TODO derotate image before trying to build layout. bilinear
-        contests = self.build_layout(page)
-        if len(contests) == 0:
+        tree = self.build_layout(page)
+        if len(tree) == 0:
             raise BallotException('No layout was built')
-        self.log.info("Ballot template %s created", code)
-        contests = self.OCRDescriptions(page.image, contests)#XXX should this NOT be called automatically?
-        tmpl = page.as_template(code, contests)
+        tree = self.OCRDescriptions(page, tree)
+        tmpl = page.as_template(code, tree)
         self.extensions.template_cache[code] = tmpl
         return tmpl
 
-    def OCRDescriptions(self, image, contests): #XXX should this NOT be called automatically?
-        "This is handled automatically by BuildLayout"
-        #TODO, walk template and OCR all descriptions
-        return contests
+    def OCRDescriptions(self, page, tree):
+        "This is called automatically by BuildLayout"
+        return tree #STAGE del
+        for subtree in tree:
+            _ocr1(self.extensions, page, subtree)
+        return tree
 
     def CapturePageInfo(self, page):
         "tabulate the votes on a single page"
@@ -218,6 +219,18 @@ class DuplexBallot(Ballot):
 
     def build_back_layout(self, page):
         self.build_front_layout(page)
+
+def _ocr1(extensions, page, node):
+    "this is the backing routine for Ballot.OCRDescriptions"
+    crop = page.image.crop(node.bbox())
+    if type(node) in (Jurisdiction, Contest, Choice):
+        temp = extensions.ocr_engine(crop)
+        temp = extensions.ocr_cleaner(temp)
+        node.description = temp
+    else:
+        node.image = crop
+    for child in node.children():
+        _ocr1(extensions, page, child)
 
 class _bag(object):
     def __repr__(self):
@@ -496,7 +509,8 @@ def results_to_mosaic(results):
 class Region(object):
     def __init__(self, x, y, x2, y2):
         self.x, self.y, self.x2, self.y2 = x, y, x2, y2
-        self.description = None
+        self.description = None #there will be one of these two but not both
+        self.image = None
 
     def coords(self):
         return self.x, self.y
@@ -504,19 +518,29 @@ class Region(object):
     def bbox(self):
         return self.x, self.y, self.x2, self.y2
 
+    def children(self):
+        return []
+
+
 #A choice has and must have one and only one VOP--VOP is an essentially useless
 #class but it is way easier to think about it this way instead of having one
 #object with two bounding boxes
 class Choice(Region): #have two regions, one for text like in jurisdiction and contest and one for vop
-     def __init__(self, x, y, description): #XXX need to add x2, y2, vop, axe description
-         super(Choice, self).__init__(x, y, -1, -1) #XXX
-         self.VOP = None #XXX del
-         self.description = description #XXX change to None
+    def __init__(self, x, y, description): #XXX need to add x2, y2, vop, axe description
+        super(Choice, self).__init__(x, y, -1, -1) #XXX
+        self.VOP = None
+        self.description = description #XXX change to None
+
+    def children(self):
+        return self.VOP or []
 
 class VOP(Region):
-    def __init__(self, x, y, x2, y2, WriteIn=None):
+    def __init__(self, x, y, x2, y2):
         super(VOP, self).__init__(x, y, x2, y2)
         self.WriteIn = WriteIn
+
+    def children(self):
+        return self.WriteIn or []
 
 class WriteIn(Region):
     def __init__(self, x, y, x2, y2):
@@ -530,17 +554,23 @@ class Jurisdiction(Region):
     def append(self, contest):
         self.contests.append(contest)
 
-class Contest(Region): #XXX prop is weird, what do we do with it?
-     def __init__(self, x, y, x2, y2, prop, description): #XXX axe prop/description
-         super(Contest, self).__init__(x, y, x2, y2)
-         self.prop = prop #XXX del
-         self.w = x2 #XXX del
-         self.h = y2 #XXX del
-         self.description = description #XXX change to None
-         self.choices = []
+    def children(self):
+        return self.contests
 
-     def append(self, choice):
-         self.choices.append(choice)
+class Contest(Region):
+    def __init__(self, x, y, x2, y2, prop, description): #XXX axe prop/description
+        super(Contest, self).__init__(x, y, x2, y2)
+        self.prop = prop #XXX del
+        self.w = x2 #XXX del
+        self.h = y2 #XXX del
+        self.description = description #XXX change to None
+        self.choices = []
+
+    def append(self, choice):
+        self.choices.append(choice)
+
+    def children(self):
+        return self.choices
 
 class _scannedPage(object):
     def __init__(self, dpi, xoff, yoff, rot):
@@ -692,6 +722,7 @@ class TemplateCache(object):
 
     def __setitem__(self, id, template):
         self.cache[id] = template
+        self.log.info("Template %s created", id)
 
     def save(self):
         util.mkdirp(self.location)
@@ -700,7 +731,7 @@ class TemplateCache(object):
             if not os.path.exists(fname):
                 xml = Template_to_XML(template)
                 util.writeto(fname, xml)
-                log.info("new template %s saved", fname)
+                self.log.info("new template %s saved", fname)
 
 class NullTemplateCache(object):
     def __init__(self, loc):
