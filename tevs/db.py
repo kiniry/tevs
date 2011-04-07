@@ -25,9 +25,8 @@ class PostgresDB(object):
         #NB all db queries are decalred as strings after the method body for
         #clarity
 
-        #XXX two problems with below: should be barcode not precinct and
-        # we should not have to chop it off to an arbitary and small length
-        search_key = "$".join(p.template.precinct for p in ballot.pages)[:14]
+        #XXX we should not have to chop it off to an arbitary and small length
+        search_key = "$".join(p.template.barcode for p in ballot.pages)[:14]
         name1 = ballot.pages[0].filename
         name2 = "<No such file>"
         if len(ballot.pages) > 1:

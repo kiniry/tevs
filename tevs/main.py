@@ -4,6 +4,7 @@ import os
 import shutil
 import errno
 import getopt
+import logging
 
 import site; site.addsitedir(os.path.expanduser("~/tevs")) #XXX
 from PILB import Image, ImageStat, ImageDraw #XXX only here so we break
@@ -27,6 +28,7 @@ def get_args():
                                     ]
                                    ) 
     except getopt.GetoptError:
+        #note that logging doesn't exist yet
         sys.stderr.write(
             "usage: %s -tdc --templates --debug --config=file" % sys.argv[0]
         )
@@ -66,10 +68,12 @@ def dirn(dir, n): # where dir is the "unrooted" name
 def filen(dir, n): #where dir is from dirn
     return os.path.join(dir, "%06d" % n)
 
-
-def mark_error(*files):
+def mark_error(e, *files):
+    log = logging.getLogger('')
+    if e is not None:
+        log.error(e)
     for file in files:
-        const.logger.error("Could not process ballot " + os.path.basename(file))
+        log.error("Could not process ballot " + os.path.basename(file))
         try:
             shutil.copy2(file, util.root("errors", os.path.basename(file)))
         except IOError:
@@ -81,7 +85,9 @@ def main():
     cfg_file = get_args()
 
     # read configuration from tevs.cfg and set constants for this run
-    logger = config.get_config(cfg_file)
+    config.get(cfg_file)
+    util.mkdirp(const.root)
+    log = config.logger(util.root("log.txt"))
 
     #create initial top level dirs, if they do not exist
     for p in ("templates", "results", "proc", "errors"):
@@ -92,7 +98,7 @@ def main():
     try:
         ballotfrom = Ballot.LoadBallotType(const.layout_brand)
     except KeyError as e:
-        util.fatal("No such ballot type: " + const.layout_brand + ": check tevs.cfg")
+        util.fatal("No such ballot type: " + const.layout_brand + ": check " + cfg_file)
 
     cache = Ballot.TemplateCache(util.root("templates"))
     extensions = Ballot.Extensions(template_cache=cache)
@@ -115,28 +121,28 @@ def main():
         for n in next_ballot:
             unprocs = [incomingn(n + m) for m in range(const.num_pages)]
             if not os.path.exists(unprocs[0]):
-                logger.info(base(unprocs[0]) + " does not exist. No more records to process")
+                log.info(base(unprocs[0]) + " does not exist. No more records to process")
                 break
             for i, f in enumerate(unprocs[1:]):
                 if not os.path.exists(f):
-                    logger.info(base(f) + " does not exist. Cannot proceed.")
+                    log.info(base(f) + " does not exist. Cannot proceed.")
                     for j in range(i):
-                        logger.info(base(unprocs[j]) + " will NOT be processed")
-                    total_unproc += mark_error(*unprocs[:i-1])
+                        log.info(base(unprocs[j]) + " will NOT be processed")
+                    total_unproc += mark_error(None, *unprocs[:i-1])
                     return
 
             #Processing
 
-            logger.info("Processing: %s:\n %s" % 
-                (n, "".join("\t%s\n" % base(u) for u in unprocs))
+            log.info("Processing %s:\n %s" % 
+                (n, "\n".join("\t%s" % base(u) for u in unprocs))
             )
 
             try:
                 ballot = ballotfrom(unprocs, extensions)
                 results = ballot.ProcessPages()
             except BallotException as e:
-                total_unproc += mark_error(*unprocs)
-                logger.exception("Could not process %s and %s" % names)
+                total_unproc += mark_error(e, *unprocs)
+                log.exception("Could not process ballot")
                 continue
 
             csv = Ballot.results_to_CSV(results)
@@ -181,13 +187,14 @@ def main():
                 except OSError as e:
                     util.fatal("Could not rename %s", a)
             total_proc += const.num_pages
+            log.info("%d ballot pages processed succesfully", const.num_pages)
     finally:
         cache.save()
         dbc.close()
         next_ballot.save()
-        print total_proc, "ballot(s) processed."
+        log.info("%d ballot(s) processed", total_proc)
         if total_unproc > 0:
-            print total_unproc, "ballot(s) could NOT be processed."
+            log.warning("%d ballot(s) coult NOT be processed.", total_unproc)
 
 if __name__ == "__main__":
     main()

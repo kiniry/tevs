@@ -15,7 +15,7 @@ reset: clean
 	@echo 1 >${ROOT}/nexttoprocess.txt
 
 reset-templates: reset
-	@rm -f ${ROOT}/templates
+	@rm -rf ${ROOT}/templates
 
 clean:
 	@rm -f *.pyc

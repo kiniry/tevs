@@ -344,6 +344,7 @@ class SaguacheBallot(Ballot.Ballot):
                                                     text.strip())
                         if len(regionlist)>0:
                                 regionlist[-1].append( 
+                                    #TODO add x2, y2, remove text
                                     Ballot.Choice(top_xy[0], match, text)
                                     )
                         # now enter the just matched oval into a list

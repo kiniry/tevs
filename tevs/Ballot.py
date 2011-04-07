@@ -1,6 +1,7 @@
 import os
 from xml.dom import minidom
 from xml.parsers.expat import ExpatError
+import logging
 
 from PILB import Image, ImageDraw, ImageFont
 import const
@@ -23,7 +24,7 @@ def LoadBallotType(name):
     name = name[0].upper() + name[1:] + "Ballot"
     return getattr(module, name)
 
-class Ballot(object): #XXX a better name may be something like BallotAnalyzer
+class Ballot(object): #XXX a better name may be something like Analyzer or Extractor
     def __init__(self, images, extensions):
         #TODO should also take list of (fname, image) pairs 
         def iopen(fname):
@@ -50,13 +51,26 @@ class Ballot(object): #XXX a better name may be something like BallotAnalyzer
         self.extensions = extensions
         self.results = []
         self.laycode_cache = {}
+        self.log = logging.getLogger('')
 
-    def ProcessPages(self):
+    def MakeTemplates(self):
+        """This is a helper method for when you ONLY want to make 
+        templates from a set of pages, such as when you have a higher
+        resolution set of images to do so."""
+        acc = []
         for page in self.pages:
             self.FindLandmarks(page)
-            self.GetLayout(page)
+            acc.append(self.BuildLayout(page))
+        return acc
+
+    def ProcessPages(self):
+        """Helper to process and anaylze a set of pages. There is no need to do
+        anything else when using this method"""
+        for page in self.pages:
+            self.FindLandmarks(page)
+            self.BuildLayout(page)
             self.CapturePageInfo(page)
-        return self.results #each page has its results?
+        return self.results
 
     def GetLayoutCode(self, page):
         """Find a code that we can use to identify
@@ -77,7 +91,7 @@ class Ballot(object): #XXX a better name may be something like BallotAnalyzer
         page.rot, page.xoff, page.yoff = r, x, y
         return r, x, y
 
-    def GetLayout(self, page):
+    def BuildLayout(self, page):
         """When no layout is found for a page, we analyze the image,
         and construct a layout that we can use on all similiar page"""
         code = self.GetLayoutCode(page)
@@ -87,12 +101,20 @@ class Ballot(object): #XXX a better name may be something like BallotAnalyzer
             return tmpl
 
         #TODO derotate image before trying to build layout. bilinear
-        contests = self.build_layout(page)
-        if len(contests) == 0:
+        tree = self.build_layout(page)
+        if len(tree) == 0:
             raise BallotException('No layout was built')
-        tmpl = page.as_template(code, contests)
+        tree = self.OCRDescriptions(page, tree)
+        tmpl = page.as_template(code, tree)
         self.extensions.template_cache[code] = tmpl
         return tmpl
+
+    def OCRDescriptions(self, page, tree):
+        "This is called automatically by BuildLayout"
+        return tree #STAGE OCRwalk
+        for subtree in tree:
+            _ocr1(self.extensions, page, subtree)
+        return tree
 
     def CapturePageInfo(self, page):
         "tabulate the votes on a single page"
@@ -108,13 +130,13 @@ class Ballot(object): #XXX a better name may be something like BallotAnalyzer
                 "contest":  contest,
                 "choice":   choice,
                 "filename": page.filename,
-                "precinct": page.template.precinct,
+                "barcode": page.template.barcode,
                 "number":   page.number
             }) 
             results.append(VoteData(**kw))
 
         for contest in page.template.contests:
-            if int(contest.h) - int(contest.y) < self.min_contest_height: #XXX only defined insubclass!!!!!!
+            if int(contest.y2) - int(contest.y) < self.min_contest_height: #XXX only defined insubclass!!!!!!
                 for choice in contest.choices:
                      append(contest, choice) #mark all bad
                 continue
@@ -133,6 +155,7 @@ class Ballot(object): #XXX a better name may be something like BallotAnalyzer
         return results
 
     def extract_VOP(self, page, choice): #possible to use the one in hart_ballot with some modification?
+        #should ONLY extract VOPs, have a separate method for seeing if they're voted
         raise NotImplementedError("subclasses must define an ExtractVOP method")
 
     def flip(self, im):
@@ -191,17 +214,29 @@ class DuplexBallot(Ballot):
     def flip_back(self, im):
         return self.flip_front(im)
 
-    def find_back_landmarks(self, page):
+    def find_back_landmarks(self, page): #XXX this is impossible by assumption
         return self.find_front_landmarks(page)
 
     def build_back_layout(self, page):
         self.build_front_layout(page)
 
+def _ocr1(extensions, page, node):
+    "this is the backing routine for Ballot.OCRDescriptions"
+    crop = page.image.crop(node.bbox())
+    if type(node) in (Jurisdiction, Contest, Choice):
+        temp = extensions.ocr_engine(crop)
+        temp = extensions.ocr_cleaner(temp)
+        node.description = temp
+    else:
+        node.image = crop
+    for child in node.children():
+        _ocr1(extensions, page, child)
+
 class _bag(object):
     def __repr__(self):
         return repr(self.__dict__)
 
-class IStats(object):
+class IStats(object): #TODO move to cropstats or new pilb module
     def __init__(self, stats):
        self.red, self.green, self.blue = _bag(), _bag(), _bag()
        self.adjusted = _bag()
@@ -310,11 +345,11 @@ class VoteData(object):
     "All of the data associated with a single vote"
     def __init__(self,
                  filename=None,
-                 precinct=None,
-                 contest=None,
+                 barcode=None,
+                 jurisdiction=None, 
+                 contest=None, 
                  choice=None,
-                 prop=None,
-                 coords=(-1, -1),
+                 coords=(-1, -1), #XXX just save bbox?
                  maxv=1,
                  stats=_bad_stats,
                  image=None,
@@ -323,18 +358,14 @@ class VoteData(object):
                  ambiguous=None,
                  number=-1):
         self.filename = filename
-        self.precinct = precinct
-        self.contest = None
+        self.barcode = barcode
+        self.contest = contest
+        self.jurisdiction = jurisdiction
         if contest is not None:
             self.contest = contest.description
         self.choice = None
-        self.prop = prop
         if choice is not None:
             self.choice = choice.description
-            try:
-                self.prop = choice.prop
-            except AttributeError:
-                pass
         self.coords = coords
         self.maxv = maxv
         self.image = image
@@ -351,10 +382,10 @@ class VoteData(object):
         "return this vote as a line in CSV format"
         return ",".join(str(s) for s in (
             self.filename,
-            self.precinct,
+            self.barcode,
+            self.jurisdiction,
             self.contest,
             self.choice,
-            self.prop,
             self.coords[0], self.coords[1],
             self.stats.CSV(),
             self.maxv,
@@ -363,13 +394,13 @@ class VoteData(object):
             self.is_writein,
         ))
 
-def results_to_CSV(results, heading=False):
+def results_to_CSV(results, heading=False): #TODO need a results_from_CSV
     """Take a list of VoteData and return a generator of CSV 
     encoded information. If heading, insert a descriptive
     header line."""
     if heading:
         yield ( #note that this MUST be kept in sync with the CSV method on VoteData
-            "filename,precinct,contest,choice,prop,x,y," +
+            "filename,barcode,jurisdiction,contest,choice,x,y," +
             _stats_CSV_header_line() + "," +
             "max_votes,was_voted,is_ambiguous,is_writein\n")
     for out in results:
@@ -460,7 +491,7 @@ def results_to_mosaic(results):
         text(x, y, label)
 
     #tile write ins
-    for i, wrin in enumerate(wrins):
+    for i, wrin in enumerate(wrins): #XXX this part is screwed up and I need to fix it
         d, m = divmod(i, 4)
         x = m*wxs + _xins
         y = d*wys + yle
@@ -472,39 +503,70 @@ def results_to_mosaic(results):
     return moz
 
 class Region(object):
-    def __init__(self, x, y, description):
-        self.x, self.y = x, y
-        self.description = description
+    def __init__(self, x, y, x2, y2):
+        self.x, self.y, self.x2, self.y2 = x, y, x2, y2
+        self.description = None #there will be one of these two but not both
+        self.image = None
 
     def coords(self):
         return self.x, self.y
 
-class Choice(Region):
-     def __init__(self, x, y, description):
-         super(Choice, self).__init__(x, y, description)
+    def bbox(self):
+        return self.x, self.y, self.x2, self.y2
 
-     def __repr__(self):
-         return "\n\t".join(str(p) for p in self.__dict__.iteritems())
+    def children(self):
+        return []
 
-class Contest(Region): #XXX prop is weird, what do we do with it?
-     def __init__(self, x, y, w, h, prop, description): #XXX rename w, h -> x2, y2
-         super(Contest, self).__init__(x, y, description)
-         self.w = w
-         self.h = h
-         self.prop = prop
-         self.choices = []
 
-     def bbox(self):
-        return self.x, self.y, self.w, self.h
+#A choice has and must have one and only one VOP--VOP is an essentially useless
+#class but it is way easier to think about it this way instead of having one
+#object with two bounding boxes
+class Choice(Region): #have two regions, one for text like in jurisdiction and contest and one for vop
+    def __init__(self, x, y, description): #XXX need to add x2, y2, vop, axe description
+        super(Choice, self).__init__(x, y, -1, -1) #XXX
+        self.VOP = None
+        self.description = description #XXX change to None
 
-     def append(self, choice):
-         self.choices.append(choice)
+    def children(self):
+        return self.VOP or []
 
-     def __repr__(self):
-         s = "Contest:%s, prop:%s\n" % (self.description, self.prop)
-         s += "\n\t".join(str(s) for s in self.choices)
-         return s
+class VOP(Region):
+    def __init__(self, x, y, x2, y2):
+        super(VOP, self).__init__(x, y, x2, y2)
+        self.WriteIn = WriteIn
 
+    def children(self):
+        return self.WriteIn or []
+
+class WriteIn(Region):
+    def __init__(self, x, y, x2, y2):
+        super(VOP, self).__init__(x, y, x2, y2)
+
+class Jurisdiction(Region):
+    def __init__(self, x, y, x2, y2):
+        super(Jurisdiction, self).__init__(x, y, x2, y2)
+        self.contests = []
+
+    def append(self, contest):
+        self.contests.append(contest)
+
+    def children(self):
+        return self.contests
+
+class Contest(Region):
+    def __init__(self, x, y, x2, y2, prop, description): #XXX axe prop/description
+        super(Contest, self).__init__(x, y, x2, y2)
+        self.prop = prop #XXX del
+        self.w = x2 #XXX del
+        self.h = y2 #XXX del
+        self.description = description #XXX change to None
+        self.choices = []
+
+    def append(self, choice):
+        self.choices.append(choice)
+
+    def children(self):
+        return self.choices
 
 class _scannedPage(object):
     def __init__(self, dpi, xoff, yoff, rot):
@@ -521,10 +583,10 @@ class Page(_scannedPage):
         self.template = template
         self.number = number
 
-    def as_template(self, precinct, contests):
-        """Given the precinct and contests, convert this page into a Template
+    def as_template(self, barcode, contests):
+        """Given the barcode and contests, convert this page into a Template
         and store that objects as its own template"""
-        t = Template(self.dpi, self.xoff, self.yoff, self.rot, precinct, contests)
+        t = Template(self.dpi, self.xoff, self.yoff, self.rot, barcode, contests) #XXX update
         self.template = t
         return t
 
@@ -534,10 +596,10 @@ class Page(_scannedPage):
 class Template(_scannedPage):
     """A ballot page that has been fully mapped and is used as a
     template for similiar pages"""
-    def __init__(self, dpi, xoff, yoff, rot, precinct, contests):
+    def __init__(self, dpi, xoff, yoff, rot, barcode, contests):
         super(Template, self).__init__(dpi, xoff, yoff, rot)
-        self.precinct = precinct #TODO should be barcode
-        self.contests = contests
+        self.barcode = barcode
+        self.contests = contests #TODO should be jurisdictions
 
     def append(self, contest):
         self.contests.append(contest)
@@ -545,7 +607,7 @@ class Template(_scannedPage):
     def __repr__(self):
         return str(self.__dict__)
 
-def Template_to_XML(ballot):
+def Template_to_XML(ballot): #XXX needs to be updated for jurisdictions
     acc = ['<?xml version="1.0"?>\n<BallotSide']
     def attrs(**kw):
         for name, value in kw.iteritems(): #TODO change ' < > et al to &ent;
@@ -555,22 +617,23 @@ def Template_to_XML(ballot):
 
     attrs(
         dpi=ballot.dpi,
-        precinct=ballot.precinct,
+        barcode=ballot.barcode,
         lx=ballot.xoff,
         ly=ballot.yoff,
         rot=ballot.rot
     )
     ins(">\n")
 
+    #TODO add jurisdictions loop
     for contest in ballot.contests:
         ins("\t<Contest")
         attrs(
-            prop=contest.prop,
+            prop=contest.prop,#XXX del
             text=contest.description,
             x=contest.x,
             y=contest.y,
-            x2=contest.w,
-            y2=contest.h
+            x2=contest.x2,
+            y2=contest.y2
         )
         ins(">\n")
 
@@ -579,15 +642,18 @@ def Template_to_XML(ballot):
             attrs(
                 x=choice.x,
                 y=choice.y,
+                x2=choice.x2,
+                y2=choice.y2,
                 text=choice.description
             )
             ins(" />\n")
+            #TODO add loop for vops that checks for writeins
 
         ins("\t</Contest>\n")
     ins("</BallotSide>\n")
     return "".join(acc)
 
-def Template_from_XML(xml):
+def Template_from_XML(xml): #XXX needs to be updated for jurisdictions
     doc = minidom.parseString(xml)
 
     tag = lambda root, name: root.getElementsByTagName(name)
@@ -601,9 +667,9 @@ def Template_from_XML(xml):
                 yield get(attr)
 
     side = tag(doc, "BallotSide")[0]
-    dpi, precinct, xoff, yoff, rot = attrs(
+    dpi, barcode, xoff, yoff, rot = attrs(
         side,
-        (int, "dpi"), "precinct", (int, "lx"), (int, "ly"), (float, "rot")
+        (int, "dpi"), "barcode", (int, "lx"), (int, "ly"), (float, "rot")
     )
     contests = []
 
@@ -617,17 +683,20 @@ def Template_from_XML(xml):
         for choice in tag(contest, "oval"):
             cur.append(Choice(*attrs(
                  choice,
-                 (int, "x"), (int, "y"), "text"
+                 (int, "x"), (int, "y"), 
+                 #(int, "x2"), (int, "y2"), #STAGE choice
+                 "text"
             )))
 
         contests.append(cur)
 
-    return Template(dpi, xoff, yoff, rot, precinct, contests)
+    return Template(dpi, xoff, yoff, rot, barcode, contests)
 
 class TemplateCache(object):
     def __init__(self, location):
         self.cache = {}
         self.location = location
+        self.log = logging.getLogger('')
         #attempt to prepopulate cache
         try:
             for file in os.listdir(location):
@@ -637,12 +706,12 @@ class TemplateCache(object):
                     tmpl = Template_from_XML(data)
                 except ExpatError:
                     if data != "<":
-                        const.logger.exception("Could not parse " + file)
+                        self.log.exception("Could not parse " + file)
                     continue
                 fname = os.path.basename(file)
                 self.cache[fname] = tmpl
         except OSError:
-            const.logger.info("No templates found")
+            self.log.info("No templates found")
 
     def __call__(self, id):
         return self.__getitem__(id)
@@ -655,13 +724,16 @@ class TemplateCache(object):
 
     def __setitem__(self, id, template):
         self.cache[id] = template
+        self.log.info("Template %s created", id)
 
     def save(self):
         util.mkdirp(self.location)
         for id, template in self.cache.iteritems():
             fname = os.path.join(self.location, id)
-            xml = Template_to_XML(template)
-            util.writeto(fname, xml)
+            if not os.path.exists(fname):
+                xml = Template_to_XML(template)
+                util.writeto(fname, xml)
+                self.log.info("new template %s saved", fname)
 
 class NullTemplateCache(object):
     def __init__(self, loc):
@@ -686,7 +758,7 @@ def IsVoted(im, stats, choice):
     ambiguous = intensity_test != darkness_test
     return voted, ambiguous
 
-def IsWriteIn(im, stats, choice):
+def IsWriteIn(im, stats, choice): #XXX build_layout must set
     """determine if box is actually a write in
     >>> test = lambda t: "ok" if IsWriteIn(None, None, Choice(0,0,t)) else None
     >>> test("Garth Marenghi")

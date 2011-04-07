@@ -3,9 +3,13 @@ import sys
 import subprocess
 import uuid
 import re
+import logging
+
 import const
 import util
 import Ballot
+
+log = logging.getLogger('')
 
 # splits argument is conf_hll[x] from HartBallot, 
 # a confirmed horizontal line list containing entries 
@@ -15,7 +19,7 @@ import Ballot
 # and integers paired with 'v' are offsets of vote boxes
 def ocr(im, contests, dpi, x1, x2, splits, xtnz): #XXX can replace all of this with a single Page at some point?
     """ ocr runs ocr and assembles appends to the list of BtRegions"""
-    const.logger.debug("ocr handed x1 = %d, dpi = %d" % (x1, dpi))
+    log.debug("ocr handed x1 = %d, dpi = %d" % (x1, dpi))
     box_type = ""
     nexty = None
     cand_horiz_off = int(round(
@@ -118,7 +122,7 @@ def tesseract(zone):
         err = p.stderr.read()
         sts = os.waitpid(p.pid, 0)[1]
         if sts != 0 or len(err) > 100:
-            const.logger.error(err)
+            log.error(err)
             raise BallotException("OCR failed")
         text = util.readfrom(ft + ".txt")
     finally:

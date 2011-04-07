@@ -285,8 +285,7 @@ class HartBallot(Ballot.Ballot):
         vboxes = []
         for startx in columnstarts:
              if startx <= 0:
-                  const.logger.info(
-                      "Negative startx passed to gethartvoteboxes")
+                  self.log.info("Negative startx passed to gethartvoteboxes")
              xss = page.image.gethartvoteboxes(startx, dpi2, dpi) #column_start, half inch down, dpi
              vboxes.append([ [xs[1], "v"] for xs in xss])
 
@@ -296,10 +295,92 @@ class HartBallot(Ballot.Ballot):
             hll.sort()
             try:
                 endx = columnstarts[x+1]
-            except:
+            except IndexError:
                 endx = xend - dpi2
             ocr(page.image, br, dpi, columnstarts[x], endx, hll, self.extensions)
         return br
+
+def ocr(im, contests, dpi, x1, x2, splits, xtnz): #XXX can replace all of this with a single Page at some point?
+    """ ocr runs ocr and assembles appends to the list of BtRegions"""
+    box_type = ""
+    nexty = None
+    cand_horiz_off = int(round(
+        const.candidate_text_horiz_offset_inches*dpi
+    ))
+    vote_target_off = int(round(
+        const.vote_target_horiz_offset_inches*dpi
+    ))
+    dpi16 = dpi/16
+    dpi40 = dpi/40
+    dpi_02 = int(round(dpi*0.02))
+    invalid = lambda region: region[3] <= region[1]
+
+    for n, split in enumerate(splits[:-1]):
+        # for votes, we need to step past the vote area
+        oval = False
+        if split[1] == "v":
+            startx = x1 + cand_horiz_off
+            oval = True
+        else:
+            # while for other text, we just step past the border line
+            startx = x1 + dpi40
+            for y, dir in splits[n+1:]:
+                if dir == 'h':
+                    nexty = y
+                    break
+
+        croplist = (startx+1, split[0]+1, x2-2, splits[n+1][0]-2)
+        if invalid(croplist):
+            continue #XXX is this an error from somewhere?
+        crop = im.crop(croplist)
+        gaps = crop.gethgaps((128, 1))
+
+        # we now need to split line by line at the gaps:
+        # first, discard the first gap if it starts from 0
+        if len(gaps) > 0 and gaps[0][1] == 0:
+            gaps = gaps[1:]
+
+        zone = crop
+
+        # then, take from the start to the first gap start
+        if len(gaps) != 0:
+            zcroplist = (0, 0, crop.size[0]-1, gaps[0][1])
+            if invalid(zcroplist):
+                continue
+            zone = crop.crop(zcroplist)
+
+        text = xtnz.ocr_engine(zone)
+
+        # then, take from the first gap end to the next gap start
+        for m, gap in enumerate(gaps):
+            end_of_this_gap = gap[3] - 2
+            try:
+                start_of_next_gap = gaps[m+1][1]
+            except:
+                start_of_next_gap = crop.size[1] - 2
+            zone_croplist = (0,
+                             end_of_this_gap,
+                             crop.size[0]-1,
+                             start_of_next_gap)
+            if start_of_next_gap - end_of_this_gap < dpi16:
+                continue #XXX is this not an error?
+            zone = crop.crop(zone_croplist)
+            text += xtnz.ocr_engine(zone)
+
+        text = xtnz.ocr_cleaner(text)
+
+        x, y, w = croplist[:3]
+        if oval:
+            # vote boxes begin 1/10" in from edge of contest box
+            C = Ballot.Choice(
+                x1 + vote_target_off,
+                croplist[1] - dpi_02,
+                #TODO add lower right point, remove text
+                text
+            )
+            contests[-1].append(C)
+        else:
+            contests.append(Ballot.Contest(x, y, w, nexty, None, text))
 
 def good_barcode(code_string):
     """check code for obvious flaws"""
