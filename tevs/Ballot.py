@@ -111,7 +111,7 @@ class Ballot(object): #XXX a better name may be something like Analyzer or Extra
 
     def OCRDescriptions(self, page, tree):
         "This is called automatically by BuildLayout"
-        return tree #STAGE del
+        return tree #STAGE OCRwalk
         for subtree in tree:
             _ocr1(self.extensions, page, subtree)
         return tree
@@ -130,7 +130,7 @@ class Ballot(object): #XXX a better name may be something like Analyzer or Extra
                 "contest":  contest,
                 "choice":   choice,
                 "filename": page.filename,
-                "precinct": page.template.precinct,
+                "barcode": page.template.barcode,
                 "number":   page.number
             }) 
             results.append(VoteData(**kw))
@@ -345,11 +345,11 @@ class VoteData(object):
     "All of the data associated with a single vote"
     def __init__(self,
                  filename=None,
-                 precinct=None, #barcode
+                 barcode=None,
+                 jurisdiction=None, 
                  contest=None, 
                  choice=None,
-                 prop=None, #XXX del?
-                 coords=(-1, -1),
+                 coords=(-1, -1), #XXX just save bbox?
                  maxv=1,
                  stats=_bad_stats,
                  image=None,
@@ -358,18 +358,14 @@ class VoteData(object):
                  ambiguous=None,
                  number=-1):
         self.filename = filename
-        self.precinct = precinct
+        self.barcode = barcode
         self.contest = contest
+        self.jurisdiction = jurisdiction
         if contest is not None:
             self.contest = contest.description
         self.choice = None
-        self.prop = prop
         if choice is not None:
             self.choice = choice.description
-            try:
-                self.prop = choice.prop
-            except AttributeError:
-                pass
         self.coords = coords
         self.maxv = maxv
         self.image = image
@@ -386,10 +382,10 @@ class VoteData(object):
         "return this vote as a line in CSV format"
         return ",".join(str(s) for s in (
             self.filename,
-            self.precinct,
+            self.barcode,
+            self.jurisdiction,
             self.contest,
             self.choice,
-            self.prop,
             self.coords[0], self.coords[1],
             self.stats.CSV(),
             self.maxv,
@@ -404,7 +400,7 @@ def results_to_CSV(results, heading=False): #TODO need a results_from_CSV
     header line."""
     if heading:
         yield ( #note that this MUST be kept in sync with the CSV method on VoteData
-            "filename,precinct,contest,choice,prop,x,y," +
+            "filename,barcode,jurisdiction,contest,choice,x,y," +
             _stats_CSV_header_line() + "," +
             "max_votes,was_voted,is_ambiguous,is_writein\n")
     for out in results:
@@ -587,10 +583,10 @@ class Page(_scannedPage):
         self.template = template
         self.number = number
 
-    def as_template(self, precinct, contests):
-        """Given the precinct and contests, convert this page into a Template
+    def as_template(self, barcode, contests):
+        """Given the barcode and contests, convert this page into a Template
         and store that objects as its own template"""
-        t = Template(self.dpi, self.xoff, self.yoff, self.rot, precinct, contests) #XXX update
+        t = Template(self.dpi, self.xoff, self.yoff, self.rot, barcode, contests) #XXX update
         self.template = t
         return t
 
@@ -600,9 +596,9 @@ class Page(_scannedPage):
 class Template(_scannedPage):
     """A ballot page that has been fully mapped and is used as a
     template for similiar pages"""
-    def __init__(self, dpi, xoff, yoff, rot, precinct, contests):
+    def __init__(self, dpi, xoff, yoff, rot, barcode, contests):
         super(Template, self).__init__(dpi, xoff, yoff, rot)
-        self.precinct = precinct #TODO should be barcode
+        self.barcode = barcode
         self.contests = contests #TODO should be jurisdictions
 
     def append(self, contest):
@@ -621,7 +617,7 @@ def Template_to_XML(ballot): #XXX needs to be updated for jurisdictions
 
     attrs(
         dpi=ballot.dpi,
-        precinct=ballot.precinct,#XXX change to barcode?
+        barcode=ballot.barcode,
         lx=ballot.xoff,
         ly=ballot.yoff,
         rot=ballot.rot
@@ -671,10 +667,9 @@ def Template_from_XML(xml): #XXX needs to be updated for jurisdictions
                 yield get(attr)
 
     side = tag(doc, "BallotSide")[0]
-    #XXX s/precinct/barcode/g
-    dpi, precinct, xoff, yoff, rot = attrs(
+    dpi, barcode, xoff, yoff, rot = attrs(
         side,
-        (int, "dpi"), "precinct", (int, "lx"), (int, "ly"), (float, "rot")
+        (int, "dpi"), "barcode", (int, "lx"), (int, "ly"), (float, "rot")
     )
     contests = []
 
@@ -689,13 +684,13 @@ def Template_from_XML(xml): #XXX needs to be updated for jurisdictions
             cur.append(Choice(*attrs(
                  choice,
                  (int, "x"), (int, "y"), 
-                 (int, "x2"), (int, "y2"),
+                 #(int, "x2"), (int, "y2"), #STAGE choice
                  "text"
             )))
 
         contests.append(cur)
 
-    return Template(dpi, xoff, yoff, rot, precinct, contests)
+    return Template(dpi, xoff, yoff, rot, barcode, contests)
 
 class TemplateCache(object):
     def __init__(self, location):
