@@ -295,7 +295,7 @@ class HartBallot(Ballot.Ballot):
             hll.sort()
             try:
                 endx = columnstarts[x+1]
-            except:
+            except IndexError:
                 endx = xend - dpi2
             ocr(page.image, br, dpi, columnstarts[x], endx, hll, self.extensions)
         return br
