@@ -82,6 +82,7 @@ class Ballot(object): #XXX a better name may be something like Analyzer or Extra
             if len(lc) == 0:
                 raise BallotException('Nonsense layout code')
             self.laycode_cache[page.number] = lc
+            page.barcode = lc
             return lc
 
     def FindLandmarks(self, page):
@@ -94,6 +95,8 @@ class Ballot(object): #XXX a better name may be something like Analyzer or Extra
     def BuildLayout(self, page):
         """When no layout is found for a page, we analyze the image,
         and construct a layout that we can use on all similiar page"""
+        if page.blank:
+            return page.as_template("blank", [])
         code = self.GetLayoutCode(page)
         tmpl = self.extensions.template_cache[code]
         if tmpl is not None:
@@ -111,6 +114,8 @@ class Ballot(object): #XXX a better name may be something like Analyzer or Extra
 
     def OCRDescriptions(self, page, tree):
         "This is called automatically by BuildLayout"
+        if page.blank:
+            return tree
         return tree #STAGE OCRwalk
         for subtree in tree:
             _ocr1(self.extensions, page, subtree)
@@ -118,6 +123,8 @@ class Ballot(object): #XXX a better name may be something like Analyzer or Extra
 
     def CapturePageInfo(self, page):
         "tabulate the votes on a single page"
+        if page.blank:
+            return []
         if page.template is None:
             raise BallotException("Cannot capture page info without template")
         R = self.extensions.transformer
@@ -582,6 +589,8 @@ class Page(_scannedPage):
         self.filename = filename
         self.template = template
         self.number = number
+        self.blank = False
+        self.barcode = ""
 
     def as_template(self, barcode, contests):
         """Given the barcode and contests, convert this page into a Template
