@@ -52,7 +52,9 @@ class Scanner(object):
         self.s = s
         self.duplex = duplex
 
-    def _scan(self, i, s):
+    def _scan(self, i):
+        if i > 10:
+            raise Error("Scanner not responding")
         try:
             self.s.start()
         except sane.error:
@@ -63,8 +65,8 @@ class Scanner(object):
             # treat the next scan as a "first scan", which means
             # you number it in mode "number first scan only"
             # Note that we can read button state, possibly state of doublefeed 
-            time.sleep(s)
-            self._scan(i+1, 2*s)
+            time.sleep(2)
+            self._scan(i+1)
 
     def scan(self, counter):
         self.s.endorser_val = counter
@@ -72,7 +74,7 @@ class Scanner(object):
         imgs = []
         if self.duplex:
             imgs.append(self.s.snap(no_cancel=True))
-            self._scan(1, 2)
+            self._scan(1)
         imgs.append(self.s.snap())
         return imgs
 
