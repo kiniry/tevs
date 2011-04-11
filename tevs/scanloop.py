@@ -70,7 +70,7 @@ class Scanner(object):
 
     def scan(self, counter):
         self.s.endorser_val = counter
-        self._scan(1, 2)
+        self._scan(1)
         imgs = []
         if self.duplex:
             imgs.append(self.s.snap(no_cancel=True))
