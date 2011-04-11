@@ -83,7 +83,8 @@ class HartBallot(Ballot.Ballot):
         #[(x,y),(x,y),(x,y),(x,y)] or None
         tiltinfo = page.image.gethartlandmarks(const.dpi, 0)
         if tiltinfo is None:
-            raise Ballot.BallotException("Could not find landmarks")
+            page.blank = True #needs to ensure it is a page somehow
+            return 0.0, 0, 0
         
         # flunk ballots with more than 
         # allowed_corner_black_inches of black in corner
@@ -300,7 +301,7 @@ class HartBallot(Ballot.Ballot):
             ocr(page.image, br, dpi, columnstarts[x], endx, hll, self.extensions)
         return br
 
-def ocr(im, contests, dpi, x1, x2, splits, xtnz): #XXX can replace all of this with a single Page at some point?
+def ocr(im, contests, dpi, x1, x2, splits, xtnz):
     """ ocr runs ocr and assembles appends to the list of BtRegions"""
     box_type = ""
     nexty = None
@@ -356,7 +357,7 @@ def ocr(im, contests, dpi, x1, x2, splits, xtnz): #XXX can replace all of this w
             end_of_this_gap = gap[3] - 2
             try:
                 start_of_next_gap = gaps[m+1][1]
-            except:
+            except IndexError:
                 start_of_next_gap = crop.size[1] - 2
             zone_croplist = (0,
                              end_of_this_gap,
