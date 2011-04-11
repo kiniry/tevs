@@ -160,7 +160,7 @@ def timeout_func(app,spinner):
     return False
 
 
-INDEX_CHOICE = 3
+INDEX_CHOICE = 4
 INDEX_XCOORD = 22
 INDEX_YCOORD = 23
 INDEX_INTENSITY = 7
@@ -616,7 +616,7 @@ class App():
         lastl = None
         App.all_images = []
         for l in votefile.xreadlines():
-            if l <> lastl:
+            if l != lastl:
                 App.all_images.append(l[:-1])
             lastl = l
         votefile.close()
@@ -668,7 +668,7 @@ class App():
                     for line in cv:
                         try:
                             field1 = line.split(",")[0]
-                            if (line.find(dc) > -1) and (field1 <> lastfield1):
+                            if (line.find(dc) > -1) and (field1 != lastfield1):
                                 try:
                                     ov.write(field1)
                                     ov.write("\n")
@@ -717,7 +717,7 @@ class App():
             cv = open(App.nonvotescsv)
             for line in cv:
                 fields = line.split(",")
-                if (int(fields[7][:-1]) <= int(end)) and (fields[0] <> lastfield1):
+                if (int(fields[7][:-1]) <= int(end)) and (fields[0] != lastfield1):
                     App.all_images.append(fields[0])
                     lastfield1 = fields[0]
             cv.close()
@@ -754,7 +754,7 @@ class App():
             for line in cv:
                 #pdb.set_trace()
                 fields = line.split(",")
-                if (int(fields[7][:-1]) >= int(start)) and (fields[0] <> lastfield1):
+                if (int(fields[7][:-1]) >= int(start)) and (fields[0] != lastfield1):
                     App.all_images.append(fields[0])
                     lastfield1 = fields[0]
             cv.close()
@@ -959,7 +959,7 @@ class App():
         sum = 0
         for k in keylist:
             # if the precinct has changed, output the stored counts
-            if k[0] <> k0:
+            if k[0] != k0:
                 # calculate percentages for the prior k1 contest
                 # by summing all saved vote counts and dividing
                 # individual vote counts by the sum
@@ -1003,7 +1003,7 @@ class App():
 
         for k in keylist:
             # if the contest has changed, process the stored vote counts
-            if k[1] <> k1:
+            if k[1] != k1:
                 # calculate percentages for the prior k1 contest
                 # by summing all saved vote counts and dividing
                 # individual vote counts by the sum
@@ -1043,7 +1043,7 @@ class App():
         contesttotal = 0
 
         for k in keylist:
-            if k[1] <> k1:
+            if k[1] != k1:
                 # output and reset choice_dict for different contest
                 outstr_list.append("\n**** %s *****" % (k1,))
                 percentvote = 0
@@ -1523,7 +1523,7 @@ before advancing to the next""","Enter delay:",self.delay_seconds)
         for l in votefile.xreadlines():
             a = l.split(",")[0]
             b = l.split(",")[1]
-            if a <> lasta and b[-8:] == code[-8:]:
+            if a != lasta and b[-8:] == code[-8:]:
                 App.all_images.append(a)
             lasta = a
         App.on_deck_filename = App.all_images.pop()
