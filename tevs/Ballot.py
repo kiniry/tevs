@@ -706,10 +706,13 @@ class TemplateCache(object):
     def __init__(self, location):
         self.cache = {}
         self.location = location
+        util.mkdirp(location)
         self.log = logging.getLogger('')
         #attempt to prepopulate cache
         try:
             for file in os.listdir(location):
+                if os.path.splitext(file)[1] == ".jpg":
+                    continue
                 rfile = os.path.join(location, file)
                 data = util.readfrom(rfile, "<") #default to text that will not parse
                 try:
@@ -736,21 +739,24 @@ class TemplateCache(object):
         self.cache[id] = template
         self.log.info("Template %s created", id)
 
-    def save(self):
-        util.mkdirp(self.location)
-        for id, template in self.cache.iteritems():
-            fname = os.path.join(self.location, id)
-            if not os.path.exists(fname):
-                xml = Template_to_XML(template)
-                util.writeto(fname, xml)
-                if template.image is not None:
-                    try:
-                        img = template.image.copy()
-                        img = img.rotate(template.rot)
-                        img.save(fname + ".jpg")
-                    except Exception:
-                        util.fatal("could not save image of template")
-                self.log.info("new template %s saved", fname)
+    def save(self, id):
+        fname = os.path.join(self.location, id)
+        if not os.path.exists(fname):
+            template = self.cache[id]
+            xml = Template_to_XML(template)
+            util.writeto(fname, xml)
+            if template.image is not None:
+                try:
+                    img = template.image.copy()
+                    img = img.rotate(template.rot)
+                    img.save(fname + ".jpg")
+                except Exception:
+                    util.fatal("could not save image of template")
+            self.log.info("new template %s saved", fname)
+
+    def save_all(self):
+        for id in self.cache.iterkeys():
+            self.save(id)
 
 class NullTemplateCache(object):
     def __init__(self, loc):
