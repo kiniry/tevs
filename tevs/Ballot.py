@@ -576,16 +576,16 @@ class Contest(Region):
         return self.choices
 
 class _scannedPage(object):
-    def __init__(self, dpi, xoff, yoff, rot):
+    def __init__(self, dpi, xoff, yoff, rot, image):
         self.dpi = int(dpi)
         self.xoff, self.yoff = int(xoff), int(yoff)
         self.rot = float(rot)
+        self.image = image
 
 class Page(_scannedPage):
     """A ballot page represented by an image and a Template"""
     def __init__(self, dpi=0, xoff=0, yoff=0, rot=0.0, filename=None, image=None, template=None, number=0):
-        super(Page, self).__init__(dpi, xoff, yoff, rot)
-        self.image = image
+        super(Page, self).__init__(dpi, xoff, yoff, rot, image)
         self.filename = filename
         self.template = template
         self.number = number
@@ -595,7 +595,7 @@ class Page(_scannedPage):
     def as_template(self, barcode, contests):
         """Given the barcode and contests, convert this page into a Template
         and store that objects as its own template"""
-        t = Template(self.dpi, self.xoff, self.yoff, self.rot, barcode, contests) #XXX update
+        t = Template(self.dpi, self.xoff, self.yoff, self.rot, barcode, contests, self.image) #XXX update
         self.template = t
         return t
 
@@ -604,9 +604,10 @@ class Page(_scannedPage):
 
 class Template(_scannedPage):
     """A ballot page that has been fully mapped and is used as a
-    template for similiar pages"""
-    def __init__(self, dpi, xoff, yoff, rot, barcode, contests):
-        super(Template, self).__init__(dpi, xoff, yoff, rot)
+    template for similiar pages. A template MAY have an associated
+    image but it is not guranteed."""
+    def __init__(self, dpi, xoff, yoff, rot, barcode, contests, image=None):
+        super(Template, self).__init__(dpi, xoff, yoff, rot, image)
         self.barcode = barcode
         self.contests = contests #TODO should be jurisdictions
 
@@ -742,6 +743,11 @@ class TemplateCache(object):
             if not os.path.exists(fname):
                 xml = Template_to_XML(template)
                 util.writeto(fname, xml)
+                if template.image is not None:
+                    try:
+                        template.image.save(fname + ".jpg")
+                    except Exception:
+                        util.fatal("could not save image of template")
                 self.log.info("new template %s saved", fname)
 
 class NullTemplateCache(object):
