@@ -147,24 +147,40 @@ def main():
 
             csv = Ballot.results_to_CSV(results)
             moz = Ballot.results_to_mosaic(results)
+            wrins = []
+            for i, r in enumerate(results):
+                if r.is_writein and r.was_voted:
+                    wrins.append((i, r.image))
 
             #Write all data
 
             #make dirs:
             proc1d = dirn("proc", n)
             resultsd = dirn("results", n)
+            resultsfilename = filen(resultsd, n)
             for p in (proc1d, resultsd):
                 util.mkdirp(p)
+            wrind = os.path.join(dirn("writeins", n), resultsfilename)
+            if len(wrins) != 0:
+                util.mkdirp(wrind)
 
             #write csv and mosaic
-            resultsfilename = filen(resultsd, n)
             util.genwriteto(resultsfilename + ".txt", csv)
             try:
                 moz.save(resultsfilename + ".jpg")
-            except Exception as e: #TODO what exceptions does boximage.save throw?
+            except Exception as e: #TODO what exceptions does image.save throw?
                 #do not let partial results give us a false sense of security
                 remove_partial(resultsfilename + ".txt")
                 util.fatal("Could not write vote boxes to disk")
+
+            for i, wrin in wrins:
+                try:
+                    wrin.save(os.path.join(wrind, "%d.jpg" % i))
+                except Exception as e: #TODO what exceptions does image.save throw?
+                    shutil.rmdir(wrind)
+                    remove_partial(resultsfilename + ".txt")
+                    remove_partial(resuktsfilename + ".jpg")
+                    util.fatal("Could not write write ins to disk")
 
             #write to the database
             try:
