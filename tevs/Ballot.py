@@ -745,7 +745,9 @@ class TemplateCache(object):
                 util.writeto(fname, xml)
                 if template.image is not None:
                     try:
-                        template.image.save(fname + ".jpg")
+                        img = template.image.copy()
+                        img = img.rotate(template.rot)
+                        img.save(fname + ".jpg")
                     except Exception:
                         util.fatal("could not save image of template")
                 self.log.info("new template %s saved", fname)
