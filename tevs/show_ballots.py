@@ -1,4 +1,4 @@
-#!/usr/bin/python2.5
+#!/usr/bin/env python
 # TEVS is ballot counting and viewing software.
 # Copyright 2008 by Mitch Trachtenberg
 # TEVS is licensed under the terms 
