@@ -180,7 +180,7 @@ class HartBallot(Ballot.Ballot):
         """Extract a single oval, or writein box, from the specified ballot"""
         x, y = choice.coords()
         iround = lambda x: int(round(x))
-        margin = iround(.03 * const.dpi)
+        margin = iround(.03 * const.dpi) #XXX should be in config file? class attr?
 
         #XXX BEGIN move into transformer
         xoff = page.xoff - iround(page.template.xoff*scale)
@@ -192,53 +192,53 @@ class HartBallot(Ballot.Ballot):
         #XXX end move into transformer (which should now just take a page obj)
 
         ow, oh = self.oval_size
-        #stats = Ballot.IStats(page.image.cropstats(
-        #    const.dpi,
-        #    self.vote_target_horiz_offset, #XXX is this the only part that can't be pulled out of this specific ballot kind?!
-        #    x, y,
-        #    ow, oh,
-        #    1
-        #))
+        #begin pilb cropstats
+        stats = Ballot.IStats(page.image.cropstats(
+            const.dpi,
+            self.vote_target_horiz_offset, #XXX is this the only part that can't be pulled out of this specific ballot kind?!
+            x, y,
+            ow, oh,
+            1
+        ))
 
         #can be in separate func?
-        #cropx = stats.adjusted.x
-        #cropy = stats.adjusted.y
-        #crop = page.image.crop((
-        #    cropx - margin,
-        #    cropy - margin,
-        #    cropx + margin + ow, 
-        #    cropy + margin + oh
-        #))
+        cropx = stats.adjusted.x
+        cropy = stats.adjusted.y
+        crop = page.image.crop((
+            cropx - margin,
+            cropy - margin,
+            cropx + margin + ow, 
+            cropy + margin + oh
+        ))
+        #end pilb cropstats
 
 
         # Below is using the pure python cropstats:
-        cropx, cropy = x, y
-        crop = page.image.crop((
-            x - margin,
-            y - margin,
-            x + margin + ow,
-            y + margin + oh
-        ))
-        stats = Ballot.IStats(cropstats(crop, x, y))
+        #cropx, cropy = x, y #not adjusted like in PILB cropstats
+        #crop = page.image.crop((
+        #    cropx - margin,
+        #    cropy - margin,
+        #    cropx + margin + ow,
+        #    cropy + margin + oh
+        #))
+        #stats = Ballot.IStats(cropstats(crop, x, y))
         # end pure python cropstats
 
 
-        #can be in separate func?
+        #XXX writeins always voted?!
         voted, ambiguous = self.extensions.IsVoted(crop, stats, choice)
-        writein = False
-        if voted:
-           writein = self.extensions.IsWriteIn(crop, stats, choice)
+        writein = self.extensions.IsWriteIn(crop, stats, choice)
         if writein:
             crop = page.image.crop((
                  cropx - margin,
                  cropy - margin,
-                 cropx + self.writein_xoff + margin,
-                 cropy + self.writein_yoff + margin
+                 cropx - margin + self.writein_xoff,
+                 cropy - margin + self.writein_yoff
             ))
 
         return cropx, cropy, stats, crop, voted, writein, ambiguous
 
-    # gethartdetails remains ugly and is a candidate for DO OVER.
+    # gethartdetails remains ugly and is the candidate for DO OVER.
     # it gets the column dividers, then finds
     # presumed horizontal lines across each column,
     # confirms them, calls gethartvoteboxes to determine
