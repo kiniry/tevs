@@ -140,7 +140,7 @@ def main():
             try:
                 ballot = ballotfrom(unprocs, extensions)
                 results = ballot.ProcessPages()
-            except BallotException as e:
+            except BallotException:
                 total_unproc += mark_error(e, *unprocs)
                 log.exception("Could not process ballot")
                 continue
@@ -205,7 +205,7 @@ def main():
             total_proc += const.num_pages
             log.info("%d ballot pages processed succesfully", const.num_pages)
     finally:
-        cache.save()
+        cache.save_all()
         dbc.close()
         next_ballot.save()
         log.info("%d ballot(s) processed", total_proc)
