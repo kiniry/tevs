@@ -1,7 +1,8 @@
 ROOT=~/data
 INCOMING=~/data/unproc
+DOCS=~/tevs-docs
 
-all: reset run
+all: reset run docs
 
 run: reset
 	@./main.py
@@ -21,7 +22,11 @@ reset-templates: reset
 clean:
 	@rm -f *.pyc
 
+docs: *.py docs/*.rst
+	@PYTHONPATH=$PYTHONPATH:. sphinx-build -b html -aqE docs docs/sphinx
+	@cd docs && ./mkug.sh
+
 test: *.py
 	@nosetests -q --with-doctest #--with-coverage --cover-erase --cover-html --cover-html-dir=coverage
 
-.PHONY: reset clean reset-templates
+.PHONY: clean reset reset-templates
