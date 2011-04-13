@@ -784,6 +784,7 @@ def IsVoted(im, stats, choice):
 
 def IsWriteIn(im, stats, choice): #XXX build_layout must set
     """determine if box is actually a write in
+
     >>> test = lambda t: "ok" if IsWriteIn(None, None, Choice(0,0,t)) else None
     >>> test("Garth Marenghi")
     >>> test("is a write in")

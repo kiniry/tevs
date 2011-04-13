@@ -5,7 +5,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Ballot module documentation &mdash; TEVS v0.2beta documentation</title>
+    <title>Ballot module documentation &mdash; &lt;project&gt;</title>
     <link rel="stylesheet" href="_static/default.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <script type="text/javascript">
@@ -19,7 +19,7 @@
     </script>
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="top" title="TEVS v0.2beta documentation" href="index.html" />
+    <link rel="top" title="&lt;project&gt;" href="index.html" />
     <link rel="up" title="Extending TEVS" href="extending.html" />
     <link rel="next" title="next module documentation" href="next.html" />
     <link rel="prev" title="Extending TEVS" href="extending.html" /> 
@@ -40,7 +40,7 @@
         <li class="right" >
           <a href="extending.html" title="Extending TEVS"
              accesskey="P">previous</a> |</li>
-        <li><a href="index.html">TEVS v0.2beta documentation</a> &raquo;</li>
+        <li><a href="index.html">&lt;project&gt;</a> &raquo;</li>
           <li><a href="extending.html" accesskey="U">Extending TEVS</a> &raquo;</li> 
       </ul>
     </div>  
@@ -54,7 +54,7 @@
 <h1>Ballot module documentation<a class="headerlink" href="#module-Ballot" title="Permalink to this headline">¶</a></h1>
 <dl class="class">
 <dt id="Ballot.Ballot">
-<em class="property">class </em><tt class="descclassname">Ballot.</tt><tt class="descname">Ballot</tt><big>(</big><em>images</em>, <em>extensions</em><big>)</big><a class="headerlink" href="#Ballot.Ballot" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descname">Ballot</tt><big>(</big><em>images</em>, <em>extensions</em><big>)</big><a class="headerlink" href="#Ballot.Ballot" title="Permalink to this definition">¶</a></dt>
 <dd><dl class="method">
 <dt id="Ballot.Ballot.BuildLayout">
 <tt class="descname">BuildLayout</tt><big>(</big><em>page</em><big>)</big><a class="headerlink" href="#Ballot.Ballot.BuildLayout" title="Permalink to this definition">¶</a></dt>
@@ -127,12 +127,12 @@ bottom, left to right</dd></dl>
 
 <dl class="exception">
 <dt id="Ballot.BallotException">
-<em class="property">exception </em><tt class="descclassname">Ballot.</tt><tt class="descname">BallotException</tt><a class="headerlink" href="#Ballot.BallotException" title="Permalink to this definition">¶</a></dt>
+<em class="property">exception </em><tt class="descname">BallotException</tt><a class="headerlink" href="#Ballot.BallotException" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="class">
 <dt id="Ballot.Choice">
-<em class="property">class </em><tt class="descclassname">Ballot.</tt><tt class="descname">Choice</tt><big>(</big><em>x</em>, <em>y</em>, <em>description</em><big>)</big><a class="headerlink" href="#Ballot.Choice" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descname">Choice</tt><big>(</big><em>x</em>, <em>y</em>, <em>description</em><big>)</big><a class="headerlink" href="#Ballot.Choice" title="Permalink to this definition">¶</a></dt>
 <dd><dl class="method">
 <dt id="Ballot.Choice.children">
 <tt class="descname">children</tt><big>(</big><big>)</big><a class="headerlink" href="#Ballot.Choice.children" title="Permalink to this definition">¶</a></dt>
@@ -142,7 +142,7 @@ bottom, left to right</dd></dl>
 
 <dl class="class">
 <dt id="Ballot.Contest">
-<em class="property">class </em><tt class="descclassname">Ballot.</tt><tt class="descname">Contest</tt><big>(</big><em>x</em>, <em>y</em>, <em>x2</em>, <em>y2</em>, <em>prop</em>, <em>description</em><big>)</big><a class="headerlink" href="#Ballot.Contest" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descname">Contest</tt><big>(</big><em>x</em>, <em>y</em>, <em>x2</em>, <em>y2</em>, <em>prop</em>, <em>description</em><big>)</big><a class="headerlink" href="#Ballot.Contest" title="Permalink to this definition">¶</a></dt>
 <dd><dl class="method">
 <dt id="Ballot.Contest.append">
 <tt class="descname">append</tt><big>(</big><em>choice</em><big>)</big><a class="headerlink" href="#Ballot.Contest.append" title="Permalink to this definition">¶</a></dt>
@@ -157,7 +157,7 @@ bottom, left to right</dd></dl>
 
 <dl class="class">
 <dt id="Ballot.DuplexBallot">
-<em class="property">class </em><tt class="descclassname">Ballot.</tt><tt class="descname">DuplexBallot</tt><big>(</big><em>images</em>, <em>extensions</em><big>)</big><a class="headerlink" href="#Ballot.DuplexBallot" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descname">DuplexBallot</tt><big>(</big><em>images</em>, <em>extensions</em><big>)</big><a class="headerlink" href="#Ballot.DuplexBallot" title="Permalink to this definition">¶</a></dt>
 <dd><p>A Ballot that handles the troubles that arise from ballots whose
 backside do not have a unique layoutcode on the back page.
 As such get_layout_code will only be called on front pages.</p>
@@ -215,7 +215,7 @@ As such get_layout_code will only be called on front pages.</p>
 
 <dl class="class">
 <dt id="Ballot.Extensions">
-<em class="property">class </em><tt class="descclassname">Ballot.</tt><tt class="descname">Extensions</tt><big>(</big><em>**kw</em><big>)</big><a class="headerlink" href="#Ballot.Extensions" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descname">Extensions</tt><big>(</big><em>**kw</em><big>)</big><a class="headerlink" href="#Ballot.Extensions" title="Permalink to this definition">¶</a></dt>
 <dd>A bag for all the various extension objects and functions
 to be passed around to anyone who needs one of these tools
 All extensions must be in the _xpts dict below and must be
@@ -223,7 +223,7 @@ callable</dd></dl>
 
 <dl class="class">
 <dt id="Ballot.IStats">
-<em class="property">class </em><tt class="descclassname">Ballot.</tt><tt class="descname">IStats</tt><big>(</big><em>stats</em><big>)</big><a class="headerlink" href="#Ballot.IStats" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descname">IStats</tt><big>(</big><em>stats</em><big>)</big><a class="headerlink" href="#Ballot.IStats" title="Permalink to this definition">¶</a></dt>
 <dd><dl class="method">
 <dt id="Ballot.IStats.CSV">
 <tt class="descname">CSV</tt><big>(</big><big>)</big><a class="headerlink" href="#Ballot.IStats.CSV" title="Permalink to this definition">¶</a></dt>
@@ -250,25 +250,28 @@ two quartiles.</dd></dl>
 
 <dl class="function">
 <dt id="Ballot.IsVoted">
-<tt class="descclassname">Ballot.</tt><tt class="descname">IsVoted</tt><big>(</big><em>im</em>, <em>stats</em>, <em>choice</em><big>)</big><a class="headerlink" href="#Ballot.IsVoted" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">IsVoted</tt><big>(</big><em>im</em>, <em>stats</em>, <em>choice</em><big>)</big><a class="headerlink" href="#Ballot.IsVoted" title="Permalink to this definition">¶</a></dt>
 <dd>determine if a box is checked
 and if so whether it is ambiguous</dd></dl>
 
 <dl class="function">
 <dt id="Ballot.IsWriteIn">
-<tt class="descclassname">Ballot.</tt><tt class="descname">IsWriteIn</tt><big>(</big><em>im</em>, <em>stats</em>, <em>choice</em><big>)</big><a class="headerlink" href="#Ballot.IsWriteIn" title="Permalink to this definition">¶</a></dt>
-<dd>determine if box is actually a write in
-&gt;&gt;&gt; test = lambda t: &#8220;ok&#8221; if IsWriteIn(None, None, Choice(0,0,t)) else None
-&gt;&gt;&gt; test(&#8220;Garth Marenghi&#8221;)
-&gt;&gt;&gt; test(&#8220;is a write in&#8221;)
-&#8216;ok&#8217;
-&gt;&gt;&gt; test(&#8220;John Riter for emperor&#8221;)
-&gt;&gt;&gt; test(&#8220;vvritten&#8221;)
-&#8216;ok&#8217;</dd></dl>
+<tt class="descname">IsWriteIn</tt><big>(</big><em>im</em>, <em>stats</em>, <em>choice</em><big>)</big><a class="headerlink" href="#Ballot.IsWriteIn" title="Permalink to this definition">¶</a></dt>
+<dd><p>determine if box is actually a write in</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">test</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">t</span><span class="p">:</span> <span class="s">&quot;ok&quot;</span> <span class="k">if</span> <span class="n">IsWriteIn</span><span class="p">(</span><span class="bp">None</span><span class="p">,</span> <span class="bp">None</span><span class="p">,</span> <span class="n">Choice</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="n">t</span><span class="p">))</span> <span class="k">else</span> <span class="bp">None</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">test</span><span class="p">(</span><span class="s">&quot;Garth Marenghi&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">test</span><span class="p">(</span><span class="s">&quot;is a write in&quot;</span><span class="p">)</span>
+<span class="go">&#39;ok&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">test</span><span class="p">(</span><span class="s">&quot;John Riter for emperor&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">test</span><span class="p">(</span><span class="s">&quot;vvritten&quot;</span><span class="p">)</span>
+<span class="go">&#39;ok&#39;</span>
+</pre></div>
+</div>
+</dd></dl>
 
 <dl class="class">
 <dt id="Ballot.Jurisdiction">
-<em class="property">class </em><tt class="descclassname">Ballot.</tt><tt class="descname">Jurisdiction</tt><big>(</big><em>x</em>, <em>y</em>, <em>x2</em>, <em>y2</em><big>)</big><a class="headerlink" href="#Ballot.Jurisdiction" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descname">Jurisdiction</tt><big>(</big><em>x</em>, <em>y</em>, <em>x2</em>, <em>y2</em><big>)</big><a class="headerlink" href="#Ballot.Jurisdiction" title="Permalink to this definition">¶</a></dt>
 <dd><dl class="method">
 <dt id="Ballot.Jurisdiction.append">
 <tt class="descname">append</tt><big>(</big><em>contest</em><big>)</big><a class="headerlink" href="#Ballot.Jurisdiction.append" title="Permalink to this definition">¶</a></dt>
@@ -283,12 +286,12 @@ and if so whether it is ambiguous</dd></dl>
 
 <dl class="function">
 <dt id="Ballot.LoadBallotType">
-<tt class="descclassname">Ballot.</tt><tt class="descname">LoadBallotType</tt><big>(</big><em>name</em><big>)</big><a class="headerlink" href="#Ballot.LoadBallotType" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">LoadBallotType</tt><big>(</big><em>name</em><big>)</big><a class="headerlink" href="#Ballot.LoadBallotType" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="class">
 <dt id="Ballot.NullTemplateCache">
-<em class="property">class </em><tt class="descclassname">Ballot.</tt><tt class="descname">NullTemplateCache</tt><big>(</big><em>loc</em><big>)</big><a class="headerlink" href="#Ballot.NullTemplateCache" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descname">NullTemplateCache</tt><big>(</big><em>loc</em><big>)</big><a class="headerlink" href="#Ballot.NullTemplateCache" title="Permalink to this definition">¶</a></dt>
 <dd><dl class="method">
 <dt id="Ballot.NullTemplateCache.save">
 <tt class="descname">save</tt><big>(</big><big>)</big><a class="headerlink" href="#Ballot.NullTemplateCache.save" title="Permalink to this definition">¶</a></dt>
@@ -298,7 +301,7 @@ and if so whether it is ambiguous</dd></dl>
 
 <dl class="class">
 <dt id="Ballot.Page">
-<em class="property">class </em><tt class="descclassname">Ballot.</tt><tt class="descname">Page</tt><big>(</big><em>dpi=0</em>, <em>xoff=0</em>, <em>yoff=0</em>, <em>rot=0.0</em>, <em>filename=None</em>, <em>image=None</em>, <em>template=None</em>, <em>number=0</em><big>)</big><a class="headerlink" href="#Ballot.Page" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descname">Page</tt><big>(</big><em>dpi=0</em>, <em>xoff=0</em>, <em>yoff=0</em>, <em>rot=0.0</em>, <em>filename=None</em>, <em>image=None</em>, <em>template=None</em>, <em>number=0</em><big>)</big><a class="headerlink" href="#Ballot.Page" title="Permalink to this definition">¶</a></dt>
 <dd><p>A ballot page represented by an image and a Template</p>
 <dl class="method">
 <dt id="Ballot.Page.as_template">
@@ -310,7 +313,7 @@ and store that objects as its own template</dd></dl>
 
 <dl class="class">
 <dt id="Ballot.Region">
-<em class="property">class </em><tt class="descclassname">Ballot.</tt><tt class="descname">Region</tt><big>(</big><em>x</em>, <em>y</em>, <em>x2</em>, <em>y2</em><big>)</big><a class="headerlink" href="#Ballot.Region" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descname">Region</tt><big>(</big><em>x</em>, <em>y</em>, <em>x2</em>, <em>y2</em><big>)</big><a class="headerlink" href="#Ballot.Region" title="Permalink to this definition">¶</a></dt>
 <dd><dl class="method">
 <dt id="Ballot.Region.bbox">
 <tt class="descname">bbox</tt><big>(</big><big>)</big><a class="headerlink" href="#Ballot.Region.bbox" title="Permalink to this definition">¶</a></dt>
@@ -330,7 +333,7 @@ and store that objects as its own template</dd></dl>
 
 <dl class="class">
 <dt id="Ballot.Template">
-<em class="property">class </em><tt class="descclassname">Ballot.</tt><tt class="descname">Template</tt><big>(</big><em>dpi</em>, <em>xoff</em>, <em>yoff</em>, <em>rot</em>, <em>barcode</em>, <em>contests</em>, <em>image=None</em><big>)</big><a class="headerlink" href="#Ballot.Template" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descname">Template</tt><big>(</big><em>dpi</em>, <em>xoff</em>, <em>yoff</em>, <em>rot</em>, <em>barcode</em>, <em>contests</em>, <em>image=None</em><big>)</big><a class="headerlink" href="#Ballot.Template" title="Permalink to this definition">¶</a></dt>
 <dd><p>A ballot page that has been fully mapped and is used as a
 template for similiar pages. A template MAY have an associated
 image but it is not guranteed.</p>
@@ -343,7 +346,7 @@ image but it is not guranteed.</p>
 
 <dl class="class">
 <dt id="Ballot.TemplateCache">
-<em class="property">class </em><tt class="descclassname">Ballot.</tt><tt class="descname">TemplateCache</tt><big>(</big><em>location</em><big>)</big><a class="headerlink" href="#Ballot.TemplateCache" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descname">TemplateCache</tt><big>(</big><em>location</em><big>)</big><a class="headerlink" href="#Ballot.TemplateCache" title="Permalink to this definition">¶</a></dt>
 <dd><dl class="method">
 <dt id="Ballot.TemplateCache.save">
 <tt class="descname">save</tt><big>(</big><em>id</em><big>)</big><a class="headerlink" href="#Ballot.TemplateCache.save" title="Permalink to this definition">¶</a></dt>
@@ -358,17 +361,17 @@ image but it is not guranteed.</p>
 
 <dl class="function">
 <dt id="Ballot.Template_from_XML">
-<tt class="descclassname">Ballot.</tt><tt class="descname">Template_from_XML</tt><big>(</big><em>xml</em><big>)</big><a class="headerlink" href="#Ballot.Template_from_XML" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">Template_from_XML</tt><big>(</big><em>xml</em><big>)</big><a class="headerlink" href="#Ballot.Template_from_XML" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="Ballot.Template_to_XML">
-<tt class="descclassname">Ballot.</tt><tt class="descname">Template_to_XML</tt><big>(</big><em>ballot</em><big>)</big><a class="headerlink" href="#Ballot.Template_to_XML" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">Template_to_XML</tt><big>(</big><em>ballot</em><big>)</big><a class="headerlink" href="#Ballot.Template_to_XML" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="class">
 <dt id="Ballot.VOP">
-<em class="property">class </em><tt class="descclassname">Ballot.</tt><tt class="descname">VOP</tt><big>(</big><em>x</em>, <em>y</em>, <em>x2</em>, <em>y2</em><big>)</big><a class="headerlink" href="#Ballot.VOP" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descname">VOP</tt><big>(</big><em>x</em>, <em>y</em>, <em>x2</em>, <em>y2</em><big>)</big><a class="headerlink" href="#Ballot.VOP" title="Permalink to this definition">¶</a></dt>
 <dd><dl class="method">
 <dt id="Ballot.VOP.children">
 <tt class="descname">children</tt><big>(</big><big>)</big><a class="headerlink" href="#Ballot.VOP.children" title="Permalink to this definition">¶</a></dt>
@@ -378,7 +381,7 @@ image but it is not guranteed.</p>
 
 <dl class="class">
 <dt id="Ballot.VoteData">
-<em class="property">class </em><tt class="descclassname">Ballot.</tt><tt class="descname">VoteData</tt><big>(</big><em>filename=None</em>, <em>barcode=None</em>, <em>jurisdiction=None</em>, <em>contest=None</em>, <em>choice=None</em>, <em>coords=(-1</em>, <em>-1)</em>, <em>maxv=1</em>, <em>stats={'blue': {'lightest_fourth': -1</em>, <em>'darkest_fourth': -1</em>, <em>'intensity': -1</em>, <em>'second_fourth': -1</em>, <em>'third_fourth': -1}</em>, <em>'adjusted': {'y': -1</em>, <em>'x': -1}</em>, <em>'_mean_intensity': None</em>, <em>'suspicious': -1</em>, <em>'_mean_lightness': None</em>, <em>'green': {'lightest_fourth': -1</em>, <em>'darkest_fourth': -1</em>, <em>'intensity': -1</em>, <em>'second_fourth': -1</em>, <em>'third_fourth': -1}</em>, <em>'_mean_darkness': None</em>, <em>'red': {'lightest_fourth': -1</em>, <em>'darkest_fourth': -1</em>, <em>'intensity': -1</em>, <em>'second_fourth': -1</em>, <em>'third_fourth': -1}}</em>, <em>image=None</em>, <em>is_writein=None</em>, <em>was_voted=None</em>, <em>ambiguous=None</em>, <em>number=-1</em><big>)</big><a class="headerlink" href="#Ballot.VoteData" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descname">VoteData</tt><big>(</big><em>filename=None</em>, <em>barcode=None</em>, <em>jurisdiction=None</em>, <em>contest=None</em>, <em>choice=None</em>, <em>coords=(-1</em>, <em>-1)</em>, <em>maxv=1</em>, <em>stats={'blue': {'lightest_fourth': -1</em>, <em>'darkest_fourth': -1</em>, <em>'intensity': -1</em>, <em>'second_fourth': -1</em>, <em>'third_fourth': -1}</em>, <em>'adjusted': {'y': -1</em>, <em>'x': -1}</em>, <em>'_mean_intensity': None</em>, <em>'suspicious': -1</em>, <em>'_mean_lightness': None</em>, <em>'green': {'lightest_fourth': -1</em>, <em>'darkest_fourth': -1</em>, <em>'intensity': -1</em>, <em>'second_fourth': -1</em>, <em>'third_fourth': -1}</em>, <em>'_mean_darkness': None</em>, <em>'red': {'lightest_fourth': -1</em>, <em>'darkest_fourth': -1</em>, <em>'intensity': -1</em>, <em>'second_fourth': -1</em>, <em>'third_fourth': -1}}</em>, <em>image=None</em>, <em>is_writein=None</em>, <em>was_voted=None</em>, <em>ambiguous=None</em>, <em>number=-1</em><big>)</big><a class="headerlink" href="#Ballot.VoteData" title="Permalink to this definition">¶</a></dt>
 <dd><p>All of the data associated with a single vote</p>
 <dl class="method">
 <dt id="Ballot.VoteData.CSV">
@@ -389,19 +392,19 @@ image but it is not guranteed.</p>
 
 <dl class="class">
 <dt id="Ballot.WriteIn">
-<em class="property">class </em><tt class="descclassname">Ballot.</tt><tt class="descname">WriteIn</tt><big>(</big><em>x</em>, <em>y</em>, <em>x2</em>, <em>y2</em><big>)</big><a class="headerlink" href="#Ballot.WriteIn" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descname">WriteIn</tt><big>(</big><em>x</em>, <em>y</em>, <em>x2</em>, <em>y2</em><big>)</big><a class="headerlink" href="#Ballot.WriteIn" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="Ballot.results_to_CSV">
-<tt class="descclassname">Ballot.</tt><tt class="descname">results_to_CSV</tt><big>(</big><em>results</em>, <em>heading=False</em><big>)</big><a class="headerlink" href="#Ballot.results_to_CSV" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">results_to_CSV</tt><big>(</big><em>results</em>, <em>heading=False</em><big>)</big><a class="headerlink" href="#Ballot.results_to_CSV" title="Permalink to this definition">¶</a></dt>
 <dd>Take a list of VoteData and return a generator of CSV 
 encoded information. If heading, insert a descriptive
 header line.</dd></dl>
 
 <dl class="function">
 <dt id="Ballot.results_to_mosaic">
-<tt class="descclassname">Ballot.</tt><tt class="descname">results_to_mosaic</tt><big>(</big><em>results</em><big>)</big><a class="headerlink" href="#Ballot.results_to_mosaic" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">results_to_mosaic</tt><big>(</big><em>results</em><big>)</big><a class="headerlink" href="#Ballot.results_to_mosaic" title="Permalink to this definition">¶</a></dt>
 <dd>return an image that is a mosaic of all ovals
 from a list of Votedata</dd></dl>
 
@@ -456,7 +459,7 @@ from a list of Votedata</dd></dl>
         <li class="right" >
           <a href="extending.html" title="Extending TEVS"
              >previous</a> |</li>
-        <li><a href="index.html">TEVS v0.2beta documentation</a> &raquo;</li>
+        <li><a href="index.html">&lt;project&gt;</a> &raquo;</li>
           <li><a href="extending.html" >Extending TEVS</a> &raquo;</li> 
       </ul>
     </div>

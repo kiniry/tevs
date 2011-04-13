@@ -5,7 +5,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>saguache_ballot module documentation &mdash; TEVS v0.2beta documentation</title>
+    <title>saguache_ballot module documentation &mdash; &lt;project&gt;</title>
     <link rel="stylesheet" href="_static/default.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <script type="text/javascript">
@@ -19,7 +19,7 @@
     </script>
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="top" title="TEVS v0.2beta documentation" href="index.html" />
+    <link rel="top" title="&lt;project&gt;" href="index.html" />
     <link rel="up" title="Supported Ballots" href="ballots.html" />
     <link rel="next" title="sequoia_ballot module documentation" href="sequoia_ballot.html" />
     <link rel="prev" title="hart_ballot module documentation" href="hart_ballot.html" /> 
@@ -40,7 +40,7 @@
         <li class="right" >
           <a href="hart_ballot.html" title="hart_ballot module documentation"
              accesskey="P">previous</a> |</li>
-        <li><a href="index.html">TEVS v0.2beta documentation</a> &raquo;</li>
+        <li><a href="index.html">&lt;project&gt;</a> &raquo;</li>
           <li><a href="ballots.html" accesskey="U">Supported Ballots</a> &raquo;</li> 
       </ul>
     </div>  
@@ -56,7 +56,7 @@
 ES&amp;S ballots from Saguache County, Colorado</p>
 <dl class="class">
 <dt id="saguache_ballot.SaguacheBallot">
-<em class="property">class </em><tt class="descclassname">saguache_ballot.</tt><tt class="descname">SaguacheBallot</tt><big>(</big><em>images</em>, <em>extensions</em><big>)</big><a class="headerlink" href="#saguache_ballot.SaguacheBallot" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descname">SaguacheBallot</tt><big>(</big><em>images</em>, <em>extensions</em><big>)</big><a class="headerlink" href="#saguache_ballot.SaguacheBallot" title="Permalink to this definition">¶</a></dt>
 <dd><p>Class representing ballots from Saguache CO (ESS).</p>
 <p>Each Saguache ballot has oval voting areas,
 and voting areas are grouped in boxed contests.
@@ -156,27 +156,27 @@ in Ballot.py</p>
 
 <dl class="function">
 <dt id="saguache_ballot.adjust_ulc">
-<tt class="descclassname">saguache_ballot.</tt><tt class="descname">adjust_ulc</tt><big>(</big><em>image</em>, <em>left_x</em>, <em>top_y</em><big>)</big><a class="headerlink" href="#saguache_ballot.adjust_ulc" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">adjust_ulc</tt><big>(</big><em>image</em>, <em>left_x</em>, <em>top_y</em><big>)</big><a class="headerlink" href="#saguache_ballot.adjust_ulc" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="function">
 <dt id="saguache_ballot.block_type">
-<tt class="descclassname">saguache_ballot.</tt><tt class="descname">block_type</tt><big>(</big><em>image</em>, <em>pixtocheck</em>, <em>x</em>, <em>y</em><big>)</big><a class="headerlink" href="#saguache_ballot.block_type" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">block_type</tt><big>(</big><em>image</em>, <em>pixtocheck</em>, <em>x</em>, <em>y</em><big>)</big><a class="headerlink" href="#saguache_ballot.block_type" title="Permalink to this definition">¶</a></dt>
 <dd>check line for quarter inch and return pct below 128 intensity</dd></dl>
 
 <dl class="function">
 <dt id="saguache_ballot.column_markers">
-<tt class="descclassname">saguache_ballot.</tt><tt class="descname">column_markers</tt><big>(</big><em>image</em>, <em>tm_marker</em>, <em>dpi</em>, <em>min_runlength_inches=0.20000000000000001</em>, <em>zonelength_inches=0.25</em><big>)</big><a class="headerlink" href="#saguache_ballot.column_markers" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">column_markers</tt><big>(</big><em>image</em>, <em>tm_marker</em>, <em>dpi</em>, <em>min_runlength_inches=0.20000000000000001</em>, <em>zonelength_inches=0.25</em><big>)</big><a class="headerlink" href="#saguache_ballot.column_markers" title="Permalink to this definition">¶</a></dt>
 <dd>given timing marks, find column x offsets</dd></dl>
 
 <dl class="function">
 <dt id="saguache_ballot.find_plus_target">
-<tt class="descclassname">saguache_ballot.</tt><tt class="descname">find_plus_target</tt><big>(</big><em>image</em>, <em>dpi=300</em>, <em>full_span_inches=0.17999999999999999</em>, <em>line_width_inches=0.01</em>, <em>circle_radius_inches=0.029999999999999999</em><big>)</big><a class="headerlink" href="#saguache_ballot.find_plus_target" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">find_plus_target</tt><big>(</big><em>image</em>, <em>dpi=300</em>, <em>full_span_inches=0.17999999999999999</em>, <em>line_width_inches=0.01</em>, <em>circle_radius_inches=0.029999999999999999</em><big>)</big><a class="headerlink" href="#saguache_ballot.find_plus_target" title="Permalink to this definition">¶</a></dt>
 <dd>return ulc of the center of first &#8220;+&#8221; target in the image, or -1, -1</dd></dl>
 
 <dl class="function">
 <dt id="saguache_ballot.timing_marks">
-<tt class="descclassname">saguache_ballot.</tt><tt class="descname">timing_marks</tt><big>(</big><em>image</em>, <em>x</em>, <em>y</em>, <em>backup</em>, <em>dpi</em><big>)</big><a class="headerlink" href="#saguache_ballot.timing_marks" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">timing_marks</tt><big>(</big><em>image</em>, <em>x</em>, <em>y</em>, <em>backup</em>, <em>dpi</em><big>)</big><a class="headerlink" href="#saguache_ballot.timing_marks" title="Permalink to this definition">¶</a></dt>
 <dd>locate timing marks and code, starting from ulc + symbol</dd></dl>
 
 </div>
@@ -230,7 +230,7 @@ in Ballot.py</p>
         <li class="right" >
           <a href="hart_ballot.html" title="hart_ballot module documentation"
              >previous</a> |</li>
-        <li><a href="index.html">TEVS v0.2beta documentation</a> &raquo;</li>
+        <li><a href="index.html">&lt;project&gt;</a> &raquo;</li>
           <li><a href="ballots.html" >Supported Ballots</a> &raquo;</li> 
       </ul>
     </div>

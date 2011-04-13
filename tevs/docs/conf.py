@@ -75,7 +75,7 @@ exclude_trees = ['_build', 'testdata', 'cfgs']
 
 # If true, the current module name will be prepended to all description
 # unit titles (such as .. function::).
-add_module_names = True
+add_module_names = False
 
 # If true, sectionauthor and moduleauthor directives will be shown in the
 # output. They are ignored by default.
@@ -104,7 +104,7 @@ html_theme = 'default'
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
-#html_title = None
+html_title = "<project>"
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
 #html_short_title = None
