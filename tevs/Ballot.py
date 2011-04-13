@@ -3,6 +3,7 @@ from xml.dom import minidom
 from xml.parsers.expat import ExpatError
 import logging
 
+import site; site.addsitedir("/home/jimmy/tevs") #XXX
 from PILB import Image, ImageDraw, ImageFont
 import const
 import util

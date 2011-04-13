@@ -1,9 +1,13 @@
+"""config.py offers two services: configuring the default logger and reading
+the config file for the TEVS utilities."""
 import ConfigParser
 import logging
 import const
 import sys
 import os
 import errno
+
+__all__ = ['logger', 'get']
 
 def yesno(cfg, grp, itm):
     so = cfg.get(grp, itm)
@@ -15,6 +19,7 @@ def yesno(cfg, grp, itm):
     raise ValueError("% is not a valid choice for %s in %s" % (so, grp, itm))
 
 def logger(file):
+    "configure the default logger to use file"
     level = logging.INFO
     if const.debug:
         level = logging.DEBUG
@@ -35,6 +40,7 @@ def logger(file):
     return logger
 
 def get(cfg_file="tevs.cfg"):
+    "get the tevs configuration file in ."
     config = ConfigParser.ConfigParser()
     config.read(cfg_file)
 
