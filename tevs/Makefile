@@ -22,11 +22,11 @@ reset-templates: reset
 clean:
 	@rm -f *.pyc
 
-docs: *.py docs/*.rst
+docs:
 	@PYTHONPATH=$PYTHONPATH:. sphinx-build -b html -aqE docs docs/sphinx
 	@cd docs && ./mkug.sh
 
 test: *.py
 	@nosetests -q --with-doctest #--with-coverage --cover-erase --cover-html --cover-html-dir=coverage
 
-.PHONY: clean reset reset-templates
+.PHONY: docs clean reset reset-templates
