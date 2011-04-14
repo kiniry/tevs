@@ -1,3 +1,6 @@
+"""The Ballot module provides all the necessary tools for analyzing a set of
+Ballot images. It is designed to be easy to use and easy to extend.
+"""
 import os
 from xml.dom import minidom
 from xml.parsers.expat import ExpatError
@@ -10,10 +13,26 @@ import util
 import ocr
 import adjust
 
+__all__ = [
+    'BallotException', 'LoadBallotType', 'Ballot', 'DuplexBallot', 'IStats',
+    'VoteData', 'results_to_CSV', 'results_to_mosaic', 'Choice', 'VOP', 
+    'WriteIn', 'Jurisdiction', 'Contest', 'Page', 'Template',
+    'Template_to_XML', 'Template_from_XML', 'TemplateCache', 'NullCache',
+    'IsVoted', 'IsWriteIn', 'Extensions',
+]
+
 class BallotException(Exception):
-     pass
+    "Raised if analysis of a ballot image cannot continue"
+    pass
 
 def LoadBallotType(name):
+    """LoadBallotType takes a string describing the name of a kind of ballot
+    layout and returns the appropriate subclass of Ballot for processing ballot
+    images of that kind. The returned value must be called with the same
+    arguments as the Ballot class's __init__ as documented below.  
+    
+    If no such kind is supported, raises ValueError
+    """
     name = name.lower().strip()
     try:
         module = __import__(
@@ -25,13 +44,44 @@ def LoadBallotType(name):
     name = name[0].upper() + name[1:] + "Ballot"
     return getattr(module, name)
 
-class Ballot(object): #XXX a better name may be something like Analyzer or Extractor
+class Ballot(object):
+    """A Ballot takes a set of images and an Extension object. The set of
+    images can be described as either a string representing the filename of a
+    single ballot image or an iterable of filenames representing the filenames
+    of an ordered set of ballot images.
+
+    When the ballot is created, it attempts to open all of the files given to
+    it via PIL. It also attempts to flip the images (see the flip method below)
+    It builds a list of Page encapsulating the images.
+
+    The Ballot class cannot be used directly. It must be used via a subclass
+    that implements the required abstract methods (documented below). However,
+    Ballot provides the interface for interacting with a subclass. To get the
+    appropriate subclass use LoadBallotType and create Ballots from its
+    returned factory.
+
+    To use a Ballot, only call the methods that are AllCaps. To create a ballot
+    subclass, override only the methods that are no_caps.
+
+    Important data members are:
+        * self.pages - a list of Page objects
+        * self.extensions - the Extension object this object was
+          instantiated with
+        * self.results - a list of VoteData (empty until CapturePageInfo is
+          called)
+        * self.log - a useful reference to the default logger, see the Python
+          logging module.
+    """
     def __init__(self, images, extensions):
         #TODO should also take list of (fname, image) pairs 
         def iopen(fname):
             try:
                 return self.flip(Image.open(fname).convert("RGB"))
-            except:
+            except BallotException:
+                raise
+            except KeyboardInterrupt:
+                raise
+            except IOError:
                 raise BallotException("Could not open %s", fname)
 
         self.pages = []
@@ -54,10 +104,18 @@ class Ballot(object): #XXX a better name may be something like Analyzer or Extra
         self.laycode_cache = {}
         self.log = logging.getLogger('')
 
+    def _page(self, page):
+        if type(page) is not int:
+            return page
+        try:
+            return self.pages[page]
+        except IndexError:
+            raise BallotException("Invalid page number")
+
     def MakeTemplates(self):
         """This is a helper method for when you ONLY want to make 
-        templates from a set of pages, such as when you have a higher
-        resolution set of images to do so."""
+        templates from a set of pages, such as when you have a set of higher
+        resolution images."""
         acc = []
         for page in self.pages:
             self.FindLandmarks(page)
@@ -65,17 +123,31 @@ class Ballot(object): #XXX a better name may be something like Analyzer or Extra
         return acc
 
     def ProcessPages(self):
-        """Helper to process and anaylze a set of pages. There is no need to do
-        anything else when using this method"""
+        """Helper to process and anaylze all the pages of this Ballot. There is
+        no need to do anything else when using this method"""
         for page in self.pages:
             self.FindLandmarks(page)
             self.BuildLayout(page)
             self.CapturePageInfo(page)
         return self.results
 
-    def GetLayoutCode(self, page):
-        """Find a code that we can use to identify
-        all ballots with this layout"""
+    def GetLayoutCode(self, page=0):
+        """Find a code that we can use to identify all ballots with this
+        layout. 
+        
+        This layout code is used as the key in the template cache
+        defined in the Extension object. It is typically the barcode on the
+        side of a ballot image but it may be any code that uniquely describes a
+        ballot.
+
+        The associated abstract method is get_layout_code.
+        
+        GetLayoutCode is called with the page number or a particular Page
+        object (that MUST be in self.pages). It returns the layout code, which
+        is typically a string.
+        
+        If no layout code can be found, a BallotException is raised."""
+        page = self._page(page)
         try:
             return self.laycode_cache[page.number]
         except KeyError:
@@ -86,16 +158,44 @@ class Ballot(object): #XXX a better name may be something like Analyzer or Extra
             page.barcode = lc
             return lc
 
-    def FindLandmarks(self, page):
-        """Find and record the landmarks for this page so that
-        we can compute the locations of VOPs from the layout"""
+    def FindLandmarks(self, page=0):
+        """Find and record the landmarks for this page so that we can compute
+        the locations of VOPs from the layout. A landmark is any identifying
+        characteristic of a ballot image that can be used to account for any
+        slight rotation and shifting to the left and right of the image so that
+        we may account for these minor distortions.
+        
+        The associated abstract method is find_landmarks.
+        
+        FindLandmarks is called with the page number or a particular Page
+        object (that MUST be in self.pages). It returns the rotation, the x
+        offset, and the y offset of the ballot image. This information is
+        unimportant to most users and can in general be safely ignored.
+
+        If no landmarks can be found, raises BallotException.
+        """
+        page = self._page(page)
         r, x, y = self.find_landmarks(page)
         page.rot, page.xoff, page.yoff = r, x, y
         return r, x, y
 
-    def BuildLayout(self, page):
-        """When no layout is found for a page, we analyze the image,
-        and construct a layout that we can use on all similiar page"""
+    def BuildLayout(self, page=0):
+        """Create a Template from a Page. The Template contains all of the
+        layout information and textual descriptions of any page with the same
+        layout code. If there is already a template associated with the page's
+        layout code in the template cache of this instance's Extension object,
+        that template will be used, avoiding the expensive operation of
+        building a layout.
+
+        The associated abstract method is build_layout.
+
+        BuildLayout is called with the page number or a particular Page
+        object (that MUST be in self.pages). It returns the Template created
+        from the specified Page. 
+        
+        If it cannot build a sensible layout, it will raise a BallotException.
+        """
+        page = self._page(page)
         if page.blank:
             return page.as_template("blank", [])
         code = self.GetLayoutCode(page)
@@ -113,7 +213,7 @@ class Ballot(object): #XXX a better name may be something like Analyzer or Extra
         self.extensions.template_cache[code] = tmpl
         return tmpl
 
-    def OCRDescriptions(self, page, tree):
+    def OCRDescriptions(self, page, tree): #XXX should this be private?
         "This is called automatically by BuildLayout"
         if page.blank:
             return tree
@@ -122,12 +222,27 @@ class Ballot(object): #XXX a better name may be something like Analyzer or Extra
             _ocr1(self.extensions, page, subtree)
         return tree
 
-    def CapturePageInfo(self, page):
-        "tabulate the votes on a single page"
+    def CapturePageInfo(self, page=0):
+        """
+        CapturePageInfo walks the layout and creates a VoteData object for each
+        VOP.
+
+        CapturePageInfo is called with the page number or a particular Page
+        object (that MUST be in self.pages). It returns a list of VoteData for
+        the specific page and adds that to self.results (note that calling this
+        on multiple self.pages out of order will mean that the votes in
+        self.results will not be in the same order as that of self.pages)
+
+        CapturePageInfo never raises BallotException on its own, but it does
+        call the IsVoted and IsWriteIn methods of the Extensions object it was
+        instantiated with, and they are allowed to raise. However, the default
+        methods included by this module do not.
+        """
+        page = self._page(page)
         if page.blank:
             return []
         if page.template is None:
-            raise BallotException("Cannot capture page info without template")
+            self.BuildLayout(page)
         R = self.extensions.transformer
         T = R(page.rot, page.template.xoff, page.template.yoff)
         scale = page.dpi / page.template.dpi #should be in rotator--which should just be in Page?
@@ -167,24 +282,74 @@ class Ballot(object): #XXX a better name may be something like Analyzer or Extra
         raise NotImplementedError("subclasses must define an ExtractVOP method")
 
     def flip(self, im):
-        """this method applies any 90 or 180 degree
-        transformation required to make im read top to
-        bottom, left to right"""
+        """This method applies any 90 or 180 degree transformation required to 
+        make im read top to bottom, left to right.
+        
+        If it is not overriden in a subclass it simply returns the image as is
+        and assumes that no scanned images can be flipped. There is no
+        associated Flip method as this is called in Ballot.__init__
+        """
         return im
 
     def get_layout_code(self, page):
+        """get_layout_code takes a Page and returns a string representing a
+        layout code. It MUST locate and interpret some data on a ballot
+        image that can uniquely determine all images that have the same layout.
+
+        It should only be called indirectly via GetLayoutCode.
+
+        If no layout code can be found, it must raise a BallotException.
+        """
         raise NotImplementedError("subclasses must define a get_layout_code method")
 
     def find_landmarks(self, page):
+        """find_landmarks takes a Page and returns the rotation, x offset, and
+        y offset resulting from scanning a ballot image. Rotation is a float.
+        The x and y offsets are ints.
+
+        landmarks are one or more known points on a ballot image that can be
+        used in isolation or conjunction to infer the displacement naturally
+        caused during scanning. 
+
+        It should only be called indirectly via FindLandmarks.
+
+        If no landmarks can be found, it must raise a BallotException. If the
+        landmarks are offset too far or rotated too much for any further
+        analysis to continue, find_landmarks MUST raise a BallotException.
+        """
         raise NotImplementedError("subclasses must define a find_landmarks method")
 
     def build_layout(self, page):
+        """build_layout takes a Page and computes a Template.
+
+        It should only be called indirectly via BuildLayout.
+
+        If a layout cannot be built, for example because a scanned image is
+        incomplete, it must raise BallotException.
+        """
         raise NotImplementedError("subclasses must define a build_layout method")
 
 class DuplexBallot(Ballot):
     """A Ballot that handles the troubles that arise from ballots whose
-    backside do not have a unique layoutcode on the back page.
-    As such get_layout_code will only be called on front pages."""
+    backside do not have a unique layoutcode on the back page. 
+
+    It is in many ways identical to Ballot, however every no_caps method is
+    overriden and calls no_caps_front and no_caps_back. All no_caps_back
+    methods by default simply call their associated no_caps_front, so
+    operations that do not require special consideration for back pages need
+    only be overriden once. For example, overriding build_layout_front but
+    not build_layout_back will call build_layout_front on both of a pair of
+    ballot images. But overriding build_layout_front and build_layout_back will
+    cause build_layout_front to be called on the first of each pair of images
+    and build_layout_back to be called on the last of each pair of images.
+
+    Note that the above implies that a subclasser should not override the
+    no_caps methods but the no_caps_front and, where appropriate, the
+    no_caps_back methods instead.
+
+    The AllCaps interface is the same except that each method returns a pair of
+    data for each pair of pages.
+    """
     def __init__(self, images, extensions):
        if isinstance(images, basestring) or len(images) < 2:
           raise BallotException("Duplex Ballots require at least 2 images")
@@ -192,26 +357,23 @@ class DuplexBallot(Ballot):
        #need to duplicate some code here to handle some other stuff?
        #maybe just create a second index of self.pages?
 
-    # does flip need to be duplex'd? Might be rarely used yet useful to some?
-
-    def ProcessPages(self):
-        raise NotImplementedError("TODO")
-        pass #needs to process image set pairwise
-
-    def flip(self, im):
-        self.flip_front(im)
-        self.flip_back(im)
+    def flip(self, im): #XXX all of these need to be passed a pair?!
+        im1 = self.flip_front(im)
+        im2 = self.flip_back(im)
+        return (im1, im2)
 
     def find_landmarks(self, page):
-        self.find_front_landmarks(page)
-        self.find_back_landmarks(page)
+        a = self.find_front_landmarks(page)
+        b = self.find_back_landmarks(page)
+        return (a, b)
 
     def build_layout(self, page):
-        self.build_front_layout(page)
-        self.build_back_layout(page)
+        f = self.build_front_layout(page)
+        b = self.build_back_layout(page)
+        return (f, b)
 
     def flip_front(self, im):
-        raise NotImplementedError("subclasses must define a flip_front method")
+        return im
 
     def find_front_landmarks(self, page):
         raise NotImplementedError("subclasses must define a find_front_landmarks method")
@@ -350,7 +512,28 @@ def _stats_CSV_header_line():
 _bad_stats = IStats([-1]*18)
 
 class VoteData(object):
-    "All of the data associated with a single vote"
+    """All of the data associated with a single vote.
+
+    The below information is relative to the Page this VOP came from.
+       * self.filename - the filename of the ballot image
+       * self.barcode - the layout code of the ballot
+       * self.jurisdiction - the text of the jurisdiction header of this VOP
+       * self.contest - the text of the contest header of this VOP
+       * self.choice - the text of this VOP
+       * self.coords - the pair of (x, y) coordinates of the upperleft corner
+          of the VOP
+       * self.maxv - the max votes allowed in the contest of this VOP
+       * self.stats - an IStats object for self.image
+       * self.image - a crop from the image in self.filename containig the VOP
+          (including write in if applicable)
+       * self.is_writein - Boolean 
+       * self.was_voted - Boolean
+       * self.ambiguous - True if we're not 100% sure a VOP was indeed voted.
+       * self.number - the page number this VOP came from
+
+    Called with no keyword arguments it creates the special VoteData object
+    represinting an improperly processed vote.
+    """
     def __init__(self,
                  filename=None,
                  barcode=None,
@@ -419,7 +602,7 @@ _sszx, _sszy = ImageFont.load_default().getsize(14*'M')
 #inset size, px
 _xins, _yins = 10, 5
 def results_to_mosaic(results):
-    """return an image that is a mosaic of all ovals
+    """Return an image that is a mosaic of all ovals
     from a list of Votedata"""
     # Each tile in the mosaic:
     #  _______________________
@@ -530,27 +713,42 @@ class Region(object):
 #class but it is way easier to think about it this way instead of having one
 #object with two bounding boxes
 class Choice(Region): #have two regions, one for text like in jurisdiction and contest and one for vop
+    """An item in a layout hierarchy representing an individual vote
+    opportunities text, as a bounding box, and, if it has been OCRed, by a
+    string.
+    
+    After creation, self.VOP should be set to an instance of VOP. If it is
+    WriteIn self.description should remain None.
+    """ 
     def __init__(self, x, y, description): #XXX need to add x2, y2, vop, axe description
         super(Choice, self).__init__(x, y, -1, -1) #XXX
         self.VOP = None
         self.description = description #XXX change to None
 
     def children(self):
+        """returns self.VOP or []"""
         return self.VOP or []
 
 class VOP(Region):
+    """The bounding box of a VOP. If this is the VOP of write in, set
+    self.WriteIn to a WriteIn object for the write in's bounding box.
+    """
     def __init__(self, x, y, x2, y2):
         super(VOP, self).__init__(x, y, x2, y2)
         self.WriteIn = WriteIn
 
     def children(self):
+        """return self.WriteIn or []"""
         return self.WriteIn or []
 
 class WriteIn(Region):
+    """The bounding box for a WriteIn"""
     def __init__(self, x, y, x2, y2):
         super(VOP, self).__init__(x, y, x2, y2)
 
 class Jurisdiction(Region):
+    """The top level item in a layout hierarchy. Its children are a list of
+    Contests"""
     def __init__(self, x, y, x2, y2):
         super(Jurisdiction, self).__init__(x, y, x2, y2)
         self.contests = []

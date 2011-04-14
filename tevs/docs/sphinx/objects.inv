@@ -35,10 +35,9 @@ show_ballots.App.displayNextFile method show_ballots.html
 scancontrol.App.button2_cb method scancontrol.html
 show_ballots.App.pause_command method show_ballots.html
 Ballot.Page.as_template method Ballot.html
-Ballot.DuplexBallot.ProcessPages method Ballot.html
 show_ballots.on_delete_event function show_ballots.html
 Ballot.IStats.mean_darkness method Ballot.html
-Ballot.Region.bbox method Ballot.html
+show_ballots.App.files_from_external_file_list_cb method show_ballots.html
 sequoia_ballot.get_code_from_blocks function sequoia_ballot.html
 show_ballots.App.show_help_overview method show_ballots.html
 show_ballots.App.create_filelist_from_dir method show_ballots.html
@@ -109,8 +108,8 @@ show_ballots.App.flag_cb method show_ballots.html
 Ballot.TemplateCache class Ballot.html
 Ballot.LoadBallotType function Ballot.html
 Ballot.TemplateCache.save method Ballot.html
-Ballot.Jurisdiction.append method Ballot.html
 demo_ballot.DemoBallot.build_layout method demo_ballot.html
+Ballot.Jurisdiction.append method Ballot.html
 show_ballots.App.quitfromdelete method show_ballots.html
 sequoia_ballot.build_template function sequoia_ballot.html
 Ballot.VoteData class Ballot.html
@@ -131,7 +130,6 @@ saguache_ballot.SaguacheBallot.find_landmarks method saguache_ballot.html
 show_ballots.App.count_all_cb method show_ballots.html
 util.genwriteto function util.html
 sequoia_ballot.get_text_for_arrow_at function sequoia_ballot.html
-Ballot.Region class Ballot.html
 Ballot.Ballot.OCRDescriptions method Ballot.html
 saguache_ballot.SaguacheBallot.extract_VOP method saguache_ballot.html
 show_ballots.App.next_cb method show_ballots.html
@@ -154,7 +152,6 @@ hart_ballot.HartBallot.find_landmarks method hart_ballot.html
 db.PostgresDB.insert method db.html
 Ballot.DuplexBallot.flip_front method Ballot.html
 show_ballots.destroy_cb function show_ballots.html
-Ballot.Region.coords method Ballot.html
 Ballot.Ballot class Ballot.html
 show_ballots.Vote.xcoord method show_ballots.html
 main.filen function main.html
@@ -168,14 +165,11 @@ saguache_ballot.timing_marks function saguache_ballot.html
 show_ballots.App.show_help_signature method show_ballots.html
 show_ballots.App.enterTheVotesInExcel method show_ballots.html
 show_ballots.App.files_with_vote_matching_intensity method show_ballots.html
-show_ballots.App.files_from_external_file_list_cb method show_ballots.html
-Ballot.NullTemplateCache.save method Ballot.html
 saguache_ballot.adjust_ulc function saguache_ballot.html
 Ballot.Template class Ballot.html
 show_ballots.App.trigger method show_ballots.html
 util.readfrom function util.html
 main.main function main.html
-Ballot.NullTemplateCache class Ballot.html
 db.NullDB.insert method db.html
 demo_ballot.DemoBallot.get_layout_code method demo_ballot.html
 scanloop.Scanner class scanloop.html
@@ -219,7 +213,6 @@ adjust.rotate_pt_by function adjust.html
 config.logger function config.html
 show_ballots.get_args function show_ballots.html
 show_ballots.App.every_twentieth method show_ballots.html
-Ballot.Region.children method Ballot.html
 show_ballots.App.process_external_file_list method show_ballots.html
 Ballot.results_to_CSV function Ballot.html
 show_ballots.App.show_help_file method show_ballots.html
