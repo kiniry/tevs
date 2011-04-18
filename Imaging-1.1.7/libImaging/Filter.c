@@ -176,7 +176,7 @@ ImagingFilter(Imaging im, int xsize, int ysize, const FLOAT32* kernel,
     }
     return imOut;
 }
-
+#define DARK 192
 Imaging
 ImagingThicken(Imaging im, int xsize, int ysize)
 {
@@ -204,34 +204,34 @@ ImagingThicken(Imaging im, int xsize, int ysize)
     for (x = 2; x < im->xsize-2; x++) {
       for (y = 2; y < im->ysize-2; y++) {
 	imOut->image8[y][x] = 
-	  (im->image8[y-2][x-2] < 128 
-	   || im->image8[y-1][x-2] < 128 
-	   || im->image8[y][x-2] < 128 
-	   || im->image8[y+1][x-2] < 128 
-	   || im->image8[y+2][x-2] < 128 
-	   || im->image8[y-2][x-1] < 128 
-	   || im->image8[y-1][x-1] < 128 
-	   || im->image8[y][x-1] < 128 
-	   || im->image8[y+1][x-1] < 128 
-	   || im->image8[y+2][x-1] < 128 
-	   || im->image8[y-2][x] < 128 
-	   || im->image8[y-1][x] < 128 
-	   || im->image8[y][x] < 128 
-	   || im->image8[y+1][x] < 128 
-	   || im->image8[y+2][x] < 128 
-	   || im->image8[y-2][x+1] < 128 
-	   || im->image8[y-1][x+1] < 128 
-	   || im->image8[y][x+1] < 128 
-	   || im->image8[y+1][x+1] < 128 
-	   || im->image8[y+2][x+1] < 128 
-	   || im->image8[y-2][x+2] < 128 
-	   || im->image8[y-1][x+2] < 128 
-	   || im->image8[y][x+2] < 128 
-	   || im->image8[y+1][x+2] < 128 
-	   || im->image8[y+2][x+2] < 128 
-	   ) ? 0 : 255; 
+	  (im->image8[y-2][x-2] < DARK 
+	   || im->image8[y-1][x-2] < DARK 
+	   || im->image8[y][x-2] < DARK 
+	   || im->image8[y+1][x-2] < DARK 
+	   || im->image8[y+2][x-2] < DARK 
+	   || im->image8[y-2][x-1] < DARK 
+	   || im->image8[y-1][x-1] < DARK 
+	   || im->image8[y][x-1] < DARK 
+	   || im->image8[y+1][x-1] < DARK 
+	   || im->image8[y+2][x-1] < DARK 
+	   || im->image8[y-2][x] < DARK 
+	   || im->image8[y-1][x] < DARK 
+	   || im->image8[y][x] < DARK 
+	   || im->image8[y+1][x] < DARK 
+	   || im->image8[y+2][x] < DARK 
+	   || im->image8[y-2][x+1] < DARK 
+	   || im->image8[y-1][x+1] < DARK 
+	   || im->image8[y][x+1] < DARK 
+	   || im->image8[y+1][x+1] < DARK 
+	   || im->image8[y+2][x+1] < DARK 
+	   || im->image8[y-2][x+2] < DARK 
+	   || im->image8[y-1][x+2] < DARK 
+	   || im->image8[y][x+2] < DARK 
+	   || im->image8[y+1][x+2] < DARK 
+	   || im->image8[y+2][x+2] < DARK 
+	   ) ? 0 : im->image8[y][x]; 
 	  }
-      imOut->image8[y][x] = im->image8[y][x];
+      //imOut->image8[y][x] = im->image8[y][x];
     }
     return imOut;
 }

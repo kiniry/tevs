@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
-        URL_ROOT:    '',
+        URL_ROOT:    '#',
         VERSION:     '0.2beta',
         COLLAPSE_MODINDEX: false,
         FILE_SUFFIX: '.html',
@@ -31,9 +31,6 @@
           <a href="genindex.html" title="General Index"
              accesskey="I">index</a></li>
         <li class="right" >
-          <a href="modindex.html" title="Global Module Index"
-             accesskey="M">modules</a> |</li>
-        <li class="right" >
           <a href="saguache_ballot.html" title="saguache_ballot module documentation"
              accesskey="P">previous</a> |</li>
         <li><a href="index.html">&lt;project&gt;</a> &raquo;</li>
@@ -46,88 +43,8 @@
         <div class="bodywrapper">
           <div class="body">
             
-  <div class="section" id="module-sequoia_ballot">
-<h1>sequoia_ballot module documentation<a class="headerlink" href="#module-sequoia_ballot" title="Permalink to this headline">¶</a></h1>
-<dl class="function">
-<dt id="sequoia_ballot.IsWriteIn">
-<tt class="descname">IsWriteIn</tt><big>(</big><em>im</em>, <em>stats</em>, <em>choice</em><big>)</big><a class="headerlink" href="#sequoia_ballot.IsWriteIn" title="Permalink to this definition">¶</a></dt>
-<dd>All we have to go on is a text-free box.</dd></dl>
-
-<dl class="class">
-<dt id="sequoia_ballot.SequoiaBallot">
-<em class="property">class </em><tt class="descname">SequoiaBallot</tt><big>(</big><em>images</em>, <em>extensions</em><big>)</big><a class="headerlink" href="#sequoia_ballot.SequoiaBallot" title="Permalink to this definition">¶</a></dt>
-<dd><p>Class representing demonstration ballots.</p>
-<p>Each demonstration ballot&#8217;s layout code, and contest and choice locations
-are entered by the user through a text interface.</p>
-<p>Precinct code can be any number from 1 to 100.</p>
-<p>The file name demo_ballot.py and the class name SequoiaBallot
-correspond to the brand entry in tevs.cfg (demo.cfg), 
-the configuration file.</p>
-<dl class="method">
-<dt id="sequoia_ballot.SequoiaBallot.build_layout">
-<tt class="descname">build_layout</tt><big>(</big><em>page</em><big>)</big><a class="headerlink" href="#sequoia_ballot.SequoiaBallot.build_layout" title="Permalink to this definition">¶</a></dt>
-<dd><p>get layout and ocr information from Demo ballot</p>
-<p>Building the layout will be the largest task for registering
-a new ballot brand which uses a different layout style.</p>
-<p>Here, we&#8217;ll ask the user to enter column x-offsets, 
-then contests and their regions,
-and choices belonging to the contest.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="sequoia_ballot.SequoiaBallot.extract_VOP">
-<tt class="descname">extract_VOP</tt><big>(</big><em>page</em>, <em>rotate</em>, <em>scale</em>, <em>choice</em><big>)</big><a class="headerlink" href="#sequoia_ballot.SequoiaBallot.extract_VOP" title="Permalink to this definition">¶</a></dt>
-<dd>Extract a single oval, or writein box, from the specified ballot.
-We&#8217;ll tell you the coordinates, you tell us the stats</dd></dl>
-
-<dl class="method">
-<dt id="sequoia_ballot.SequoiaBallot.find_landmarks">
-<tt class="descname">find_landmarks</tt><big>(</big><em>page</em><big>)</big><a class="headerlink" href="#sequoia_ballot.SequoiaBallot.find_landmarks" title="Permalink to this definition">¶</a></dt>
-<dd><p>retrieve landmarks for a demo template, set tang, xref, yref</p>
-<p>Landmarks for the demo ballot are normally at 1/2&#8221; down and
-1&#8221; in from the top left and top right corners.</p>
-<p>The &#8220;image&#8221; you are using as a template may be offset or 
-tilted, in which case that information will be recorded
-so it may be taken into account when future images are
-examined.</p>
-</dd></dl>
-
-<dl class="method">
-<dt id="sequoia_ballot.SequoiaBallot.get_layout_code">
-<tt class="descname">get_layout_code</tt><big>(</big><em>page</em><big>)</big><a class="headerlink" href="#sequoia_ballot.SequoiaBallot.get_layout_code" title="Permalink to this definition">¶</a></dt>
-<dd><p>Determine the layout code by getting it from the user</p>
-<p>The layout code must be determined on a vendor specific basis;
-it is usually a series of dashes or a bar code at a particular
-location on the ballot.</p>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="function">
-<dt id="sequoia_ballot.build_template">
-<tt class="descname">build_template</tt><big>(</big><em>im</em>, <em>dpi</em>, <em>code</em>, <em>xoff</em>, <em>yoff</em>, <em>tilt</em>, <em>front=True</em><big>)</big><a class="headerlink" href="#sequoia_ballot.build_template" title="Permalink to this definition">¶</a></dt>
-<dd>build template of arrow locations</dd></dl>
-
-<dl class="function">
-<dt id="sequoia_ballot.find_y_of_landmark_pattern">
-<tt class="descname">find_y_of_landmark_pattern</tt><big>(</big><em>crop</em>, <em>dpi</em>, <em>offset1</em>, <em>offset2</em><big>)</big><a class="headerlink" href="#sequoia_ballot.find_y_of_landmark_pattern" title="Permalink to this definition">¶</a></dt>
-<dd>return first y offset at which pattern condition is met, or -1</dd></dl>
-
-<dl class="function">
-<dt id="sequoia_ballot.get_code_from_blocks">
-<tt class="descname">get_code_from_blocks</tt><big>(</big><em>im</em>, <em>dpi</em>, <em>leftstartx</em>, <em>leftstarty</em>, <em>rightstartx</em>, <em>rightstarty</em><big>)</big><a class="headerlink" href="#sequoia_ballot.get_code_from_blocks" title="Permalink to this definition">¶</a></dt>
-<dd>read dash blocks at top left,right of image and return encoded int</dd></dl>
-
-<dl class="function">
-<dt id="sequoia_ballot.get_offsets_and_tangent_from_blocks">
-<tt class="descname">get_offsets_and_tangent_from_blocks</tt><big>(</big><em>im</em>, <em>dpi</em>, <em>dash_sep_in_pixels</em><big>)</big><a class="headerlink" href="#sequoia_ballot.get_offsets_and_tangent_from_blocks" title="Permalink to this definition">¶</a></dt>
-<dd>locate marks at top left, right of image</dd></dl>
-
-<dl class="function">
-<dt id="sequoia_ballot.get_text_for_arrow_at">
-<tt class="descname">get_text_for_arrow_at</tt><big>(</big><em>im</em>, <em>x</em>, <em>y</em>, <em>global_dpi</em><big>)</big><a class="headerlink" href="#sequoia_ballot.get_text_for_arrow_at" title="Permalink to this definition">¶</a></dt>
-<dd>use tesseract to retrieve text corresponding to left of arrow</dd></dl>
-
+  <div class="section" id="sequoia-ballot-module-documentation">
+<h1>sequoia_ballot module documentation<a class="headerlink" href="#sequoia-ballot-module-documentation" title="Permalink to this headline">¶</a></h1>
 </div>
 
 
@@ -168,9 +85,6 @@ location on the ballot.</p>
           <a href="genindex.html" title="General Index"
              >index</a></li>
         <li class="right" >
-          <a href="modindex.html" title="Global Module Index"
-             >modules</a> |</li>
-        <li class="right" >
           <a href="saguache_ballot.html" title="saguache_ballot module documentation"
              >previous</a> |</li>
         <li><a href="index.html">&lt;project&gt;</a> &raquo;</li>
@@ -179,7 +93,7 @@ location on the ballot.</p>
     </div>
     <div class="footer">
       &copy; Copyright 2008-2011, Mitch Trachtenberg.
-      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 0.6.6.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 0.6.4.
     </div>
   </body>
 </html>
