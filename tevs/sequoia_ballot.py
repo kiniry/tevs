@@ -1,5 +1,6 @@
 # sequoia_ballot.py implements the interface 
-# in Ballot.py, as a guide to those extending TEVS to new ballot types.
+# in Ballot.py, and is an example of extending TEVS to new ballot types.
+# It is not yet a complete sequoia implementation!
 # The Trachtenberg Election Verification System (TEVS)
 # is copyright 2009, 2010 by Mitch Trachtenberg 
 # and is licensed under the GNU General Public License version 2.
@@ -57,7 +58,12 @@ def find_y_of_landmark_pattern(crop,dpi,offset1,offset2):
         
 
 def get_offsets_and_tangent_from_blocks(im,dpi,dash_sep_in_pixels):
-    """ locate marks at top left, right of image"""
+    """ locate marks at top left, right of image
+    
+    return the x,y coordinates of the large timing marks
+    at upper left and upper right, 
+    as well as the tangent of the tilt angle between them.
+    """
     found_left = False
     found_right = False
     iround = lambda x: int(round(x))
@@ -114,7 +120,16 @@ def get_offsets_and_tangent_from_blocks(im,dpi,dash_sep_in_pixels):
             (rightstarty-leftstarty)/(im.size[0]-adj(block_zone_width_to_crop)))        
 
 def get_code_from_blocks(im,dpi,leftstartx,leftstarty,rightstartx,rightstarty):
-    """read dash blocks at top left,right of image and return encoded int"""
+    """read dash pattern encoding layout and return encoded int
+    
+    There are dash blocks at upper left and right.  The right represents
+    the eight least significant digits and the left the 8 more significant
+    digits.  Each bit is represented by the presence (1)
+    or absence (0) of a center dash between the two surround dashes, with
+    less significant digits lower in the pattern.
+
+    The encoding is also printed to the left of the right dash block.
+    """
     iround = lambda x: int(round(x))
     adj = lambda f: int(round(const.dpi * f))
     leftstartx = iround(leftstartx)
@@ -165,7 +180,21 @@ def get_code_from_blocks(im,dpi,leftstartx,leftstarty,rightstartx,rightstarty):
     return ("%d" % (accum,))
 
 def build_template(im,dpi,code,xoff,yoff,tilt,front=True):
-    """build template of arrow locations"""
+    """build template of arrow locations
+
+    When a ballot image is used for template construction, 
+    it is assumed that code will have derotated it first!
+
+    This code is not yet general; it assumes two arrow columns
+    at set locations.  It locates arrows within those locations
+    by searching for at least 0.05" of vertical contiguous black
+    in locations which would correspond to the arrow head and
+    the arrow tail, skipping at least the first vertical 1.5" on the front
+    and the bottom 1.2" on both sides.
+
+    The search for arrows begins only beneath a 0.6" long solid
+    black bar (first channel <= 128 in range 0..255) at least 0.05" tall.
+    """
     # find the locations of the arrow columns 
     # relative to xoff, yoff, and taking tilt into account
     #location_list = [(dpi,xoff,yoff,tilt)]
@@ -258,7 +287,20 @@ def build_template(im,dpi,code,xoff,yoff,tilt,front=True):
     return regionlist
 
 def get_text_for_arrow_at(im,x,y,global_dpi):
-    """use tesseract to retrieve text corresponding to left of arrow"""
+    """use tesseract to retrieve text corresponding to left of arrow
+
+    Text associated with different arrows is separated by horizontal
+    lines.  Find the y offsets of those lines and pass text between
+    those offsets to tesseract, sending it a rectangle 2.25" wide from
+    to the left of the arrow.
+
+    The contest text is above a batch of arrows, and is separated from
+    choice text by a thicker line.
+
+    Text is run through ocr.clean_ocr_text and commas are deleted.
+
+    Returns choice text, contest text, and crop rectangle for contest text.
+    """
     # find center of arrow
     iround = lambda x: int(round(x))
     adj = lambda f: int(round(const.dpi * f))
@@ -341,14 +383,9 @@ def get_text_for_arrow_at(im,x,y,global_dpi):
 
 
 class SequoiaBallot(Ballot.Ballot):
-    """Class representing demonstration ballots.
+    """Class representing a subset of Sequoia ballots.
 
-    Each demonstration ballot's layout code, and contest and choice locations
-    are entered by the user through a text interface.
-
-    Precinct code can be any number from 1 to 100.
-
-    The file name demo_ballot.py and the class name SequoiaBallot
+    The file name sequoia_ballot.py and the class name SequoiaBallot
     correspond to the brand entry in tevs.cfg (demo.cfg), 
     the configuration file.
     """
@@ -379,15 +416,12 @@ class SequoiaBallot(Ballot.Ballot):
     #    return im
 
     def find_landmarks(self, page):
-        """ retrieve landmarks for a demo template, set tang, xref, yref
+        """ retrieve landmarks for a sequoia ballot, set tang, xref, yref
 
-        Landmarks for the demo ballot are normally at 1/2" down and
-        1" in from the top left and top right corners.
+        Landmarks for the sequoia ballot are the "dash blocks" at the
+        upper left and upper right. These are retrieved by calling
+        get_offsets_and_tangent_from_blocks.
 
-        The "image" you are using as a template may be offset or 
-        tilted, in which case that information will be recorded
-        so it may be taken into account when future images are
-        examined.
         """
         iround = lambda x: int(round(x))
         adj = lambda f: int(round(const.dpi * f))
@@ -442,11 +476,8 @@ class SequoiaBallot(Ballot.Ballot):
         return rot, xoff, yoff 
 
     def get_layout_code(self, page):
-        """ Determine the layout code by getting it from the user
+        """ Determine the layout code by calling get_code_from_blocks.
 
-        The layout code must be determined on a vendor specific basis;
-        it is usually a series of dashes or a bar code at a particular
-        location on the ballot.
         """
         iround = lambda x: int(round(x))
         adj = lambda f: int(round(const.dpi * f))
@@ -468,8 +499,8 @@ class SequoiaBallot(Ballot.Ballot):
         return barcode
 
     def extract_VOP(self, page, rotate, scale, choice):
-        """Extract a single oval, or writein box, from the specified ballot.
-        We'll tell you the coordinates, you tell us the stats
+        """Extract statistics for a single oval or writein from the ballot.
+
         """
         iround = lambda x: int(round(x))
         adj = lambda f: int(round(const.dpi * f))
@@ -526,14 +557,8 @@ class SequoiaBallot(Ballot.Ballot):
         return cropx, cropy, stats, crop, voted, writein, ambiguous
 
     def build_layout(self, page):
-        """ get layout and ocr information from Demo ballot
+        """ get layout and ocr information by calling build_template
 
-        Building the layout will be the largest task for registering
-        a new ballot brand which uses a different layout style.
-
-        Here, we'll ask the user to enter column x-offsets, 
-        then contests and their regions,
-        and choices belonging to the contest.
         """
         regionlist = build_template(page.image,
                                     const.dpi,
