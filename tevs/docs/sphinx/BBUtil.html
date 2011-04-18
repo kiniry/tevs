@@ -5,7 +5,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>ocr module documentation &mdash; &lt;project&gt;</title>
+    <title>BBUtil module documentation &mdash; &lt;project&gt;</title>
     <link rel="stylesheet" href="_static/default.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <script type="text/javascript">
@@ -19,10 +19,7 @@
     </script>
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="top" title="&lt;project&gt;" href="index.html" />
-    <link rel="up" title="Extending TEVS" href="extending.html" />
-    <link rel="next" title="config module documentation" href="config.html" />
-    <link rel="prev" title="adjust module documentation" href="adjust.html" /> 
+    <link rel="top" title="&lt;project&gt;" href="index.html" /> 
   </head>
   <body>
     <div class="related">
@@ -34,14 +31,7 @@
         <li class="right" >
           <a href="modindex.html" title="Global Module Index"
              accesskey="M">modules</a> |</li>
-        <li class="right" >
-          <a href="config.html" title="config module documentation"
-             accesskey="N">next</a> |</li>
-        <li class="right" >
-          <a href="adjust.html" title="adjust module documentation"
-             accesskey="P">previous</a> |</li>
-        <li><a href="index.html">&lt;project&gt;</a> &raquo;</li>
-          <li><a href="extending.html" accesskey="U">Extending TEVS</a> &raquo;</li> 
+        <li><a href="index.html">&lt;project&gt;</a> &raquo;</li> 
       </ul>
     </div>  
 
@@ -50,22 +40,37 @@
         <div class="bodywrapper">
           <div class="body">
             
-  <div class="section" id="module-ocr">
-<h1>ocr module documentation<a class="headerlink" href="#module-ocr" title="Permalink to this headline">¶</a></h1>
-<dl class="function">
-<dt id="ocr.clean_ocr_text">
-<tt class="descname">clean_ocr_text</tt><big>(</big><em>text</em><big>)</big><a class="headerlink" href="#ocr.clean_ocr_text" title="Permalink to this definition">¶</a></dt>
-<dd>remove common ocr artifacts</dd></dl>
+  <div class="section" id="module-BBUtil">
+<h1>BBUtil module documentation<a class="headerlink" href="#module-BBUtil" title="Permalink to this headline">¶</a></h1>
+<dl class="exception">
+<dt id="BBUtil.BrowsingException">
+<em class="property">exception </em><tt class="descname">BrowsingException</tt><big>(</big><em>value</em><big>)</big><a class="headerlink" href="#BBUtil.BrowsingException" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 <dl class="function">
-<dt id="ocr.ocr">
-<tt class="descname">ocr</tt><big>(</big><em>im</em>, <em>contests</em>, <em>dpi</em>, <em>x1</em>, <em>x2</em>, <em>splits</em>, <em>xtnz</em><big>)</big><a class="headerlink" href="#ocr.ocr" title="Permalink to this definition">¶</a></dt>
-<dd>ocr runs ocr and assembles appends to the list of BtRegions</dd></dl>
+<dt id="BBUtil.askinteger">
+<tt class="descname">askinteger</tt><big>(</big><em>title</em>, <em>summarytext</em>, <em>labeltext</em>, <em>initial_value</em><big>)</big><a class="headerlink" href="#BBUtil.askinteger" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 <dl class="function">
-<dt id="ocr.tesseract">
-<tt class="descname">tesseract</tt><big>(</big><em>zone</em><big>)</big><a class="headerlink" href="#ocr.tesseract" title="Permalink to this definition">¶</a></dt>
-<dd>run the tesseract ocr engine on Image zone</dd></dl>
+<dt id="BBUtil.askstring">
+<tt class="descname">askstring</tt><big>(</big><em>title</em>, <em>summarytext</em>, <em>labeltext</em>, <em>window</em><big>)</big><a class="headerlink" href="#BBUtil.askstring" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="BBUtil.askyesno">
+<tt class="descname">askyesno</tt><big>(</big><em>text1</em>, <em>text2</em>, <em>window</em><big>)</big><a class="headerlink" href="#BBUtil.askyesno" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="BBUtil.do_modal_dialog">
+<tt class="descname">do_modal_dialog</tt><big>(</big><em>text</em>, <em>window</em><big>)</big><a class="headerlink" href="#BBUtil.do_modal_dialog" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="function">
+<dt id="BBUtil.showinfo">
+<tt class="descname">showinfo</tt><big>(</big><em>title</em>, <em>text</em>, <em>window</em><big>)</big><a class="headerlink" href="#BBUtil.showinfo" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
 </div>
 
@@ -75,15 +80,9 @@
       </div>
       <div class="sphinxsidebar">
         <div class="sphinxsidebarwrapper">
-            <h4>Previous topic</h4>
-            <p class="topless"><a href="adjust.html"
-                                  title="previous chapter">adjust module documentation</a></p>
-            <h4>Next topic</h4>
-            <p class="topless"><a href="config.html"
-                                  title="next chapter">config module documentation</a></p>
             <h3>This Page</h3>
             <ul class="this-page-menu">
-              <li><a href="_sources/ocr.txt"
+              <li><a href="_sources/BBUtil.txt"
                      rel="nofollow">Show Source</a></li>
             </ul>
           <div id="searchbox" style="display: none">
@@ -112,14 +111,7 @@
         <li class="right" >
           <a href="modindex.html" title="Global Module Index"
              >modules</a> |</li>
-        <li class="right" >
-          <a href="config.html" title="config module documentation"
-             >next</a> |</li>
-        <li class="right" >
-          <a href="adjust.html" title="adjust module documentation"
-             >previous</a> |</li>
-        <li><a href="index.html">&lt;project&gt;</a> &raquo;</li>
-          <li><a href="extending.html" >Extending TEVS</a> &raquo;</li> 
+        <li><a href="index.html">&lt;project&gt;</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">

@@ -5,7 +5,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>util module documentation &mdash; &lt;project&gt;</title>
+    <title>next module documentation &mdash; &lt;project&gt;</title>
     <link rel="stylesheet" href="_static/default.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     <script type="text/javascript">
@@ -21,8 +21,8 @@
     <script type="text/javascript" src="_static/doctools.js"></script>
     <link rel="top" title="&lt;project&gt;" href="index.html" />
     <link rel="up" title="Extending TEVS" href="extending.html" />
-    <link rel="next" title="cropstats module documentation" href="cropstats.html" />
-    <link rel="prev" title="db module documentation" href="db.html" /> 
+    <link rel="next" title="db module documentation" href="db.html" />
+    <link rel="prev" title="Ballot module documentation" href="Ballot.html" /> 
   </head>
   <body>
     <div class="related">
@@ -35,10 +35,10 @@
           <a href="modindex.html" title="Global Module Index"
              accesskey="M">modules</a> |</li>
         <li class="right" >
-          <a href="cropstats.html" title="cropstats module documentation"
+          <a href="db.html" title="db module documentation"
              accesskey="N">next</a> |</li>
         <li class="right" >
-          <a href="db.html" title="db module documentation"
+          <a href="Ballot.html" title="Ballot module documentation"
              accesskey="P">previous</a> |</li>
         <li><a href="index.html">&lt;project&gt;</a> &raquo;</li>
           <li><a href="extending.html" accesskey="U">Extending TEVS</a> &raquo;</li> 
@@ -50,48 +50,37 @@
         <div class="bodywrapper">
           <div class="body">
             
-  <div class="section" id="module-util">
-<h1>util module documentation<a class="headerlink" href="#module-util" title="Permalink to this headline">¶</a></h1>
-<dl class="function">
-<dt id="util.fatal">
-<tt class="descname">fatal</tt><big>(</big><em>msg</em>, <em>*p</em><big>)</big><a class="headerlink" href="#util.fatal" title="Permalink to this definition">¶</a></dt>
-<dd>log fatal messages and exit</dd></dl>
+  <div class="section" id="module-next">
+<h1>next module documentation<a class="headerlink" href="#module-next" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="next.File">
+<em class="property">class </em><tt class="descname">File</tt><big>(</big><em>next_file</em>, <em>inc</em><big>)</big><a class="headerlink" href="#next.File" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="next.File.save">
+<tt class="descname">save</tt><big>(</big><big>)</big><a class="headerlink" href="#next.File.save" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
-<dl class="function">
-<dt id="util.genwriteto">
-<tt class="descname">genwriteto</tt><big>(</big><em>fname</em>, <em>gen</em><big>)</big><a class="headerlink" href="#util.genwriteto" title="Permalink to this definition">¶</a></dt>
-<dd>save data into fname</dd></dl>
+</dd></dl>
 
-<dl class="function">
-<dt id="util.mkdirp">
-<tt class="descname">mkdirp</tt><big>(</big><em>*path</em><big>)</big><a class="headerlink" href="#util.mkdirp" title="Permalink to this definition">¶</a></dt>
-<dd>Copy of mkdir -p, joins all arguments as path elements</dd></dl>
+<dl class="class">
+<dt id="next.Set">
+<em class="property">class </em><tt class="descname">Set</tt><big>(</big><em>list_name</em><big>)</big><a class="headerlink" href="#next.Set" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="next.Set.save">
+<tt class="descname">save</tt><big>(</big><big>)</big><a class="headerlink" href="#next.Set.save" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
-<dl class="function">
-<dt id="util.pairs">
-<tt class="descname">pairs</tt><big>(</big><em>list</em><big>)</big><a class="headerlink" href="#util.pairs" title="Permalink to this definition">¶</a></dt>
-<dd>walk through list returning two elements at a time.
-Assumes len(list) is even.</dd></dl>
+</dd></dl>
 
-<dl class="function">
-<dt id="util.readfrom">
-<tt class="descname">readfrom</tt><big>(</big><em>fname</em>, <em>default=None</em><big>)</big><a class="headerlink" href="#util.readfrom" title="Permalink to this definition">¶</a></dt>
-<dd>return contents of fname as string, if we can&#8217;t read: returns default if not None, otherwise shuts down</dd></dl>
+<dl class="class">
+<dt id="next.Simple">
+<em class="property">class </em><tt class="descname">Simple</tt><big>(</big><em>start=0</em>, <em>inc=1</em><big>)</big><a class="headerlink" href="#next.Simple" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="next.Simple.save">
+<tt class="descname">save</tt><big>(</big><big>)</big><a class="headerlink" href="#next.Simple.save" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
 
-<dl class="function">
-<dt id="util.rmf">
-<tt class="descname">rmf</tt><big>(</big><em>*path</em><big>)</big><a class="headerlink" href="#util.rmf" title="Permalink to this definition">¶</a></dt>
-<dd>Copy of rm -f, joins all arguments as path elements</dd></dl>
-
-<dl class="function">
-<dt id="util.root">
-<tt class="descname">root</tt><big>(</big><em>*dir</em><big>)</big><a class="headerlink" href="#util.root" title="Permalink to this definition">¶</a></dt>
-<dd>convert a data dir to a root relative path</dd></dl>
-
-<dl class="function">
-<dt id="util.writeto">
-<tt class="descname">writeto</tt><big>(</big><em>fname</em>, <em>data</em><big>)</big><a class="headerlink" href="#util.writeto" title="Permalink to this definition">¶</a></dt>
-<dd>save data into fname</dd></dl>
+</dd></dl>
 
 </div>
 
@@ -102,14 +91,14 @@ Assumes len(list) is even.</dd></dl>
       <div class="sphinxsidebar">
         <div class="sphinxsidebarwrapper">
             <h4>Previous topic</h4>
-            <p class="topless"><a href="db.html"
-                                  title="previous chapter">db module documentation</a></p>
+            <p class="topless"><a href="Ballot.html"
+                                  title="previous chapter">Ballot module documentation</a></p>
             <h4>Next topic</h4>
-            <p class="topless"><a href="cropstats.html"
-                                  title="next chapter">cropstats module documentation</a></p>
+            <p class="topless"><a href="db.html"
+                                  title="next chapter">db module documentation</a></p>
             <h3>This Page</h3>
             <ul class="this-page-menu">
-              <li><a href="_sources/util.txt"
+              <li><a href="_sources/next.txt"
                      rel="nofollow">Show Source</a></li>
             </ul>
           <div id="searchbox" style="display: none">
@@ -139,10 +128,10 @@ Assumes len(list) is even.</dd></dl>
           <a href="modindex.html" title="Global Module Index"
              >modules</a> |</li>
         <li class="right" >
-          <a href="cropstats.html" title="cropstats module documentation"
+          <a href="db.html" title="db module documentation"
              >next</a> |</li>
         <li class="right" >
-          <a href="db.html" title="db module documentation"
+          <a href="Ballot.html" title="Ballot module documentation"
              >previous</a> |</li>
         <li><a href="index.html">&lt;project&gt;</a> &raquo;</li>
           <li><a href="extending.html" >Extending TEVS</a> &raquo;</li> 

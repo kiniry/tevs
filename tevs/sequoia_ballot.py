@@ -386,7 +386,7 @@ class SequoiaBallot(Ballot.Ballot):
     """Class representing a subset of Sequoia ballots.
 
     The file name sequoia_ballot.py and the class name SequoiaBallot
-    correspond to the brand entry in tevs.cfg (demo.cfg), 
+    correspond to the brand entry in tevs.cfg, 
     the configuration file.
     """
 
