@@ -7,7 +7,7 @@ from xml.parsers.expat import ExpatError
 import logging
 
 import site; site.addsitedir("/home/jimmy/tevs") #XXX
-from PILB import Image, ImageDraw, ImageFont
+from PILB import Image, ImageDraw, ImageFont, ImageChops
 import const
 import util
 import ocr
@@ -712,13 +712,13 @@ class Region(object):
 #A choice has and must have one and only one VOP--VOP is an essentially useless
 #class but it is way easier to think about it this way instead of having one
 #object with two bounding boxes
-class Choice(Region): #have two regions, one for text like in jurisdiction and contest and one for vop
+class Choice(Region):
     """An item in a layout hierarchy representing an individual vote
     opportunities text, as a bounding box, and, if it has been OCRed, by a
-    string.
+    string, self.description.
     
     After creation, self.VOP should be set to an instance of VOP. If it is
-    WriteIn self.description should remain None.
+    WriteIn, self.description should remain None.
     """ 
     def __init__(self, x, y, description): #XXX need to add x2, y2, vop, axe description
         super(Choice, self).__init__(x, y, -1, -1) #XXX
@@ -730,7 +730,7 @@ class Choice(Region): #have two regions, one for text like in jurisdiction and c
         return self.VOP or []
 
 class VOP(Region):
-    """The bounding box of a VOP. If this is the VOP of write in, set
+    """The bounding box of a VOP. If this is the VOP of a write in, set
     self.WriteIn to a WriteIn object for the write in's bounding box.
     """
     def __init__(self, x, y, x2, y2):
@@ -742,13 +742,35 @@ class VOP(Region):
         return self.WriteIn or []
 
 class WriteIn(Region):
-    """The bounding box for a WriteIn"""
+    """The bounding box for a WriteIn, not including the VOP of the WriteIn. It
+    is the child of its VOP, so in:
+        
+         Contest:
+         
+            [ ] Choice a
+
+            [ ] Choice b
+         
+            [ ] Write in
+
+            `____________`
+    
+
+    WriteIn will be the child of the VOP to the left of the Choice "Write in" """
     def __init__(self, x, y, x2, y2):
         super(VOP, self).__init__(x, y, x2, y2)
 
 class Jurisdiction(Region):
     """The top level item in a layout hierarchy. Its children are a list of
-    Contests"""
+    Contest's. A ballot may have zero or more Jurisdictions. If there are no
+    Jurisdictions, all of the top level elements in the template must be
+    Contest's, and the children of a Jurisdiction must be Contest's. An example
+    of a Jurisdiction is a ballot containing contests for both a state and
+    county election: In this case, the template should have a state
+    Jurisdiction, containing all of the Contest's for the state election; and a
+    county Jurisdiction, containing all of the Contest's for the county
+    election. The bounding box of a Jurisdiction should only enclose the text
+    of the description, such as the word 'State'."""
     def __init__(self, x, y, x2, y2):
         super(Jurisdiction, self).__init__(x, y, x2, y2)
         self.contests = []
@@ -760,6 +782,20 @@ class Jurisdiction(Region):
         return self.contests
 
 class Contest(Region):
+    """Either the top level item in a layout hierarchy or the child of a
+    Jurisdiction. A Contest is the bounding box of the text describing a single
+    vote. It's children are the Choice's available in that contest. For
+    example:
+
+         Vote for one:
+
+             [ ] Billy
+
+             [ ] Jane
+
+    The contest would be the bounding box around the text "Vote for one:" and
+    its children would be the Choice's for Billy and Jane.
+    """
     def __init__(self, x, y, x2, y2, prop, description): #XXX axe prop/description
         super(Contest, self).__init__(x, y, x2, y2)
         self.prop = prop #XXX del
@@ -781,8 +817,28 @@ class _scannedPage(object):
         self.rot = float(rot)
         self.image = image
 
+def _fixup(im, rot, xoff, yoff):
+    im = im.rotate(rot)
+    xe, ye = im.size
+    return im.crop((xoff, yoff, xe, ye))
+
 class Page(_scannedPage):
-    """A ballot page represented by an image and a Template"""
+    """A ballot page represented by an image and a Template. It is created by
+    Ballot.__init__ for each ballot image. Important properties:
+    
+       * self.filename - the name of the file of the ballot image
+       * self.image - the PIL image created from self.filename
+       * self.dpi - an integer specifying the DPI of the image
+       * self.template - The Template created by Ballot.BuildLayout or None
+       * self.barcode - The barcode associated with self.template
+       * self.blank - a special sentinel indicator for pages intentionally left
+          blank
+       * self.number - the page number
+       * self.xoff - the x offset of the ballot within the ballot image
+       * self.yoff - the y offset of the ballot within the ballot image
+       * self.rot - the rotation of the ballot within the ballot image
+
+    """
     def __init__(self, dpi=0, xoff=0, yoff=0, rot=0.0, filename=None, image=None, template=None, number=0):
         super(Page, self).__init__(dpi, xoff, yoff, rot, image)
         self.filename = filename
@@ -793,10 +849,24 @@ class Page(_scannedPage):
 
     def as_template(self, barcode, contests):
         """Given the barcode and contests, convert this page into a Template
-        and store that objects as its own template"""
+        and store that objects as its own template. This is handled by
+        Ballot.BuildLayout"""
         t = Template(self.dpi, self.xoff, self.yoff, self.rot, barcode, contests, self.image) #XXX update
         self.template = t
         return t
+
+    def fixup(self):
+        """Undo the xoff, yoff, and rot of self.image. This is not necessary
+        but useful for saving "pretty versions" of ballot images, as template
+        cache does for the images that templates are created from."""
+        self.image = _fixup(self.image)
+        self.rot, self.xoff, self.yoff = 0.0, 0, 0
+        return self.image
+
+    def __iter__(self):
+        if self.template is None:#XXX should be jurisdictions
+            raise StopIteration()
+        return iter(self.template)
 
     def __repr__(self):
         return str(self.__dict__)
@@ -804,19 +874,31 @@ class Page(_scannedPage):
 class Template(_scannedPage):
     """A ballot page that has been fully mapped and is used as a
     template for similiar pages. A template MAY have an associated
-    image but it is not guranteed."""
+    image but it is not guranteed.
+    
+    A Template is very similiar to a Page but it contains the layout
+    information of every Page with the same barcode. As an iterator, it yields
+    all the top level elements stored in the template in the order they were
+    discovered."""
     def __init__(self, dpi, xoff, yoff, rot, barcode, contests, image=None):
         super(Template, self).__init__(dpi, xoff, yoff, rot, image)
         self.barcode = barcode
         self.contests = contests #TODO should be jurisdictions
 
     def append(self, contest):
+        "add a new contest to the template"
         self.contests.append(contest)
+
+    def __iter__(self):
+        if self.contests is None: #XXX both should be jurisdictions
+            raise StopIteration()
+        return iter(self.contests)
 
     def __repr__(self):
         return str(self.__dict__)
 
-def Template_to_XML(ballot): #XXX needs to be updated for jurisdictions
+def Template_to_XML(template): #XXX needs to be updated for jurisdictions
+    """Takes a template object and returns a serialization in XML format"""
     acc = ['<?xml version="1.0"?>\n<BallotSide']
     def attrs(**kw):
         for name, value in kw.iteritems(): #TODO change ' < > et al to &ent;
@@ -825,16 +907,16 @@ def Template_to_XML(ballot): #XXX needs to be updated for jurisdictions
     ins = acc.append
 
     attrs(
-        dpi=ballot.dpi,
-        barcode=ballot.barcode,
-        lx=ballot.xoff,
-        ly=ballot.yoff,
-        rot=ballot.rot
+        dpi=template.dpi,
+        barcode=template.barcode,
+        lx=template.xoff,
+        ly=template.yoff,
+        rot=template.rot
     )
     ins(">\n")
 
     #TODO add jurisdictions loop
-    for contest in ballot.contests:
+    for contest in template.contests: #XXX should be jurisdiction
         ins("\t<Contest")
         attrs(
             prop=contest.prop,#XXX del
@@ -863,6 +945,8 @@ def Template_to_XML(ballot): #XXX needs to be updated for jurisdictions
     return "".join(acc)
 
 def Template_from_XML(xml): #XXX needs to be updated for jurisdictions
+    """Takes an XML string generated from Template_to_XML and returns a
+    Template"""
     doc = minidom.parseString(xml)
 
     tag = lambda root, name: root.getElementsByTagName(name)
@@ -902,6 +986,13 @@ def Template_from_XML(xml): #XXX needs to be updated for jurisdictions
     return Template(dpi, xoff, yoff, rot, barcode, contests)
 
 class TemplateCache(object):
+    """A TemplateCache stores Templates by their barcode and loads and saves
+    them in a directory location. When instantiated, it loads all templates
+    into ram for quick access. It does not automatically save templates, but
+    provides methods for saving them. It uses Template_to_XML/Template_from_XML
+    for the serialization and deserialization of the template. For storing and
+    retrieving templates from the cache it behaves as a standard dictionary.
+    """
     def __init__(self, location):
         self.cache = {}
         self.location = location
@@ -939,25 +1030,34 @@ class TemplateCache(object):
         self.log.info("Template %s created", id)
 
     def save(self, id):
+        "write the template id to disk at self.location"
         fname = os.path.join(self.location, id)
         if not os.path.exists(fname):
             template = self.cache[id]
+            if template is None:
+                return
             xml = Template_to_XML(template)
             util.writeto(fname, xml)
             if template.image is not None:
                 try:
-                    img = template.image.copy()
-                    img = img.rotate(template.rot)
-                    img.save(fname + ".jpg")
-                except Exception:
+                    im = _fixup(
+                        template.image, 
+                        template.rot, 
+                        template.xoff,
+                        template.yoff
+                    )
+                    im.save(fname + ".jpg")
+                except IOError:
                     util.fatal("could not save image of template")
             self.log.info("new template %s saved", fname)
 
     def save_all(self):
+        "save all templates that are not already saved"
         for id in self.cache.iterkeys():
             self.save(id)
 
 class NullTemplateCache(object):
+    "A Template Cache that is a no-op for all methods"
     def __init__(self, loc):
         pass
     def __call__(self, id):

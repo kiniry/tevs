@@ -396,9 +396,9 @@ from a list of Votedata</dd></dl>
 <em class="property">class </em><tt class="descname">Choice</tt><big>(</big><em>x</em>, <em>y</em>, <em>description</em><big>)</big><a class="headerlink" href="#Ballot.Choice" title="Permalink to this definition">¶</a></dt>
 <dd><p>An item in a layout hierarchy representing an individual vote
 opportunities text, as a bounding box, and, if it has been OCRed, by a
-string.</p>
+string, self.description.</p>
 <p>After creation, self.VOP should be set to an instance of VOP. If it is
-WriteIn self.description should remain None.</p>
+WriteIn, self.description should remain None.</p>
 <dl class="method">
 <dt id="Ballot.Choice.children">
 <tt class="descname">children</tt><big>(</big><big>)</big><a class="headerlink" href="#Ballot.Choice.children" title="Permalink to this definition">¶</a></dt>
@@ -409,7 +409,7 @@ WriteIn self.description should remain None.</p>
 <dl class="class">
 <dt id="Ballot.VOP">
 <em class="property">class </em><tt class="descname">VOP</tt><big>(</big><em>x</em>, <em>y</em>, <em>x2</em>, <em>y2</em><big>)</big><a class="headerlink" href="#Ballot.VOP" title="Permalink to this definition">¶</a></dt>
-<dd><p>The bounding box of a VOP. If this is the VOP of write in, set
+<dd><p>The bounding box of a VOP. If this is the VOP of a write in, set
 self.WriteIn to a WriteIn object for the write in&#8217;s bounding box.</p>
 <dl class="method">
 <dt id="Ballot.VOP.children">
@@ -421,13 +421,33 @@ self.WriteIn to a WriteIn object for the write in&#8217;s bounding box.</p>
 <dl class="class">
 <dt id="Ballot.WriteIn">
 <em class="property">class </em><tt class="descname">WriteIn</tt><big>(</big><em>x</em>, <em>y</em>, <em>x2</em>, <em>y2</em><big>)</big><a class="headerlink" href="#Ballot.WriteIn" title="Permalink to this definition">¶</a></dt>
-<dd>The bounding box for a WriteIn</dd></dl>
+<dd><p>The bounding box for a WriteIn, not including the VOP of the WriteIn. It
+is the child of its VOP, so in:</p>
+<blockquote>
+<p>Contest:</p>
+<blockquote>
+<p>[ ] Choice a</p>
+<p>[ ] Choice b</p>
+<p>[ ] Write in</p>
+<p><cite>____________</cite></p>
+</blockquote>
+</blockquote>
+<p>WriteIn will be the child of the VOP to the left of the Choice &#8220;Write in&#8221;</p>
+</dd></dl>
 
 <dl class="class">
 <dt id="Ballot.Jurisdiction">
 <em class="property">class </em><tt class="descname">Jurisdiction</tt><big>(</big><em>x</em>, <em>y</em>, <em>x2</em>, <em>y2</em><big>)</big><a class="headerlink" href="#Ballot.Jurisdiction" title="Permalink to this definition">¶</a></dt>
 <dd><p>The top level item in a layout hierarchy. Its children are a list of
-Contests</p>
+Contest&#8217;s. A ballot may have zero or more Jurisdictions. If there are no
+Jurisdictions, all of the top level elements in the template must be
+Contest&#8217;s, and the children of a Jurisdiction must be Contest&#8217;s. An example
+of a Jurisdiction is a ballot containing contests for both a state and
+county election: In this case, the template should have a state
+Jurisdiction, containing all of the Contest&#8217;s for the state election; and a
+county Jurisdiction, containing all of the Contest&#8217;s for the county
+election. The bounding box of a Jurisdiction should only enclose the text
+of the description, such as the word &#8216;State&#8217;.</p>
 <dl class="method">
 <dt id="Ballot.Jurisdiction.append">
 <tt class="descname">append</tt><big>(</big><em>contest</em><big>)</big><a class="headerlink" href="#Ballot.Jurisdiction.append" title="Permalink to this definition">¶</a></dt>
@@ -443,7 +463,20 @@ Contests</p>
 <dl class="class">
 <dt id="Ballot.Contest">
 <em class="property">class </em><tt class="descname">Contest</tt><big>(</big><em>x</em>, <em>y</em>, <em>x2</em>, <em>y2</em>, <em>prop</em>, <em>description</em><big>)</big><a class="headerlink" href="#Ballot.Contest" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="method">
+<dd><p>Either the top level item in a layout hierarchy or the child of a
+Jurisdiction. A Contest is the bounding box of the text describing a single
+vote. It&#8217;s children are the Choice&#8217;s available in that contest. For
+example:</p>
+<blockquote>
+<p>Vote for one:</p>
+<blockquote>
+<p>[ ] Billy</p>
+<p>[ ] Jane</p>
+</blockquote>
+</blockquote>
+<p>The contest would be the bounding box around the text &#8220;Vote for one:&#8221; and
+its children would be the Choice&#8217;s for Billy and Jane.</p>
+<dl class="method">
 <dt id="Ballot.Contest.append">
 <tt class="descname">append</tt><big>(</big><em>choice</em><big>)</big><a class="headerlink" href="#Ballot.Contest.append" title="Permalink to this definition">¶</a></dt>
 <dd></dd></dl>
@@ -458,12 +491,49 @@ Contests</p>
 <dl class="class">
 <dt id="Ballot.Page">
 <em class="property">class </em><tt class="descname">Page</tt><big>(</big><em>dpi=0</em>, <em>xoff=0</em>, <em>yoff=0</em>, <em>rot=0.0</em>, <em>filename=None</em>, <em>image=None</em>, <em>template=None</em>, <em>number=0</em><big>)</big><a class="headerlink" href="#Ballot.Page" title="Permalink to this definition">¶</a></dt>
-<dd><p>A ballot page represented by an image and a Template</p>
+<dd><p>A ballot page represented by an image and a Template. It is created by
+Ballot.__init__ for each ballot image. Important properties:</p>
+<blockquote>
+<ul>
+<li><p class="first">self.filename - the name of the file of the ballot image</p>
+</li>
+<li><p class="first">self.image - the PIL image created from self.filename</p>
+</li>
+<li><p class="first">self.dpi - an integer specifying the DPI of the image</p>
+</li>
+<li><p class="first">self.template - The Template created by Ballot.BuildLayout or None</p>
+</li>
+<li><p class="first">self.barcode - The barcode associated with self.template</p>
+</li>
+<li><dl class="first docutils">
+<dt>self.blank - a special sentinel indicator for pages intentionally left</dt>
+<dd><p class="first last">blank</p>
+</dd>
+</dl>
+</li>
+<li><p class="first">self.number - the page number</p>
+</li>
+<li><p class="first">self.xoff - the x offset of the ballot within the ballot image</p>
+</li>
+<li><p class="first">self.yoff - the y offset of the ballot within the ballot image</p>
+</li>
+<li><p class="first">self.rot - the rotation of the ballot within the ballot image</p>
+</li>
+</ul>
+</blockquote>
 <dl class="method">
 <dt id="Ballot.Page.as_template">
 <tt class="descname">as_template</tt><big>(</big><em>barcode</em>, <em>contests</em><big>)</big><a class="headerlink" href="#Ballot.Page.as_template" title="Permalink to this definition">¶</a></dt>
 <dd>Given the barcode and contests, convert this page into a Template
-and store that objects as its own template</dd></dl>
+and store that objects as its own template. This is handled by
+Ballot.BuildLayout</dd></dl>
+
+<dl class="method">
+<dt id="Ballot.Page.fixup">
+<tt class="descname">fixup</tt><big>(</big><big>)</big><a class="headerlink" href="#Ballot.Page.fixup" title="Permalink to this definition">¶</a></dt>
+<dd>Undo the xoff, yoff, and rot of self.image. This is not necessary
+but useful for saving &#8220;pretty versions&#8221; of ballot images, as template
+cache does for the images that templates are created from.</dd></dl>
 
 </dd></dl>
 
@@ -473,35 +543,46 @@ and store that objects as its own template</dd></dl>
 <dd><p>A ballot page that has been fully mapped and is used as a
 template for similiar pages. A template MAY have an associated
 image but it is not guranteed.</p>
+<p>A Template is very similiar to a Page but it contains the layout
+information of every Page with the same barcode. As an iterator, it yields
+all the top level elements stored in the template in the order they were
+discovered.</p>
 <dl class="method">
 <dt id="Ballot.Template.append">
 <tt class="descname">append</tt><big>(</big><em>contest</em><big>)</big><a class="headerlink" href="#Ballot.Template.append" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd>add a new contest to the template</dd></dl>
 
 </dd></dl>
 
 <dl class="function">
 <dt id="Ballot.Template_to_XML">
-<tt class="descname">Template_to_XML</tt><big>(</big><em>ballot</em><big>)</big><a class="headerlink" href="#Ballot.Template_to_XML" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<tt class="descname">Template_to_XML</tt><big>(</big><em>template</em><big>)</big><a class="headerlink" href="#Ballot.Template_to_XML" title="Permalink to this definition">¶</a></dt>
+<dd>Takes a template object and returns a serialization in XML format</dd></dl>
 
 <dl class="function">
 <dt id="Ballot.Template_from_XML">
 <tt class="descname">Template_from_XML</tt><big>(</big><em>xml</em><big>)</big><a class="headerlink" href="#Ballot.Template_from_XML" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd>Takes an XML string generated from Template_to_XML and returns a
+Template</dd></dl>
 
 <dl class="class">
 <dt id="Ballot.TemplateCache">
 <em class="property">class </em><tt class="descname">TemplateCache</tt><big>(</big><em>location</em><big>)</big><a class="headerlink" href="#Ballot.TemplateCache" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="method">
+<dd><p>A TemplateCache stores Templates by their barcode and loads and saves
+them in a directory location. When instantiated, it loads all templates
+into ram for quick access. It does not automatically save templates, but
+provides methods for saving them. It uses Template_to_XML/Template_from_XML
+for the serialization and deserialization of the template. For storing and
+retrieving templates from the cache it behaves as a standard dictionary.</p>
+<dl class="method">
 <dt id="Ballot.TemplateCache.save">
 <tt class="descname">save</tt><big>(</big><em>id</em><big>)</big><a class="headerlink" href="#Ballot.TemplateCache.save" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd>write the template id to disk at self.location</dd></dl>
 
 <dl class="method">
 <dt id="Ballot.TemplateCache.save_all">
 <tt class="descname">save_all</tt><big>(</big><big>)</big><a class="headerlink" href="#Ballot.TemplateCache.save_all" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd>save all templates that are not already saved</dd></dl>
 
 </dd></dl>
 
