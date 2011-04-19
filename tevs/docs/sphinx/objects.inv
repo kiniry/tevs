@@ -227,6 +227,7 @@ BBUtil.do_modal_dialog function BBUtil.html
 scanloop.main function scanloop.html
 config.get function config.html
 Ballot.Ballot.ProcessPages method Ballot.html
+Ballot.Page.fixup method Ballot.html
 hart_ballot.HartBallot.build_layout method hart_ballot.html
 Ballot.VoteData.CSV method Ballot.html
 show_ballots.App.files_not_in_sequence method show_ballots.html
