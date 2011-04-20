@@ -21,6 +21,22 @@ class PostgresDB(object):
         except DatabaseError: 
             pass
 
+    def query(self, q, *a):
+        "returns a list of all results of q parameterized with a"
+        cur = self.conn.cursor()
+        cur.execute(q, *a)
+        r = list(cur)
+        cur.close()
+        return r
+
+    def query1(self, q, *a):
+        "return one result from q parameterized with a"
+        cur = self.conn.cursor()
+        cur.execute(q, *a)
+        r = cur.fetchone()
+        cur.close()
+        return r
+
     def insert(self, ballot):
         #NB all db queries are decalred as strings after the method body for
         #clarity
@@ -77,7 +93,7 @@ class PostgresDB(object):
                         vd.stats.blue.third_fourth,
                         vd.stats.blue.lightest_fourth,
 
-                        vd.was_voted
+                        vd.was_voted, vd.ambiguous 
                     )
                 )
             except:
@@ -122,12 +138,12 @@ _pg_ins = """INSERT INTO voteops (
             blue_lightish_pixels,
             blue_lightest_pixels,
 
-            was_voted
+            was_voted, suspicious
         ) VALUES (
             %s, %s, %s,  
             %s, %s, %s, %s,
             %s, %s, %s, %s, %s, 
             %s, %s, %s, %s, %s, 
             %s, %s, %s, %s, %s, 
-            %s
+            %s, %s
         )"""

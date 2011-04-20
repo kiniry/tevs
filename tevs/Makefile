@@ -19,6 +19,9 @@ reset: clean
 reset-templates: reset
 	@rm -rf ${ROOT}/templates
 
+reset-db: reset reset-templates
+	@echo "delete from voteops; delete from ballots" | psql >/dev/null
+
 clean:
 	@rm -f *.pyc
 
