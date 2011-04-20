@@ -21,7 +21,7 @@ def yesno(cfg, grp, itm):
 def logger(file):
     "configure the default logger to use file"
     level = logging.INFO
-    if const.debug:
+    if hasattr(const, 'debug') and const.debug:
         level = logging.DEBUG
 
     logging.basicConfig(
