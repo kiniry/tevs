@@ -1,5 +1,4 @@
 
-#define VERBOSE
 /*
  * The Python Imaging Library.
  * (with extensions for ballot analysis)
@@ -100,8 +99,6 @@
 
 /* PIL Plus extensions */
 #undef  WITH_CRACKCODE /* pil plus */
-
-#undef	VERBOSE
 
 #define CLIP(x) ((x) <= 0 ? 0 : (x) < 256 ? (x) : 255)
 
@@ -658,7 +655,6 @@ gethartlandmarks(Imaging im, int dpi, int need_vops)
   point3 = (3*dpi)/10;
   point1 = (dpi/10);
     
-#define VERBOSE 1
 #ifdef VERBOSE
   printf("DPI %d\n",dpi);
 #endif
@@ -1114,7 +1110,6 @@ getdieboldlandmarks(Imaging im, int dpi, int need_vops)
   }
   PyList_Append(list,item);
   return (list);
-#undef VERBOSE
 }
 
 /* BALLOT ANALYSIS (works with RGB only) */
