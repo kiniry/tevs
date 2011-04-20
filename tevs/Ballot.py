@@ -148,12 +148,12 @@ class Ballot(object):
         
         If no layout code can be found, a BallotException is raised."""
         page = self._page(page)
+        if page.blank:
+            return "blank"
         try:
             return self.laycode_cache[page.number]
         except KeyError:
             lc = self.get_layout_code(page)
-            if len(lc) == 0:
-                raise BallotException('Nonsense layout code')
             self.laycode_cache[page.number] = lc
             page.barcode = lc
             return lc
@@ -196,8 +196,6 @@ class Ballot(object):
         If it cannot build a sensible layout, it will raise a BallotException.
         """
         page = self._page(page)
-        if page.blank:
-            return page.as_template("blank", [])
         code = self.GetLayoutCode(page)
         tmpl = self.extensions.template_cache[code]
         if tmpl is not None:
@@ -211,12 +209,11 @@ class Ballot(object):
         tree = self.OCRDescriptions(page, tree)
         tmpl = page.as_template(code, tree)
         self.extensions.template_cache[code] = tmpl
+        page.template = tmpl
         return tmpl
 
     def OCRDescriptions(self, page, tree): #XXX should this be private?
         "This is called automatically by BuildLayout"
-        if page.blank:
-            return tree
         return tree #STAGE OCRwalk
         for subtree in tree:
             _ocr1(self.extensions, page, subtree)
@@ -345,50 +342,140 @@ class DuplexBallot(Ballot):
 
     Note that the above implies that a subclasser should not override the
     no_caps methods but the no_caps_front and, where appropriate, the
-    no_caps_back methods instead.
+    no_caps_back methods instead. The exception is get_layout_code which is
+    unchanged and only called on the front page of each ballot pair.
 
     The AllCaps interface is the same except that each method returns a pair of
-    data for each pair of pages.
+    data for each pair of pages-unless otherwise specified. If given an index 
+    to the page number, the index refers to the pair-that is the first and 
+    second image is index 0, the third and fourth image is index 1, and so on.
+
+    DuplexBallot must be given an iterable of image names that must be of even
+    length.
+
     """
     def __init__(self, images, extensions):
-       if isinstance(images, basestring) or len(images) < 2:
-          raise BallotException("Duplex Ballots require at least 2 images")
-       super(DuplexBallot, self).__init__(images, extensions)
-       #need to duplicate some code here to handle some other stuff?
-       #maybe just create a second index of self.pages?
+        if isinstance(images, basestring) or len(images) < 2:
+            raise TypeError("Duplex Ballots require at least 2 images")
 
-    def flip(self, im): #XXX all of these need to be passed a pair?!
-        im1 = self.flip_front(im)
-        im2 = self.flip_back(im)
-        return (im1, im2)
+        if len(images)%2:
+            raise TypeError("Requires an even number of ballot images")
+        self.pages = []
+        for fnames in zip(images[::2], images[1::2]):
+            try:
+                f = self.flip_front(Image.open(fnames[0]).convert("RGB"))
+                b = self.flip_back(Image.open(fnames[1]).convert("RGB"))
+            except BallotException:
+                raise
+            except KeyboardInterrupt:
+                raise
+            except IOError:
+                raise BallotException("Could not open one of %s", fnames)
+            self.pages.append((
+                Page(
+                    dpi=const.dpi,
+                    filename=fnames[0],
+                    image=f,
+                    number="%df" % number,
+                ),
+                Page(
+                    dpi=const.dpi,
+                    filename=fnames[1],
+                    image=b,
+                    number="%db" % number,
+                )
+            ))
 
-    def find_landmarks(self, page):
-        a = self.find_front_landmarks(page)
-        b = self.find_back_landmarks(page)
-        return (a, b)
+        self.extensions = extensions
+        self.results = []
+        self.laycode_cache = {}
+        self.log = logging.getLogger('')
 
-    def build_layout(self, page):
-        f = self.build_front_layout(page)
-        b = self.build_back_layout(page)
-        return (f, b)
+    def _page(self, page):
+        if type(page) is not int:
+            try:
+                if len(page) != 2:
+                    raise TypeError("page must either be length 2 or an int")
+            except AttributeError:
+                raise TypeError("page must either be length 2 or an int")
+            return page
+        try:
+            return self.pages[page]
+        except IndexError:
+            raise BallotException("Invalid page number")
+
+    def GetLayoutCode(self, page=0):
+        """Only returns layout code for first page in pair-next page is that
+        layout code + "back" """
+        front, _ = self._page(page)
+        return super(DuplexBallot, self).GetLayoutCode(front)
+
+    def FindLandmarks(self, page=0):
+        "returns ((rf, rx, ry), (rb, rx, ry))"
+        front, back = self._page(page)
+        r, x, y = self.find_front_landmarks(front)
+        front.rot, front.xoff, front.yoff = r, x, y
+        r2, x2, y2 = self.find_back_landmarks(back)
+        back.rot, back.xoff, back.yoff = r2, x2, y2
+        return (r, x, y), (r2, x2, y2)
+
+    def _BuildLayout1(self, page, lc, tree):
+        if len(tree) == 0:
+            raise BallotException('No front layout was built')
+        tree = self.OCRDescriptions(front, tree)
+        tmpl = page.as_template(lc, tree)
+        self.extensions.template_cache[lc] = tmpl
+        page.template = tmpl
+        return tmpl
+
+    def BuildLayout(self, page=0):
+        "returns (front_layout, back_layout)"
+        front, back = self._page(page)
+        lc = self.GetLayoutCode(page)
+        ft = self.extensions.template_cache[lc]
+        bt = self.extensions.template_cache[lc + "back"]
+        if ft is not None:
+            front.template = ft
+        else:
+            tree = self.build_front_layout(front)
+            ft = self._BuildLayout1(front, lc, tree)
+        if bt is not None:
+            back.template = bt
+        else:
+            tree = self.build_back_layout(back)
+            bt = self._BuildLayout1(back, lc + "back", tree)
+        return ft, bt
+
+    #CapturePageInfo can just call super, but must make sure template is built first
+    def CapturePageInfo(self, page=0):
+        "returns list of results of both pages processed"
+        front, back = self._page(page)
+        up = lambda p: super(DuplexBallot, self).CapturePageInfo(p)
+        return up(front) + up(back)
 
     def flip_front(self, im):
+        "if unimplemented, returns im unmodified"
         return im
 
     def find_front_landmarks(self, page):
+        "see documentation for find_landmarks in Ballot"
         raise NotImplementedError("subclasses must define a find_front_landmarks method")
 
     def build_front_layout(self, page):
+        "see documentation for build_layout in Ballot"
         raise NotImplementedError("subclasses must define a build_front_layout method")
 
     def flip_back(self, im):
+        "if unimplemented, calls flip_front"
         return self.flip_front(im)
 
-    def find_back_landmarks(self, page): #XXX this is impossible by assumption
+    def find_back_landmarks(self, page):
+        "if unimplemented, calls find_front_landmarks"
         return self.find_front_landmarks(page)
 
     def build_back_layout(self, page):
-        self.build_front_layout(page)
+        "if unimplemented, calls build_front_layout"
+        return self.build_front_layout(page)
 
 def _ocr1(extensions, page, node):
     "this is the backing routine for Ballot.OCRDescriptions"
@@ -985,6 +1072,8 @@ def Template_from_XML(xml): #XXX needs to be updated for jurisdictions
 
     return Template(dpi, xoff, yoff, rot, barcode, contests)
 
+BlankTemplate = Template(0, 0, 0, 0.0, "blank", [])
+
 class TemplateCache(object):
     """A TemplateCache stores Templates by their barcode and loads and saves
     them in a directory location. When instantiated, it loads all templates
@@ -1020,12 +1109,16 @@ class TemplateCache(object):
         return self.__getitem__(id)
 
     def __getitem__(self, id):
+        if id == "blank":
+            return BlankTemplate
         try:
             return self.cache[id]
         except KeyError:
             return None
 
     def __setitem__(self, id, template):
+        if id == "blank":
+            return
         self.cache[id] = template
         self.log.info("Template %s created", id)
 
@@ -1063,7 +1156,8 @@ class NullTemplateCache(object):
     def __call__(self, id):
         pass
     def __getitem__(self, id):
-        pass
+        if id == "blank":
+            return BlankTemplate
     def __setitem__(self, id, t):
         pass
     def save(self):
