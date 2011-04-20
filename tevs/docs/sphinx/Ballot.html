@@ -248,53 +248,64 @@ cause build_layout_front to be called on the first of each pair of images
 and build_layout_back to be called on the last of each pair of images.</p>
 <p>Note that the above implies that a subclasser should not override the
 no_caps methods but the no_caps_front and, where appropriate, the
-no_caps_back methods instead.</p>
+no_caps_back methods instead. The exception is get_layout_code which is
+unchanged and only called on the front page of each ballot pair.</p>
 <p>The AllCaps interface is the same except that each method returns a pair of
-data for each pair of pages.</p>
+data for each pair of pages-unless otherwise specified. If given an index 
+to the page number, the index refers to the pair-that is the first and 
+second image is index 0, the third and fourth image is index 1, and so on.</p>
+<p>DuplexBallot must be given an iterable of image names that must be of even
+length.</p>
+<dl class="method">
+<dt id="Ballot.DuplexBallot.BuildLayout">
+<tt class="descname">BuildLayout</tt><big>(</big><em>page=0</em><big>)</big><a class="headerlink" href="#Ballot.DuplexBallot.BuildLayout" title="Permalink to this definition">¶</a></dt>
+<dd>returns (front_layout, back_layout)</dd></dl>
+
+<dl class="method">
+<dt id="Ballot.DuplexBallot.CapturePageInfo">
+<tt class="descname">CapturePageInfo</tt><big>(</big><em>page=0</em><big>)</big><a class="headerlink" href="#Ballot.DuplexBallot.CapturePageInfo" title="Permalink to this definition">¶</a></dt>
+<dd>returns list of results of both pages processed</dd></dl>
+
+<dl class="method">
+<dt id="Ballot.DuplexBallot.FindLandmarks">
+<tt class="descname">FindLandmarks</tt><big>(</big><em>page=0</em><big>)</big><a class="headerlink" href="#Ballot.DuplexBallot.FindLandmarks" title="Permalink to this definition">¶</a></dt>
+<dd>returns ((rf, rx, ry), (rb, rx, ry))</dd></dl>
+
+<dl class="method">
+<dt id="Ballot.DuplexBallot.GetLayoutCode">
+<tt class="descname">GetLayoutCode</tt><big>(</big><em>page=0</em><big>)</big><a class="headerlink" href="#Ballot.DuplexBallot.GetLayoutCode" title="Permalink to this definition">¶</a></dt>
+<dd>Only returns layout code for first page in pair-next page is that
+layout code + &#8220;back&#8221;</dd></dl>
+
 <dl class="method">
 <dt id="Ballot.DuplexBallot.build_back_layout">
 <tt class="descname">build_back_layout</tt><big>(</big><em>page</em><big>)</big><a class="headerlink" href="#Ballot.DuplexBallot.build_back_layout" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd>if unimplemented, calls build_front_layout</dd></dl>
 
 <dl class="method">
 <dt id="Ballot.DuplexBallot.build_front_layout">
 <tt class="descname">build_front_layout</tt><big>(</big><em>page</em><big>)</big><a class="headerlink" href="#Ballot.DuplexBallot.build_front_layout" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="Ballot.DuplexBallot.build_layout">
-<tt class="descname">build_layout</tt><big>(</big><em>page</em><big>)</big><a class="headerlink" href="#Ballot.DuplexBallot.build_layout" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd>see documentation for build_layout in Ballot</dd></dl>
 
 <dl class="method">
 <dt id="Ballot.DuplexBallot.find_back_landmarks">
 <tt class="descname">find_back_landmarks</tt><big>(</big><em>page</em><big>)</big><a class="headerlink" href="#Ballot.DuplexBallot.find_back_landmarks" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd>if unimplemented, calls find_front_landmarks</dd></dl>
 
 <dl class="method">
 <dt id="Ballot.DuplexBallot.find_front_landmarks">
 <tt class="descname">find_front_landmarks</tt><big>(</big><em>page</em><big>)</big><a class="headerlink" href="#Ballot.DuplexBallot.find_front_landmarks" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="Ballot.DuplexBallot.find_landmarks">
-<tt class="descname">find_landmarks</tt><big>(</big><em>page</em><big>)</big><a class="headerlink" href="#Ballot.DuplexBallot.find_landmarks" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="method">
-<dt id="Ballot.DuplexBallot.flip">
-<tt class="descname">flip</tt><big>(</big><em>im</em><big>)</big><a class="headerlink" href="#Ballot.DuplexBallot.flip" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd>see documentation for find_landmarks in Ballot</dd></dl>
 
 <dl class="method">
 <dt id="Ballot.DuplexBallot.flip_back">
 <tt class="descname">flip_back</tt><big>(</big><em>im</em><big>)</big><a class="headerlink" href="#Ballot.DuplexBallot.flip_back" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd>if unimplemented, calls flip_front</dd></dl>
 
 <dl class="method">
 <dt id="Ballot.DuplexBallot.flip_front">
 <tt class="descname">flip_front</tt><big>(</big><em>im</em><big>)</big><a class="headerlink" href="#Ballot.DuplexBallot.flip_front" title="Permalink to this definition">¶</a></dt>
-<dd></dd></dl>
+<dd>if unimplemented, returns im unmodified</dd></dl>
 
 </dd></dl>
 
