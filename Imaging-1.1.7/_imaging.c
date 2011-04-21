@@ -644,7 +644,7 @@ gethartlandmarks(Imaging im, int dpi, int need_vops)
   int point6;
   int point9;
   int x,y;
-#define MAXCODE 80
+# define MAXCODE 80
   PyObject *item;
   PyObject *list;
   /*start 1" in and .3" down, looking over 1" for consistent dark */
@@ -655,9 +655,9 @@ gethartlandmarks(Imaging im, int dpi, int need_vops)
   point3 = (3*dpi)/10;
   point1 = (dpi/10);
     
-#ifdef VERBOSE
-  printf("DPI %d\n",dpi);
-#endif
+# ifdef VERBOSE
+    printf("DPI %d\n",dpi);
+# endif
   for (y=point3;y<dpi;y++) {
     leftred = 0;
     rightred = 0; 
@@ -671,11 +671,9 @@ gethartlandmarks(Imaging im, int dpi, int need_vops)
     }
     if (((leftred/dpi) < 112) && (found_topline_left == 0)){
       found_topline_left = y;
-      //printf("found topline left %d\n",found_topline_left);
     }
     if (((rightred/dpi) < 112) && (found_topline_right == 0)){
       found_topline_right = y;
-      //printf("found topline right %d\n",found_topline_right);
     }
     if ((found_topline_left > 0) && (found_topline_right > 0)){
       break;
@@ -717,11 +715,11 @@ gethartlandmarks(Imaging im, int dpi, int need_vops)
     Py_INCREF(Py_None);
       return Py_None;
     }
-#ifdef VERBOSE
-  printf("Past second loop with y values %d %d\n",
-	 found_bottomline_left,
-	 found_bottomline_right);
-#endif
+# ifdef VERBOSE
+    printf("Past second loop with y values %d %d\n",
+      found_bottomline_left,
+      found_bottomline_right);
+# endif
   /* we should now have the y offsets of the top and bottom lines,
      on both sides.  We should be able to find a solid inch of vertical
      black line joining with our horizontal lines, establishing the 
@@ -738,9 +736,11 @@ gethartlandmarks(Imaging im, int dpi, int need_vops)
   testy = found_topline_left;
   for (x=(3*dpi/2);x>dpi/4;x--){
     p = (UINT8*)&im->image32[testy][x];
-    if (p[0]<200) continue;
+    if (p[0] < 200) {
+      continue;
+    }
     p = (UINT8*)&im->image32[testy-1][x];
-    if (p[0]<200) {
+    if (p[0] < 200) {
       testy--;
       continue;
     }
@@ -836,15 +836,15 @@ gethartlandmarks(Imaging im, int dpi, int need_vops)
     //changed threshold from 48 to 96 mjt 6/13/10 
     // changed threshold to 112, adding check for nearby white mjt 11/21/10
     if (((topred/dpi) < point3) && (found_leftline_top == 0)){
-#ifdef VERBOSE
-      printf("Found leftline top at %d\n",x);
-#endif
+#     ifdef VERBOSE
+        printf("Found leftline top at %d\n",x);
+#     endif
       found_leftline_top = x;
     }
     if (((bottomred/dpi) < point3) && (found_leftline_bottom == 0)){
-#ifdef VERBOSE
-      printf("Found leftline bottom at %d\n",x);
-#endif
+#     ifdef VERBOSE
+        printf("Found leftline bottom at %d\n",x);
+#     endif
       found_leftline_bottom = x;
     }
     if ((found_leftline_top > 0) && (found_leftline_bottom > 0)){
@@ -855,16 +855,13 @@ gethartlandmarks(Imaging im, int dpi, int need_vops)
     Py_INCREF(Py_None);
     return Py_None;
   }
-#ifdef VERBOSE
-  printf("Past third loop with x values %d %d\n",
-	 found_leftline_top,
-	 found_leftline_bottom);
-#endif
+# ifdef VERBOSE
+    printf("Past third loop with x values %d %d\n",
+      found_leftline_top,
+      found_leftline_bottom);
+# endif
 
   for (x=im->xsize - point3 ; x > im->xsize - dpi ; x--) {
-#ifdef VERBOSE
-    //printf("x=%d\n",x);
-#endif
     topred = 0;
     bottomred = 0;
     
@@ -873,14 +870,10 @@ gethartlandmarks(Imaging im, int dpi, int need_vops)
       p = (UINT8*) &im->image32[y][x];
       p2 = (UINT8*) &im->image32[y][x+(dpi/30)];
       if (p2[0] > 200){
-	topred += p[0];
+        topred += p[0];
+      } else {
+        topred += 255;
       }
-      else {
-	topred += 255;
-      }
-#ifdef VERBOSE
-      //printf("x=%d, y=%d\n",x,y);
-#endif
     }
     for (y=found_bottomline_right ; y>(found_bottomline_right-point3) ; y--){
       p = (UINT8*) &im->image32[y][x];
@@ -890,15 +883,14 @@ gethartlandmarks(Imaging im, int dpi, int need_vops)
       // otherwise, treat pixel as white.
       // This loses bar code but pixs up vline.
       if (p2[0] > 200){
-	bottomred += p[0];
-      }
-      else {
-	bottomred += 255;
+        bottomred += p[0];
+      } else {
+        bottomred += 255;
       }
     }
-#ifdef VERBOSE
-    printf("x %d Topred %d bottomred %d\n",x,topred/point3,bottomred/point3);
-#endif
+#   ifdef VERBOSE
+      printf("x %d Topred %d bottomred %d\n",x,topred/point3,bottomred/point3);
+#   endif
     if (((topred/point3) < 112) && (found_rightline_top == 0)){
       found_rightline_top = x;
     }
@@ -909,52 +901,51 @@ gethartlandmarks(Imaging im, int dpi, int need_vops)
       break;
     }
   }
-#ifdef VERBOSE
-  printf("Topred %d bottomred %d dpi %d\n",topred,bottomred,dpi);
-  printf("Found_rightline_top %d\n",found_rightline_top);
-  printf("Found_rightline_bottom %d\n",found_rightline_bottom);
-#endif
+# ifdef VERBOSE
+    printf("Topred %d bottomred %d dpi %d\n",topred,bottomred,dpi);
+    printf("Found_rightline_top %d\n",found_rightline_top);
+    printf("Found_rightline_bottom %d\n",found_rightline_bottom);
+# endif
   if ((found_rightline_top == 0) || (found_rightline_bottom == 0)){
     Py_INCREF(Py_None);
     return Py_None;
   }
-#ifdef VERBOSE
-  printf("Past fourth loop with x values %d %d\n",
-	 found_rightline_top,
-	 found_rightline_bottom);
-#endif
+# ifdef VERBOSE
+    printf("Past fourth loop with x values %d %d\n",
+      found_rightline_top,
+      found_rightline_bottom);
+# endif
 
 #endif
 
   /* now return a list of the four (x,y) pairs you've accumulated,
      starting at ULC and going clockwise */
   list = PyList_New(0);
-  item = Py_BuildValue("(ii)", found_leftline_top,found_topline_left);
-  if (!item){
+  item = Py_BuildValue("(ii)", found_leftline_top, found_topline_left);
+  if (!item) {
     Py_DECREF(list);
     return NULL;
   }
   PyList_Append(list, item);
-  item = Py_BuildValue("(ii)", found_rightline_top,found_topline_right);
-  if (!item){
+  item = Py_BuildValue("(ii)", found_rightline_top, found_topline_right);
+  if (!item) {
     Py_DECREF(list);
     return NULL;
   }
   PyList_Append(list, item);
-  item = Py_BuildValue("(ii)", found_rightline_bottom,found_bottomline_right);
-  if (!item){
+  item = Py_BuildValue("(ii)", found_rightline_bottom, found_bottomline_right);
+  if (!item) {
     Py_DECREF(list);
     return NULL;
   }
   PyList_Append(list, item);
-  item = Py_BuildValue("(ii)", found_leftline_bottom,found_bottomline_left);
-  if (!item){
+  item = Py_BuildValue("(ii)", found_leftline_bottom, found_bottomline_left);
+  if (!item) {
     Py_DECREF(list);
     return NULL;
   }
   PyList_Append(list, item);
   return list;
-#undef VERBOSE
 }
 
 /* BALLOT ANALYSIS (works with RGB only) */
@@ -2809,7 +2800,7 @@ gethartvoteboxes(Imaging im, int startx, int starty,  int dpi)
     /* this may be a box, check for all conditions */
     /* first, box is 1/6" tall; 
        is there another dark pixel approx 1/7" down? */
-    p = (UINT8*) &im->image32[y+(dpi/7)][startx+quarter];  
+    p = (UINT8*) &im->image32[y+(dpi/7)][startx+quarter];
     intensity = p[0];
     if (intensity > 128){
       continue;
@@ -2817,50 +2808,48 @@ gethartvoteboxes(Imaging im, int startx, int starty,  int dpi)
     /* it's worth checking to see if the lines are more than 1/4" wide */
     for (x = startx; x < startx + (dpi/2); x++){
       /* check both the line beneath this line 
-	 and the line 1/7" below this line */
-      p = (UINT8*) &im->image32[y+1][x];  
+         and the line 1/7" below this line */
+      p = (UINT8*) &im->image32[y+1][x];
       pbelow = (UINT8*) &im->image32[y+(dpi/7)][x];
-      if ((p[0]<128) && (pbelow[0]<128)){
-	contig++;
-	x_at_contig = x;
+      if ((p[0]<128) && (pbelow[0]<128)) {
+        contig++;
+        x_at_contig = x;
+      } else {
+        contig = 0;
       }
-      else {
-	contig = 0;
-      }
-      if (contig >= quarter){
-	break;
-	/* still in running */
+      if (contig >= quarter) {
+        /* still in running */
+        break;
       }
     }
-    if (contig < quarter){
+    if (contig < quarter) {
       continue;
     }
     /* reached here?  Means you found two 1/4" dark lines 1/7" apart */
     /* back up to the start of the top line and see if you find */
     /* a vertical connecting line running between the two */
     //printf("Checking at %d,%d\n",x_at_contig-contig+1,y+1); 
-    for (y2= y+1;y2 < (y+(dpi/7)); y2++){
+    for (y2= y+1;y2 < (y+(dpi/7)); y2++) {
       p = (UINT8*) &im->image32[y2][x_at_contig - contig + 1];
       pnext = (UINT8*) &im->image32[y2][x_at_contig - contig + 2];
-      if ((p[0] < 128) || (pnext[0] < 128)){
-	ycontig++;
-      }
-      else {
-	ycontig = 0;
+      if ((p[0] < 128) || (pnext[0] < 128)) {
+        ycontig++;
+      } else {
+        ycontig = 0;
       }
       /* did you find 1/10" of dark pixels here or in the next column? */
-      if (ycontig > (dpi/10)){
-	/* add this to list of box ulc, */
-	/* advance y by 1/6", */
-	/* break out of inner for loop */
-	item = Py_BuildValue("ii",x_at_contig-contig,y);
-	if (!item){
-	  Py_DECREF(list);
-	  return NULL;
-	}
-	PyList_Append(list,item);
-	y += (dpi/6);
-	break;
+      if (ycontig > (dpi/10)) {
+        /* add this to list of box ulc,
+           advance y by 1/6",
+           break out of inner for loop */
+        item = Py_BuildValue("ii", x_at_contig-contig, y);
+        if (!item) {
+          Py_DECREF(list);
+          return NULL;
+        }
+        PyList_Append(list, item);
+        y += (dpi/6);
+        break;
       }
     }
   }
@@ -2870,12 +2859,11 @@ gethartvoteboxes(Imaging im, int startx, int starty,  int dpi)
 
 /* BALLOT ANALYSIS (works with RGB only) */
 static inline PyObject *
-getpotentialhlines(Imaging im, int startx, int starty,  int dpi)
+getpotentialhlines(Imaging im, int startx, int starty, int dpi)
 {
-
   int half = dpi/2;
   int twentieth = dpi/20;
-  int x,y;
+  int x, y;
   int left_intensity, right_intensity;
   int last_left_intensity, last_right_intensity;
   int left2dark, right2dark, left2light, right2light;
@@ -2887,14 +2875,12 @@ getpotentialhlines(Imaging im, int startx, int starty,  int dpi)
   if (hundredth_inch < 1) {
     hundredth_inch = 1;
   }
-  if (starty<hundredth_inch){
+  if (starty < hundredth_inch){
     starty = hundredth_inch;
   }
-  // because we are checking for single pixel rows,
-  // don't demand more than 75 pixels in row, no matter what dpi
-  //if (half > 75) half=75;
+
   list = PyList_New(0);
-  for (y = (starty+1); y < (im->ysize-(dpi/20));y++){ 
+  for (y = (starty+1); y < (im->ysize-(dpi/20)); y++) {
     left2dark = 0;
     right2dark = 0;
     left2light = 0;
@@ -2909,177 +2895,163 @@ getpotentialhlines(Imaging im, int startx, int starty,  int dpi)
     // we need to adjust startx several times to accomodate tilt
     // so we look to confirm dark spot at startx; if not found,
     // we move left or right by one pixel to find dark spot
-    if ((y>dpi) && ((y % (im->ysize/20)) == 0)){
-      //
+    if ((y>dpi) && ((y % (im->ysize/20)) == 0)) {
       UINT8 *p, *pbefore, *pafter, *pabove, *pabovebefore, *paboveafter;
       p = (UINT8*) &im->image32[y][startx];
       pbefore = (UINT8*) &im->image32[y][startx-1];
       pafter = (UINT8*) &im->image32[y][startx+1];
-      
+ 
       pabove = (UINT8*) &im->image32[y- (dpi/4)][startx];
       pabovebefore = (UINT8*) &im->image32[y- (dpi/4)][startx-1];
       paboveafter = (UINT8*) &im->image32[y- (dpi/4)][startx+1];
-	
-      if (p[0]>128 && pabove[0]>128){
-	if (pbefore[0]<=128 && pabovebefore[0]<=128){
-	  startx--;
-	  //printf("Decrementing startx %d at %d\n",startx,y);
-	}
-	else if (pafter[0]<=128 && paboveafter[0]<=128){
-	  startx++;
-	  //printf("Incrementing startx %d at %d\n",startx,y);
-	}
+
+      if (p[0]>128 && pabove[0]>128) {
+        if (pbefore[0]<=128 && pabovebefore[0]<=128) {
+          startx--;
+        } else if (pafter[0]<=128 && paboveafter[0]<=128) {
+          startx++;
+        }
       }
-      //else {
-      //printf("LOST LINE! startx %d, y %d\n",startx,y);
-      //}
     }
 
-    //if ((startx + twentieth + half + 3) >= im->xsize){
-    //  printf("Startx %d too big.\n",startx);
-    //}
-    if ((left_intensity<128) && (last_left_intensity >= 128)){
+    if ((left_intensity<128) && (last_left_intensity >= 128)) {
       int red = 0;
       int lastred = 0;
-      for (x=(startx-(twentieth+half));x<=(startx-twentieth);x++){
-	p = (UINT8*) &im->image32[y][x];
-	pabove = (UINT8*) &im->image32[y-hundredth_inch][x];
-	red += p[0];
-	lastred += pabove[0];
+      for (x=(startx-(twentieth+half)); x<=(startx-twentieth); x++) {
+        p = (UINT8*) &im->image32[y][x];
+        pabove = (UINT8*) &im->image32[y-hundredth_inch][x];
+        red += p[0];
+        lastred += pabove[0];
       }
       red /= half;
       lastred /= half;
-      if ((red < 128) && (lastred >= 128)){
-	left2dark = 1;
+      if ((red < 128) && (lastred >= 128)) {
+        left2dark = 1;
       }
-    }
-    else if ((last_left_intensity < 128) && (left_intensity >= 128)){
+    } else if ((last_left_intensity < 128) && (left_intensity >= 128)) {
       int red = 0;
       int lastred = 0;
-      for (x=(startx-(twentieth+half));x<=(startx-twentieth);x++){
-	p = (UINT8*) &im->image32[y][x];
-	pabove = (UINT8*) &im->image32[y-hundredth_inch][x];
-	red += p[0];
-	lastred += pabove[0];
+      for (x=(startx-(twentieth+half)); x<=(startx-twentieth); x++) {
+        p = (UINT8*) &im->image32[y][x];
+        pabove = (UINT8*) &im->image32[y-hundredth_inch][x];
+        red += p[0];
+        lastred += pabove[0];
       }
       red /= half;
       lastred /= half;
-      if ((red >= 128) && (lastred < 128)){
-	left2light = 1;
+      if ((red >= 128) && (lastred < 128)) {
+        left2light = 1;
       }
     }
-    if ((right_intensity<128) && (last_right_intensity >= 128)){
+
+    if ((right_intensity<128) && (last_right_intensity >= 128)) {
       int red = 0;
       int lastred = 0;
-      for (x=(startx+twentieth);x<=(startx+twentieth+half);x++){
-	p = (UINT8*) &im->image32[y][x];
-	pabove = (UINT8*) &im->image32[y-hundredth_inch][x];
-	red += p[0];
-	lastred += pabove[0];
+      for (x=(startx+twentieth); x<=(startx+twentieth+half); x++) {
+        p = (UINT8*) &im->image32[y][x];
+        pabove = (UINT8*) &im->image32[y-hundredth_inch][x];
+        red += p[0];
+        lastred += pabove[0];
       }
       red /= half;
       lastred /= half;
-      if ((red < 128) && (lastred >= 128)){
-	right2dark = 1;
+      if ((red < 128) && (lastred >= 128)) {
+        right2dark = 1;
       }
-    }
-    
-    else if ((last_right_intensity < 128) && (right_intensity >= 128)){
+    } else if ((last_right_intensity < 128) && (right_intensity >= 128)) {
       int red = 0;
       int lastred = 0;
-      for (x=(startx+twentieth);x<=(startx+twentieth+half);x++){
-	p = (UINT8*) &im->image32[y][x];
-	pabove = (UINT8*) &im->image32[y-hundredth_inch][x];
-	red += p[0];
-	lastred += pabove[0];
+      for (x=(startx+twentieth); x<=(startx+twentieth+half); x++) {
+        p = (UINT8*) &im->image32[y][x];
+        pabove = (UINT8*) &im->image32[y-hundredth_inch][x];
+        red += p[0];
+        lastred += pabove[0];
       }
       red /= half;
       lastred /= half;
-      if ((red >= 128) && (lastred < 128)){
-	right2light = 1;
+      if ((red >= 128) && (lastred < 128)) {
+        right2light = 1;
       }
     }
-    if (left2dark || left2light){
+
+    if (left2dark || left2light) {
       /* append to left list if, for each x position */
       /* between startx-half and startx, */
       /* either this line's pixel or the one 1/100" above or the one below */
       /* is the same side of 128 as this pixel */
       disqualified = 0;
-      for (x=(startx-(twentieth+half));x<=(startx-twentieth);x++){
-	p = (UINT8*) &im->image32[y][x];
-	pabove = (UINT8*) &im->image32[y-hundredth_inch][x];
-	pbelow = (UINT8*) &im->image32[y+hundredth_inch][x];
-	/* went dark, but no relevant pixel is dark here: disqualify */
-	if (left2dark && 
-	    (!(p[0] < 128 || pabove[0] < 128 || pbelow[0] < 128))){
-	  disqualified++;
-	}
-	/* went light, but no relevant pixel is light here: disqualify */
-	if (left2light && 
-	    (!(p[0] >= 128 || pabove[0] >= 128 || pbelow[0] >= 128))){
-	  disqualified++;
-	}
-	if (disqualified > (dpi/35)){
-	  break;
-	}
+      for (x=(startx-(twentieth+half)); x<=(startx-twentieth); x++) {
+        p = (UINT8*) &im->image32[y][x];
+        pabove = (UINT8*) &im->image32[y-hundredth_inch][x];
+        pbelow = (UINT8*) &im->image32[y+hundredth_inch][x];
+        /* went dark, but no relevant pixel is dark here: disqualify */
+        if (left2dark && 
+           (!(p[0] < 128 || pabove[0] < 128 || pbelow[0] < 128))) {
+          disqualified++;
+        }
+        /* went light, but no relevant pixel is light here: disqualify */
+        if (left2light && 
+           (!(p[0] >= 128 || pabove[0] >= 128 || pbelow[0] >= 128))) {
+          disqualified++;
+        }
+        if (disqualified > (dpi/35)) {
+          break;
+        }
       }
-      if (disqualified <= (dpi/35)){
-	/* not disqualified, add to list of potential hlines */
-	//printf("left sprout at y = %d\n",y);
-	item = Py_BuildValue("i",-y);
-	if (!item){
-	  Py_DECREF(list);
-	  return NULL;
-	}
-	PyList_Append(list,item);
-      }
-      else {
-	left2dark = 0;
-	left2light = 0;
-	//printf("Disqualified %d\n",disqualified);
+      if (disqualified <= (dpi/35)) {
+        /* not disqualified, add to list of potential hlines */
+        item = Py_BuildValue("i", -y);
+        if (!item) {
+          Py_DECREF(list);
+          return NULL;
+        }
+        PyList_Append(list, item);
+      } else {
+        left2dark = 0;
+        left2light = 0;
       }
     }
-    if (right2dark || right2light){
+
+    if (right2dark || right2light) {
       /* append to right list if, for each x position */
       /* between startx and startx+half, */
       /* either this line's pixel or the one above or the one below */
       /* is the same side of 128 as this pixel */
       disqualified = 0;
-      for (x=(startx+twentieth);x<=(startx+twentieth+half);x++){
-	p = (UINT8*) &im->image32[y][x];
-	pabove = (UINT8*) &im->image32[y-hundredth_inch][x];
-	pbelow = (UINT8*) &im->image32[y+hundredth_inch][x];
-	/* went dark, but no relevant pixel is dark here: disqualify */
-	if (right2dark && 
-	    (!(p[0] < 128 || pabove[0] < 128 || pbelow[0] < 128))){
-	  disqualified++;
-	}
-	/* went light, but no relevant pixel is light here: disqualify */
-	if (right2light && 
-	    (!(p[0] >= 128 || pabove[0] >= 128 || pbelow[0] >= 128))){
-	  disqualified++;
-	}
-	if (disqualified > (dpi/35)){
-	  break;
-	}
+      for (x=(startx+twentieth); x<=(startx+twentieth+half); x++) {
+        p = (UINT8*) &im->image32[y][x];
+        pabove = (UINT8*) &im->image32[y-hundredth_inch][x];
+        pbelow = (UINT8*) &im->image32[y+hundredth_inch][x];
+        /* went dark, but no relevant pixel is dark here: disqualify */
+        if (right2dark && 
+           (!(p[0] < 128 || pabove[0] < 128 || pbelow[0] < 128))){
+          disqualified++;
+        }
+        /* went light, but no relevant pixel is light here: disqualify */
+        if (right2light && 
+           (!(p[0] >= 128 || pabove[0] >= 128 || pbelow[0] >= 128))){
+          disqualified++;
+        }
+        if (disqualified > (dpi/35)) {
+          break;
+        }
       }
-      if (disqualified <= (dpi/35)){
-	/* not disqualified, add to list of potential hlines */
-	//printf("right sprout at y = %d\n",y);
-	item = Py_BuildValue("i",y);
-	if (!item){
-	  Py_DECREF(list);
-	  return NULL;
-	}
-	PyList_Append(list,item);
-      }
-      else {
-	right2dark = 0;
-	right2light = 0;
+
+      if (disqualified <= (dpi/35)) {
+        /* not disqualified, add to list of potential hlines */
+        item = Py_BuildValue("i", y);
+        if (!item) {
+          Py_DECREF(list);
+          return NULL;
+        }
+        PyList_Append(list, item);
+      } else {
+        right2dark = 0;
+        right2light = 0;
       }
     }
   }
-  /* return list of potential hlines */
+
   return list;
 }
 
@@ -3096,47 +3068,45 @@ getcolumnvlines(Imaging im, int startx, int starty, int endx)
   int counter = 0;
   PyObject *list, *item;
   /* look for dark/light transitions that extend vertically for at least 100 */
-  for (x=startx;x<endx;x++){
+  for (x = startx; x < endx; x++) {
     p = (UINT8*) &im->image32[starty][x];
     pbefore = (UINT8*) &im->image32[starty][x-2];
     pafter = (UINT8*) &im->image32[starty][x+2];
 
-    //if (p[0]<128)printf("(%d,%d) p[0]=%d before %d after %d\n",x,starty,p[0],pbefore[0],pafter[0]);
     if ((p[0] < 128) 
-	&& ((pbefore[0] >= 128) || (pafter[0] >= 128))
-	){
+       && ((pbefore[0] >= 128) || (pafter[0] >= 128))) {
       /* three darks at a transition, worth checking for more */
-      //printf("Possible at (%d,%d)\n",x,starty);
       counter = 0;
-      for (y2=starty+2;y2<starty+100;y2++){
-	/* allow 1% off vertical by checking before and after */
-	p = (UINT8*) &im->image32[y2][x];
-	pbefore = (UINT8*) &im->image32[y2][x-1];
-	pafter = (UINT8*) &im->image32[y2][x+1];
-	if ((p[0]<128) || (pbefore[0]<128) || (pafter[0]<128)){
-	  counter++;
-	}
+      for (y2 = starty+2; y2 < starty+100; y2++) {
+        /* allow 1% off vertical by checking before and after */
+        p = (UINT8*) &im->image32[y2][x];
+        pbefore = (UINT8*) &im->image32[y2][x-1];
+        pafter = (UINT8*) &im->image32[y2][x+1];
+        if ((p[0]<128) || (pbefore[0]<128) || (pafter[0]<128)) {
+          counter++;
+        }
       }
-#ifdef VERBOSE
-      printf("Counter=%d at x=%d\n",counter,x);
-#endif
-      if (counter > 90){
-	dark_x[dark_x_count] = x;
-	dark_x_count++;
-	if (dark_x_count >= 50)break;
+#     ifdef VERBOSE
+        printf("Counter=%d at x=%d\n",counter,x);
+#     endif
+      if (counter > 90) {
+        dark_x[dark_x_count] = x;
+        dark_x_count++;
+        if (dark_x_count >= 50) {
+          break;
+        }
       }
     } /* end three darks */
   } /* end for x */
   /* build a list of all dark x's, */
   list = PyList_New(0);
-  for (x=0;x<dark_x_count;x++){
-    /* append this x value to returned list */
-    item = Py_BuildValue("i",dark_x[x]);
-    if (!item){
+  for (x=0; x < dark_x_count; x++) {
+    item = Py_BuildValue("i", dark_x[x]);
+    if (!item) {
       Py_DECREF(list);
       return NULL;
     }
-    PyList_Append(list,item);
+    PyList_Append(list, item);
   }
   return list;
 }
@@ -3145,7 +3115,6 @@ getcolumnvlines(Imaging im, int startx, int starty, int endx)
 static inline PyObject*
 getlines(Imaging im, int max4dark, int allowed_misses)
 {
-
   Rect working[50];
   int max_working = 49;
   Rect lel;
@@ -4200,7 +4169,7 @@ getbarcode(Imaging im, int x, int y, int w, int h)
   int sum;
   int avg;
   int group;
-#define MAX_BW 50
+# define MAX_BW 50
   int blacks[MAX_BW];
   int whites[MAX_BW];
   int values[14];
@@ -4212,170 +4181,181 @@ getbarcode(Imaging im, int x, int y, int w, int h)
   int blackcount = 0;
   int intensity = 0;
   int firsttime = 1;
-  /* if w is larger than h, we are dealing with vertically oriented bars; */
-  /* else horizontally oriented bars */
-  whitecount = 0;
-  blackcount = 0;
-  if (h>w){
-    for(pty=(y+h);pty>=0;pty--){
+
+  if (h > w) {
+    for(pty = (y+h); pty >= 0; pty--) {
+      /* for each line, accumulate intensities, decide if white or black */
+      intensity = 0;
+      for(ptx = x; ptx < (x+w); ptx++) {
+        p = (UINT8*) &im->image32[pty][ptx];
+        intensity += *p;
+      }
+
+      if ((intensity/w) > whitethresh) {
+        /* it's white */
+        if (lastwhite>0){
+          /* continuing white, increase white count */
+          whitecount++;
+        } else {
+          /* new white, process blackcount */
+          blacks[numblacks++] = blackcount;
+          if (numblacks >= MAX_BW) {
+            return NULL;
+          }
+          blackcount = 0;
+          whitecount = 1;
+          lastwhite = 1;
+        }
+      } else {
+        /* it's black */
+        if (lastwhite == 0) {
+          /* continuing black, increase black count */
+          blackcount++;
+        } else {
+          /* new black, process whitecount */
+          if (firsttime) {
+            firsttime = 0;
+          } else {
+            whites[numwhites++] = whitecount;
+            if (numwhites >= MAX_BW){
+              return NULL;
+            }
+          }
+          whitecount = 0;
+          blackcount = 1;
+          lastwhite = 0;
+        }
+      }
+    }
+  } else {
+    for(ptx = (x+w); ptx <= x; ptx--) {
       /* for each line, accumulate intensities, decide if white or black */
       intensity=0;
-      for(ptx=x;ptx<(x+w);ptx++){
-	p = (UINT8*) &im->image32[pty][ptx];
-	intensity += (*p);
+      for(pty = y; pty < (y+h); pty++) {
+        p = (UINT8*) &im->image32[pty][ptx];
+        intensity += (*p);
       }
-      if ((intensity/w)>whitethresh) {
-	/* it's white */
-	if (lastwhite>0){
-	  /* continuing white, increase white count */
-	  whitecount++;
-	}
-	else {
-	  /* new white, process blackcount */
-	  blacks[numblacks++] = blackcount;
-	  if (numblacks >= MAX_BW){
-	    return NULL;
-	  }
-	  blackcount = 0;
-	  whitecount = 1;
-	  lastwhite = 1;
-	}
-      }
-      else {
-	/* it's black */
-	if (lastwhite == 0){
-	  /* continuing black, increase black count */
-	  blackcount++;
-	}
-	else {
-	  /* new black, process whitecount */
-	  if (firsttime){
-	    firsttime = 0;
-	  }
-	  else {
-	    whites[numwhites++] = whitecount;
-	    if (numwhites >= MAX_BW){
-	      return NULL;
-	    }
-	  }
-	  whitecount = 0;
-	  blackcount = 1;
-	  lastwhite = 0;
-	}
+      if ((intensity/h) > whitethresh) {
+        /* it's white */
+        if (lastwhite > 0) {
+          /* continuing white, increase white count */
+          whitecount++;
+        } else {
+          /* it's new white, process blackcount */
+          blacks[numblacks++] = blackcount;
+          if (numblacks >= MAX_BW){
+            return NULL;
+          }
+          blackcount = 0;
+          whitecount = 1;
+          lastwhite = 1;
+        }
+      } else {
+        /* it's black */
+        if (lastwhite == 0){
+          /* continuing black, increase black count */
+          blackcount++;
+        } else {
+          /* it's new black, process whitecount */
+          if (firsttime){
+            firsttime=0;
+          } else {
+            whites[numwhites++] = whitecount;
+            if (numwhites >= MAX_BW){
+              return NULL;
+            }
+          }
+          whitecount = 0;
+          blackcount = 1;
+          lastwhite = 0;
+        }
       }
     }
   }
-  else {
-    for(ptx=(x+w);ptx<=x;ptx--){
-      /* for each line, accumulate intensities, decide if white or black */
-      intensity=0;
-      for(pty=y;pty<(y+h);pty++){
-	p = (UINT8*) &im->image32[pty][ptx];
-	intensity += (*p);
-      }
-      if ((intensity/h)>whitethresh) {
-	/* it's white */
-	if (lastwhite>0){
-	  /* continuing white, increase white count */
-	  whitecount++;
-	}
-	else {
-	  /* it's new white, process blackcount */
-	  blacks[numblacks++] = blackcount;
-	  if (numblacks >= MAX_BW){
-	    return NULL;
-	  }
-	  blackcount = 0;
-	  whitecount = 1;
-	  lastwhite = 1;
-	}
-      }
-      else {
-	/* it's black */
-	if (lastwhite == 0){
-	  /* continuing black, increase black count */
-	  blackcount++;
-	}
-	else {
-	  /* it's new black, process whitecount */
-	  if (firsttime){
-	    firsttime=0;
-	  }
-	  else {
-	    whites[numwhites++] = whitecount;
-	    if (numwhites >= MAX_BW){
-	      return NULL;
-	    }
-	  }
-	  whitecount = 0;
-	  blackcount = 1;
-	  lastwhite = 0;
-	}
-      }
-    }
-  }
+
   /* now find out the average length of blacks and whites,
      and replace original lengths with 0 for narrow or 1 for wide */
   sum = 0;
   avg = 0;
-  for (n=0;n<numblacks;n++){
+  for (n = 0; n < numblacks; n++) {
     sum+= blacks[n];
   }
   avg = sum/numblacks;
-  for (n=0;n<numblacks;n++){
-    //printf("%d ",blacks[n]);
-    if (blacks[n]<=avg)blacks[n]=0;
-    else blacks[n] = 1;
+  for (n = 0; n < numblacks; n++) {
+    if (blacks[n] <= avg) {
+      blacks[n] = 0;
+    } else {
+      blacks[n] = 1;
+    }
   }
-  //printf("\n");
   sum = 0;
   avg = 0;
-  for (n=0;n<numwhites;n++){
-    sum+= whites[n];
+  for (n = 0; n < numwhites; n++) {
+    sum += whites[n];
   }
   avg = sum/numwhites;
-  for (n=0;n<numwhites;n++){
-    if (whites[n]<=avg)whites[n]=0;
-    else whites[n] = 1;
+  for (n = 0; n < numwhites; n++) {
+    if (whites[n] <= avg) {
+      whites[n] = 0;
+    } else {
+      whites[n] = 1;
+    }
   }
 
   /* expect to find two narrow whites at the start along with two narrow
      blacks at the start; otherwise, complain */
-  assert((whites[0]+whites[1]) == 0);
-  assert((blacks[0]+blacks[1]) == 0);
+  assert((whites[0] + whites[1]) == 0);
+  assert((blacks[0] + blacks[1]) == 0);
   /* process seven groups of five from black, same from white
      for each group of five blacks and five whites, expect to find 
      two and only two wides; otherwise, complain */
-  for (group=0;group<7;group++){
+  for (group = 0; group < 7; group++) {
     int value;
     value = 0;
-    if (blacks[2+(group*5)+0]>0)value += 1;
-    if (blacks[2+(group*5)+1]>0)value += 2;
-    if (blacks[2+(group*5)+2]>0)value += 4;
-    if (blacks[2+(group*5)+3]>0)value += 7;
-    if (value == 11) value = 0;
+    if (blacks[2+(group*5)+0]>0) {
+      value += 1;
+    }
+    if (blacks[2+(group*5)+1]>0) {
+      value += 2;
+    }
+    if (blacks[2+(group*5)+2]>0) {
+      value += 4;
+    }
+    if (blacks[2+(group*5)+3]>0) {
+      value += 7;
+    }
+    if (value == 11) {
+      value = 0;
+    }
     values[group*2] = value;
-    //printf("values[%d] = %d\n",group*2,value);
     value = 0;
-    if (whites[2+(group*5)+0]>0)value += 1;
-    if (whites[2+(group*5)+1]>0)value += 2;
-    if (whites[2+(group*5)+2]>0)value += 4;
-    if (whites[2+(group*5)+3]>0)value += 7;
-    if (value == 11) value = 0;
+    if (whites[2+(group*5)+0]>0) {
+      value += 1;
+    }
+    if (whites[2+(group*5)+1]>0) {
+      value += 2;
+    }
+    if (whites[2+(group*5)+2]>0) {
+      value += 4;
+    }
+    if (whites[2+(group*5)+3]>0) {
+      value += 7;
+    }
+    if (value == 11) {
+      value = 0;
+    }
     values[(group*2)+1] = value;
-    //printf("values[%d] = %d\n",(group*2)+1,value);
   }
-  return Py_BuildValue("ii", 
-		       values[0]*1000000 + values[1]*100000 +
-		       values[2]*10000 + values[3]*1000 +
-		       values[4]*100 + values[5]*10 + values[6],
-		       
-		       values[7]*1000000 + values[8]*100000 +
-		       values[9]*10000 + values[10]*1000 +
-		       values[11]*100 + values[12]*10 + values[13]
-		       );
 
-  //return list;
+  return Py_BuildValue("ii", 
+              values[0]*1000000 + values[1]*100000 +
+              values[2]*10000 + values[3]*1000 +
+              values[4]*100 + values[5]*10 + values[6],
+ 
+              values[7]*1000000 + values[8]*100000 +
+              values[9]*10000 + values[10]*1000 +
+              values[11]*100 + values[12]*10 + values[13]
+  );
 }
 
 /* BALLOT ANALYSIS (works with RGB only) */
@@ -4407,8 +4387,8 @@ cropstats(Imaging im, int dpi, int gap, int x, int y, int w, int h, int fine_adj
   int one_fourth_width, three_fourths_width;
   int found = 0;
   int suspicious = 0;
-  PyObject * retlist;
-  for (n=0;n<3;n++){
+
+  for (n =0; n < 3; n++) {
     total[n] = 0;
     color[n] = 0;
     lowest[n] = 0;
@@ -4429,7 +4409,7 @@ cropstats(Imaging im, int dpi, int gap, int x, int y, int w, int h, int fine_adj
   thinstart_to_thickstart_width = gap;
   thickline_height = dpi/6;
   found = 0;
-  if (fine_adj != 0){
+  if (fine_adj != 0) {
     // changing initial backup from dpi/6 to dpi/5,
     // because we'd been getting false positives on the first pass
     // before getting to do the second pass;
@@ -4469,9 +4449,7 @@ cropstats(Imaging im, int dpi, int gap, int x, int y, int w, int h, int fine_adj
       if (found) break;
     }
     pty = y + (dpi/12);
-    //if (found) printf("Adjusted x to %d\n",x);
-    //else printf("No x adjustment from %d\n",x);
-    
+ 
     // if not found after first pass, try wider adjustment
     if (found == 0){
       for (ptx = x - (dpi/3);ptx < x+gap_width; ptx++){
@@ -4534,8 +4512,6 @@ cropstats(Imaging im, int dpi, int gap, int x, int y, int w, int h, int fine_adj
       }
       if (found) break;
     }
-    //if (found) printf("Adjusted y to %d\n",y);    
-    //else printf("No y adjustment from %d\n",y);
   }
   
   for (pty = y; pty < (y+h); pty++) {
@@ -4578,13 +4554,12 @@ cropstats(Imaging im, int dpi, int gap, int x, int y, int w, int h, int fine_adj
       }
     }
   }
-  retlist = Py_BuildValue("iiiiiiiiiiiiiiiiii", 
+  return Py_BuildValue("iiiiiiiiiiiiiiiiii", 
 			  total[0]/count, lowest[0],low[0],high[0],highest[0],
 			  total[1]/count, lowest[1],low[1],high[1],highest[1],
 			  total[2]/count, lowest[2],low[2],high[2],highest[2],
 			  x,y, suspicious
 			  );
-  return retlist;
 }	
 
 
