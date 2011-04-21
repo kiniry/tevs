@@ -225,7 +225,6 @@ class HartBallot(Ballot.Ballot):
         # end pure python cropstats
 
 
-        #XXX writeins always voted?!
         voted, ambiguous = self.extensions.IsVoted(crop, stats, choice)
         writein = self.extensions.IsWriteIn(crop, stats, choice)
         if writein:
@@ -285,10 +284,10 @@ class HartBallot(Ballot.Ballot):
 
         vboxes = []
         for startx in columnstarts:
-             if startx <= 0:
+            if startx <= 0:
                   self.log.info("Negative startx passed to gethartvoteboxes")
-             xss = page.image.gethartvoteboxes(startx, dpi2, dpi) #column_start, half inch down, dpi
-             vboxes.append([ [xs[1], "v"] for xs in xss])
+            xss = page.image.gethartvoteboxes(startx, dpi2, dpi) #column_start, half inch down, dpi
+            vboxes.append([ [xs[1], "v"] for xs in xss])
 
         br = []
         for x, hll in enumerate(hlines):
