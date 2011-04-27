@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import sane
 import time
 import sys
