@@ -8,7 +8,7 @@ console = """
 Total voted boxes:\t{num_voted}
 Total unvoted boxes:\t{num_non_voted}
 Total suspicious votes:\t{num_weird}
-Total bad votedatas:\t{num_bad}
+Total bad voted areas:\t{num_bad}
 """[1:] #get rid of \n after the quotes on top, bottom \n needed
 
 def main():
