@@ -117,6 +117,7 @@ def main():
     # While ballot images exist in the directory specified in tevs.cfg,
     # create ballot from images, get landmarks, get layout code, get votes.
     # Write votes to database and results directory.  Repeat.
+    #from guppy import hpy;hp=hpy();hp.setref();import gc;gc.disable();gc.collect();hp.setref()
     try:
         for n in next_ballot:
             unprocs = [incomingn(n + m) for m in range(const.num_pages)]
@@ -179,7 +180,7 @@ def main():
                 except Exception as e: #TODO what exceptions does image.save throw?
                     shutil.rmdir(wrind)
                     remove_partial(resultsfilename + ".txt")
-                    remove_partial(resuktsfilename + ".jpg")
+                    remove_partial(resultsfilename + ".jpg")
                     util.fatal("Could not write write ins to disk")
 
             #write to the database
@@ -204,6 +205,7 @@ def main():
                     util.fatal("Could not rename %s", a)
             total_proc += const.num_pages
             log.info("%d ballot pages processed succesfully", const.num_pages)
+            #hp.heap().dump('prof.hpy');hp.setref();gc.collect();hp.setref();hp.heap().dump('prof.hpy')
     finally:
         cache.save_all()
         dbc.close()
