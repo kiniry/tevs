@@ -193,35 +193,35 @@ class HartBallot(Ballot.Ballot):
 
         ow, oh = self.oval_size
         #begin pilb cropstats
-        stats = Ballot.IStats(page.image.cropstats(
-            const.dpi,
-            self.vote_target_horiz_offset, #XXX is this the only part that can't be pulled out of this specific ballot kind?!
-            x, y,
-            ow, oh,
-            1
-        ))
+        #stats = Ballot.IStats(page.image.cropstats(
+        #    const.dpi,
+        #    self.vote_target_horiz_offset, #XXX is this the only part that can't be pulled out of this specific ballot kind?!
+        #    x, y,
+        #    ow, oh,
+        #    1
+        #))
 
         #can be in separate func?
-        cropx = stats.adjusted.x
-        cropy = stats.adjusted.y
-        crop = page.image.crop((
-            cropx - margin,
-            cropy - margin,
-            cropx + margin + ow, 
-            cropy + margin + oh
-        ))
+        #cropx = stats.adjusted.x
+        #cropy = stats.adjusted.y
+        #crop = page.image.crop((
+        #    cropx - margin,
+        #    cropy - margin,
+        #    cropx + margin + ow, 
+        #    cropy + margin + oh
+        #))
         #end pilb cropstats
 
 
         # Below is using the pure python cropstats:
-        #cropx, cropy = x, y #not adjusted like in PILB cropstats
-        #crop = page.image.crop((
-        #    cropx - margin,
-        #    cropy - margin,
-        #    cropx + margin + ow,
-        #    cropy + margin + oh
-        #))
-        #stats = Ballot.IStats(cropstats(crop, x, y))
+        cropx, cropy = x, y #not adjusted like in PILB cropstats
+        crop = page.image.crop((
+            cropx - margin,
+            cropy - margin,
+            cropx + margin + ow,
+            cropy + margin + oh
+        ))
+        stats = Ballot.IStats(cropstats(crop, x, y))
         # end pure python cropstats
 
 

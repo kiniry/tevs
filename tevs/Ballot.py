@@ -250,7 +250,7 @@ class Ballot(object):
                 "contest":  contest,
                 "choice":   choice,
                 "filename": page.filename,
-                "barcode": page.template.barcode,
+                "barcode":  page.template.barcode,
                 "number":   page.number
             }) 
             results.append(VoteData(**kw))
