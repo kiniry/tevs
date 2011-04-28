@@ -17,10 +17,10 @@ def cropstats(im, x, y):
     highest = [0, 0, 0]
     interior_dark = 0
 
-    rl = rows/3
-    rh = (2*rows)/3
-    cl = columns/3
-    ch = (2*columns)/3
+    rl = rows/4
+    rh = (3*rows)/4
+    cl = columns/4
+    ch = (3*columns)/4
     for r in range(rows):
         for c in range(columns):
             datum = data[c, r]
