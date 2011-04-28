@@ -189,8 +189,8 @@ def main():
             except db.DatabaseError:
                 #dbc does not commit if there is an error, just need to remove 
                 #partial files
-                remove_partial(results_filename + ".txt")
-                remove_partial(results_filename + ".jpg")
+                remove_partial(resultsfilename + ".txt")
+                remove_partial(resultsfilename + ".jpg")
                 util.fatal("Could not commit vote information to database")
 
             #Post-processing
