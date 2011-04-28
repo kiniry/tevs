@@ -1,9 +1,9 @@
 from PIL import Image
 
 #thresholds for colors
-lowest_bin = chr(64)
-low_bin = chr(128)
-high_bin  = chr(192)
+lowest_bin = 64
+low_bin = 128
+high_bin = 192
 
 def cropstats(im, x, y):
     data = im.load()
@@ -27,14 +27,14 @@ def cropstats(im, x, y):
             for color in range(3):
                 dc = datum[color]
                 tot[color] += dc
+                if all((dc < low_bin, r > rl, r < rh, c > cl, c < ch)):
+                    interior_dark += 1
                 if dc < lowest_bin:
                     lowest[color] += 1
                 elif dc < low_bin:
                     low[color] += 1
                 elif dc < high_bin:
                     high[color] += 1
-                    if all(r > rl, r < rh, c > cl, c < ch):
-                        interior_dark += 1
                 else: #highest_bin
                     highest[color] +=1
 
