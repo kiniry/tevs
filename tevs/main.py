@@ -141,7 +141,7 @@ def main():
             try:
                 ballot = ballotfrom(unprocs, extensions)
                 results = ballot.ProcessPages()
-            except BallotException:
+            except BallotException as e:
                 total_unproc += mark_error(e, *unprocs)
                 log.exception("Could not process ballot")
                 continue
