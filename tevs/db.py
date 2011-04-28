@@ -1,6 +1,8 @@
-import psycopg2 as DB
-
-DatabaseError = DB.DatabaseError
+try:
+    import psycopg2 as DB
+    DatabaseError = DB.DatabaseError
+except ImportError:
+    pass
 
 class NullDB(object):
     def __init__(self, *_):
