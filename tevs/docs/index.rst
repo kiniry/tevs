@@ -2,7 +2,10 @@ TEVS
 ================================
 
 
-:download:`User Guide (PDF)<userguide/guide.pdf>`
+  * :download:`User Guide (PDF)<userguide/guide.pdf>`
+
+Internals (for extenders)
+================================
 
 .. toctree::
    :maxdepth: 2
