@@ -26,7 +26,7 @@ class BallotException(Exception):
     pass
 
 def LoadBallotType(name):
-    """LoadBallotType takes a string describing the name of a kind of ballot
+    """LoadBallotType  takes a string describing the name of a kind of ballot
     layout and returns the appropriate subclass of Ballot for processing ballot
     images of that kind. The returned value must be called with the same
     arguments as the Ballot class's __init__ as documented below.  
