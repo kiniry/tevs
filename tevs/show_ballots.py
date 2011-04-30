@@ -26,7 +26,6 @@ pygtk.require('2.0')
 import gobject
 import gtk
 
-import pdb
 import subprocess
 import time
 from PIL import Image, ImageDraw, ImageFont
@@ -396,14 +395,14 @@ class App():
 
     def next_cb(self,button,data):
         # update numbers forward by 2, reload files, expose
-        self.increment_file_number(2)
+        self.increment_file_number(const.num_pages)
 	self.expose_cb(self.i1,None,(1,None))
 	self.expose_cb(self.i2,None,(2,None))
 
 
     def prev_cb(self,button,data):
         # update numbers backwards by 2, reload files, expose
-        self.increment_file_number(-2)
+        self.increment_file_number(0-const.num_pages)
 	self.expose_cb(self.i1,None,(1,None))
 	self.expose_cb(self.i2,None,(2,None))
 
