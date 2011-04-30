@@ -10,6 +10,7 @@ import sys
 import subprocess
 import time
 
+import site; site.addsitedir(os.path.expanduser("~/tevs")) #XXX
 from PILB import Image, ImageStat
 import Ballot
 import const
