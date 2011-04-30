@@ -6,7 +6,7 @@ from xml.dom import minidom
 from xml.parsers.expat import ExpatError
 import logging
 
-import site; site.addsitedir("/home/jimmy/tevs") #XXX
+import site; site.addsitedir(os.path.expanduser("~/tevs")) #XXX
 from PILB import Image, ImageDraw, ImageFont, ImageChops
 import const
 import util
