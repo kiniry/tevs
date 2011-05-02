@@ -543,17 +543,12 @@ class SequoiaBallot(Ballot.Ballot):
                x2 = max(self.writein_xoff+cropx,cropx)
                y1 = min(self.writein_yoff+cropy,cropy + adj(.2))
                y2 = max(self.writein_yoff+cropy,cropy + adj(.2))
-               writein_crop = page.image.crop((
+               crop = page.image.crop((
                        x1 - margin,
                        y1 - margin,
                        x2 + margin,
                        y2 + margin
                        ))
-               # until handled in Ballot.py, save writein to our directory
-               writein_name = "./"
-               writein_name += page.filename.split("/")[-1]
-               writein_name += "x%04dy%04d.jpg" % (choice.x,choice.y)
-               writein_crop.save(writein_name)
         return cropx, cropy, stats, crop, voted, writein, ambiguous
 
     def build_layout(self, page):
