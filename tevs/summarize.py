@@ -15,7 +15,7 @@ def main():
     config.get()
     log = config.logger(util.root("log.txt"))
     try:
-        dbc = db.PostgresDB(const.dbname, const.dbpwd)
+        dbc = db.PostgresDB(const.dbname, const.dbuser)
     except db.DatabaseError:
         util.fatal("Could not connect to database")
     q = dbc.query
