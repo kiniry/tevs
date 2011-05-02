@@ -39,8 +39,6 @@ def cropstats(im, x, y):
                     highest[color] +=1
 
     rc = float(rows * columns)
-    #for color in range(3):
-    #    avg[color] = tot[color] / rc
 
     # return the information, for now, as cropstats in PILB;
     # later, put in Istats form
@@ -57,3 +55,15 @@ def cropstats(im, x, y):
 
     return retlist
 
+if __name__ == "__main__":
+    try:
+        filename = sys.argv[1]
+        im = Image.open(filename)
+        print "Testing on image of size (%d, %d)." % im.size
+        print cropstats(im, 0, 0)
+    except IndexError:
+        print >>sys.stderr, "usage: python cropstats2.py image_filename"
+        sys.exit(2)
+    except IOError:
+        print "could not open", filename
+        sys.exit(1)
