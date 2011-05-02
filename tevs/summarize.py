@@ -34,10 +34,21 @@ def main():
         from voteops
         where red_mean_intensity != -1"""
     ))
-    #meani = [sum(int(i) for i in x)/len(x) for x in meani]
-    print meani
 
     print console.format(**locals())
+
+    electionwide = q("""select count(contest_text), contest_text, choice_text
+        from voteops where was_voted
+        group by contest_text, choice_text
+        order by choice_text;"""
+    )
+    perlc = q("""select count(code_string), contest_text, choice_text
+        from voteops join ballots on voteops.ballot_id = ballots.ballot_id
+        group by code_string, contest_text, choice_text
+        order by code_string
+        where was voted;"""
+    )
+    
 
 if __name__ == '__main__':
     main()
