@@ -2,6 +2,7 @@ try:
     import psycopg2 as DB
     DatabaseError = DB.DatabaseError
 except ImportError:
+    DatabaseError = Exception
     pass
 
 class NullDB(object):
