@@ -109,5 +109,5 @@ def get(cfg_file="tevs.cfg"):
 
     const.use_db = yesno(config, "Database", "use_db")
     const.dbname = config.get("Database", "name")
-    const.dbpwd  = config.get("Database", "password")
+    const.dbuser  = config.get("Database", "user")
 

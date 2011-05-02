@@ -106,7 +106,7 @@ def main():
     # connect to db and open cursor
     if const.use_db:
         try:
-            dbc = db.PostgresDB(const.dbname, const.dbpwd)
+            dbc = db.PostgresDB(const.dbname, const.dbuser)
         except db.DatabaseError:
             util.fatal("Could not connect to database")
     else:
