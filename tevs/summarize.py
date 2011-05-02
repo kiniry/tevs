@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+import sys
+import argparse
+
 import db
 import config
 import const #XXX tbd
@@ -11,8 +14,14 @@ Total suspicious votes:\t{num_weird}
 Total bad voted areas:\t{num_bad}
 """[1:] #get rid of \n after the quotes on top, bottom \n needed
 
-def main():
-    config.get()
+def main(args):
+    cfg_file = args.cfg
+    if cfg_file is None:
+        cfg_file = "tevs.cfg"
+    config.get(cfg_file)
+    if not const.use_db:
+        print >>sys.stderr, "Cannot summarize database without a database"
+        return 1
     log = config.logger(util.root("log.txt"))
     try:
         dbc = db.PostgresDB(const.dbname, const.dbuser)
@@ -48,7 +57,13 @@ def main():
         order by code_string
         where was voted;"""
     )
+
+    return 0
     
+flags = argparse.ArgumentParser(
+    description='Summarize ballot counts from database'
+)
+flags.add_argument('-c', '--config', dest="cfg")
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main(flags.parse_args()))
