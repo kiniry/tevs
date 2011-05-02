@@ -23,6 +23,11 @@ class DemoBallot(Ballot.Ballot):
     The file name demo_ballot.py and the class name DemoBallot
     correspond to the brand entry in tevs.cfg (demo.cfg), 
     the configuration file.
+
+    The only responsibility of a vendor ballot class is to take a set of
+    scanned ballot images and construct a template for Ballot.Ballot. There is
+    no need to do anything else and doing anything else may result in undefined
+    behavior.
     """
 
     def __init__(self, images, extensions):
