@@ -24,6 +24,10 @@ candidate_text_width_inches = 0.43
 minimum_contest_height_inches = 1.00
 allowed_corner_black_inches = 0.185
 allowed_tangent = 0.05
+# hotspot_x_offset_inches is for ballot designs like broken arrow,
+# where the area to be checked for a mark is offset from the start
+# of the printed vote target <===   ===<
+hotspot_x_offset_inches = 0.28
 
 [Votes]
 vote_intensity_threshold = 135
