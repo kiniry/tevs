@@ -402,7 +402,7 @@ class SequoiaBallot(Ballot.Ballot):
         self.oval_margin = adj(.03) #XXX length should be in config or metadata
         self.min_contest_height = adj(const.minimum_contest_height_inches)
 
-        self.hotspot_x_offset_inches = adj(const.hotspot_x_offset_inches)
+        self.hotspot_x_offset_pixels = adj(const.hotspot_x_offset_inches)
         self.vote_target_horiz_offset = adj(const.vote_target_horiz_offset_inches)
         self.writein_xoff = adj(-2.9) #XXX
         self.writein_yoff = adj(-0.2)
@@ -528,9 +528,9 @@ class SequoiaBallot(Ballot.Ballot):
 
         # NO horizontal margins in crop - grabbing region between marks!
         croplist = (
-            cropx + self.hotspot_x_offset_inches ,
+            cropx + self.hotspot_x_offset_pixels ,
             cropy - margin,
-            cropx + self.hotspot_x_offset_inches + ow, 
+            cropx + self.hotspot_x_offset_pixels + ow, 
             cropy + margin + oh
         )
         crop = page.image.crop(croplist)
