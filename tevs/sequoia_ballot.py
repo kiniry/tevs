@@ -401,6 +401,8 @@ class SequoiaBallot(Ballot.Ballot):
         )
         self.oval_margin = adj(.03) #XXX length should be in config or metadata
         self.min_contest_height = adj(const.minimum_contest_height_inches)
+
+        self.hotspot_x_offset_pixels = adj(const.hotspot_x_offset_inches)
         self.vote_target_horiz_offset = adj(const.vote_target_horiz_offset_inches)
         self.writein_xoff = adj(-2.9) #XXX
         self.writein_yoff = adj(-0.2)
@@ -522,10 +524,13 @@ class SequoiaBallot(Ballot.Ballot):
         cropx = x
         cropy = y
         cropy -= adj(.1)
+
+
+        # NO horizontal margins in crop - grabbing region between marks!
         croplist = (
-            cropx + self.vote_target_horiz_offset - margin ,
+            cropx + self.hotspot_x_offset_pixels ,
             cropy - margin,
-            cropx + self.vote_target_horiz_offset + margin + ow, 
+            cropx + self.hotspot_x_offset_pixels + ow, 
             cropy + margin + oh
         )
         crop = page.image.crop(croplist)
@@ -543,12 +548,17 @@ class SequoiaBallot(Ballot.Ballot):
                x2 = max(self.writein_xoff+cropx,cropx)
                y1 = min(self.writein_yoff+cropy,cropy + adj(.2))
                y2 = max(self.writein_yoff+cropy,cropy + adj(.2))
-               crop = page.image.crop((
+               writein_crop = page.image.crop((
                        x1 - margin,
                        y1 - margin,
                        x2 + margin,
                        y2 + margin
                        ))
+               # until handled in Ballot.py, save writein to our directory
+               writein_name = "./"
+               writein_name += page.filename.split("/")[-1]
+               writein_name += "x%04dy%04d.jpg" % (choice.x,choice.y)
+               writein_crop.save(writein_name)
         return cropx, cropy, stats, crop, voted, writein, ambiguous
 
     def build_layout(self, page):
