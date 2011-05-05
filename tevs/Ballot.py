@@ -203,7 +203,7 @@ class Ballot(object):
             return tmpl
 
         self.log.info(
-            "Building a template may take up to a minute",
+            "Building a template for %s may take up to a minute",
             code,
         )
         #TODO derotate image before trying to build layout. bilinear
