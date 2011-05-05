@@ -202,6 +202,10 @@ class Ballot(object):
             page.template = tmpl
             return tmpl
 
+        self.log.info(
+            "Building a template may take up to a minute",
+            code,
+        )
         #TODO derotate image before trying to build layout. bilinear
         tree = self.build_layout(page)
         if len(tree) == 0:
@@ -1114,6 +1118,7 @@ class TemplateCache(object):
         try:
             return self.cache[id]
         except KeyError:
+            self.log.info("No template found for", id)
             return None
 
     def __setitem__(self, id, template):
