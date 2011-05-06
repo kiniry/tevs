@@ -1118,7 +1118,7 @@ class TemplateCache(object):
         try:
             return self.cache[id]
         except KeyError:
-            self.log.info("No template found for", id)
+            self.log.info("No template found for %s", id)
             return None
 
     def __setitem__(self, id, template):

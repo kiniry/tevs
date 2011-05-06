@@ -1,7 +1,7 @@
 #!/bin/sh
 
 echo Launching TEVS main.py
-./main.py
+./main.py $*
 echo Launching TEVS summarize.py
 sleep .6s
-./summarize.py | less
+./summarize.py $* | less
