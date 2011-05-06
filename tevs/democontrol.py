@@ -10,14 +10,14 @@ introduction = """This DVD contains free software enabling you to demonstrate TE
 
 TEVS is copyright 2009, 2010, 2011 Mitch Trachtenberg and is licensed under the GNU General Public License version 3.
 
-In addition to TEVS and the sample images, this DVD includes the Ubuntu variant of the Linux operating system, the Postgres SQL database program, the Python programming language, and other useful software, including.... 
+In addition to TEVS and the sample images, this DVD includes the Ubuntu variant of the Linux operating system, the Postgres SQL database program, the Python programming language, and other useful software (see the Applications menu).
 
-Each "count" button invokes TEVS using a different configuration file, which points TEVS to different image locations.  Once ballots have been counted and processed, you may display the ballots with TEVS' vote interpretation overlaid upon them by clicking the "Display" button.  You can show the source and processed files yourself by going to the out directory in your Home Folder.  You can go into the database tables yourself by running the psql program and using the following commands: psql hart150 or psql hart300 or psql seq150 or psql seq300 or psql scanned, depending on which results database you wish to view.  """
+Each "Count" button invokes TEVS using a different configuration file, which points TEVS to different image locations.  Once ballots have been counted and processed, you may display the ballots with TEVS' vote interpretation overlaid upon them by clicking the "Display" button.  You can show the source and processed files yourself by going to the out directory in your Home Folder.  You can go into the database tables yourself by running the psql program and using the following commands, each of which will open a SQL client on the specified database: psql hart150 or psql hart300 or psql seq150 or psql seq300 or psql scanned.  """
 
-count_message = """
+count_message = """Ballot images are now being counted.  As the system encounters each new ballot layout (often corresponding to a precinct), it generates definition files so that it may quickly count additional ballots of that layout.  The count stores results on a per-ballot basis. When the count is completed, we will display a summary of the results.  Pressing the Display button will then allow you to see the results as an overlay on each processed ballot. 
 """
 
-display_message = """
+display_message = """If you've counted these ballot images, you can now see the vote results overlaid on each counted ballot image.  Enter the image number and press Enter or click the Go button, then advance to the next image with the > button.
 """
 
 def tevspath(*path):
