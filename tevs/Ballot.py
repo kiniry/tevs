@@ -206,7 +206,11 @@ class Ballot(object):
             "Building a template for %s may take up to a minute",
             code,
         )
-        #TODO derotate image before trying to build layout. bilinear
+        # derotate image before trying to build layout.
+        # page.rot is tangent, equiv to rot in radians for small values
+        # convert to degrees for call to Image.rotate
+        r2d = 180/3.14
+        page.image = page.image.rotate(-r2d * page.rot, Image.BILINEAR)
         tree = self.build_layout(page)
         if len(tree) == 0:
             raise BallotException('No layout was built')
