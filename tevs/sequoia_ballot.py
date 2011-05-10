@@ -100,7 +100,7 @@ def get_offsets_and_tangent_from_blocks(im,dpi,dash_sep_in_pixels):
     scanx = adj(0.2)
     for n in range(scanx):
         pix = leftcrop.getpixel(((scanx - n),
-                                 leftdashcentery+ vertical_dist_top_dashes))
+                                 leftdashcentery))
         if pix[0]>128:
             leftstartx = scanx - n
             break
@@ -108,7 +108,7 @@ def get_offsets_and_tangent_from_blocks(im,dpi,dash_sep_in_pixels):
     rightstartx = 0
     for n in range(scanx):
         pix = rightcrop.getpixel(((scanx - n),
-                                 rightdashcentery+ vertical_dist_top_dashes))
+                                 rightdashcentery))
         if pix[0]>128:
             rightstartx = scanx - n
             break
@@ -136,7 +136,7 @@ def get_code_from_blocks(im,dpi,leftstartx,leftstarty,rightstartx,rightstarty):
     leftstarty = iround(leftstarty)
     rightstarty = iround(rightstarty)
     leftcrop = im.crop(
-        (leftstartx,
+        (max(0,leftstartx),
          leftstarty,
          leftstartx+adj(block_zone_width_to_crop),
          leftstarty+adj(block_zone_height)
@@ -204,8 +204,6 @@ def build_template(im,dpi,code,xoff,yoff,tilt,front=True):
     adj = lambda f: int(round(const.dpi * f))
     regionlist = []
     n = 0
-    # the xoff adjustment should be the difference between the actual
-    # xoff location found and the nominal one for a ballot.
     for x in (xoff+adj(column1_offset),xoff+adj(column2_offset)):
         # skip the code block if you're on a front
         if n==0 and front:
@@ -432,8 +430,6 @@ class SequoiaBallot(Ballot.Ballot):
             page.image,
             const.dpi,
             dash_sep_in_pixels)
-        if -1 in (a, b, c, d):
-            raise Ballot.BallotException("Could not find landmarks")
 
         # flunk ballots with more than 
         # allowed_corner_black_inches of black in corner
@@ -475,6 +471,7 @@ class SequoiaBallot(Ballot.Ballot):
             raise Ballot.BallotException(
                 "Tilt %f of %s exceeds %f" % (rot, page.filename, const.allowed_tanget)
             )
+        self.log.debug("find landmarks returning %f,%d,%d" %(rot,xoff,yoff))
         return rot, xoff, yoff 
 
     def get_layout_code(self, page):
@@ -483,10 +480,9 @@ class SequoiaBallot(Ballot.Ballot):
         """
         iround = lambda x: int(round(x))
         adj = lambda f: int(round(const.dpi * f))
-        normal_xoff = adj(0.2)
         barcode = get_code_from_blocks(page.image,
                                        const.dpi,
-                                       max(0,page.xoff - normal_xoff),
+                                       page.xoff,
                                        page.yoff,
                                        page.image.size[0] 
                                        + page.xoff - adj(0.65),
@@ -564,16 +560,12 @@ class SequoiaBallot(Ballot.Ballot):
     def build_layout(self, page):
         """ get layout and ocr information by calling build_template
 
-            Provide not page.xoff (distance from edge to end 
-            of first small code block dash), but variance of page.xoff
-            from the normal location adj(0.2)
         """
         adj = lambda f: int(round(const.dpi * f))
-        normal_xoff = adj(0.2)
         regionlist = build_template(page.image,
                                     const.dpi,
                                     page.barcode,
-                                    page.xoff - normal_xoff,
+                                    page.xoff,
                                     page.yoff,
                                     page.rot)
         return regionlist
