@@ -371,6 +371,7 @@ class DuplexBallot(Ballot):
         if len(images)%2:
             raise TypeError("Requires an even number of ballot images")
         self.pages = []
+        number = 0
         for fnames in zip(images[::2], images[1::2]):
             try:
                 f = self.flip_front(Image.open(fnames[0]).convert("RGB"))
@@ -392,9 +393,10 @@ class DuplexBallot(Ballot):
                     dpi=const.dpi,
                     filename=fnames[1],
                     image=b,
-                    number="%db" % number,
+                    number="%db" % (number + 1,),
                 )
             ))
+            number += 2
 
         self.extensions = extensions
         self.results = []
