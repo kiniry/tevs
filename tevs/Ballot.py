@@ -412,7 +412,9 @@ class DuplexBallot(Ballot):
                 raise TypeError("page must either be length 2 or an int")
             return page
         try:
-            return self.pages[page]
+            if page%2:
+                raise BallotException("Invalid page number")
+            return (self.pages[page], self.pages[page+1])
         except IndexError:
             raise BallotException("Invalid page number")
 
