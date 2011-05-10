@@ -418,6 +418,13 @@ class DuplexBallot(Ballot):
         except IndexError:
             raise BallotException("Invalid page number")
 
+    def ProcessPages(self):
+        for pair in zip(self.pages[::2], self.pages[1::2]):
+            self.FindLandmarks(pair)
+            self.BuildLayout(pair)
+            self.CapturePageInfo(pair)
+        return self.results
+
     def GetLayoutCode(self, page=0):
         """Only returns layout code for first page in pair-next page is that
         layout code + "back" """
