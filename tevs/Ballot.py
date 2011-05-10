@@ -195,6 +195,7 @@ class Ballot(object):
         
         If it cannot build a sensible layout, it will raise a BallotException.
         """
+        pagenum = page
         page = self._page(page)
         code = self.GetLayoutCode(page)
         tmpl = self.extensions.template_cache[code]
@@ -211,6 +212,7 @@ class Ballot(object):
         # convert to degrees for call to Image.rotate
         r2d = 180/3.14
         page.image = page.image.rotate(-r2d * page.rot, Image.BILINEAR)
+        self.FindLandmarks(pagenum)
         tree = self.build_layout(page)
         if len(tree) == 0:
             raise BallotException('No layout was built')
