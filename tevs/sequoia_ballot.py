@@ -22,7 +22,7 @@ v_offset_to_dash_center = 0.03
 v_delta_dash_to_dash = 0.17
 column1_offset = 2.95
 column2_offset = 5.95
-right_block_offset = 6.0
+right_block_offset = 6.1
 
 # the function below overrides any IsWriteIn extension
 def IsWriteIn(im,stats,choice):
@@ -172,7 +172,6 @@ def get_code_from_blocks(im,dpi,leftstartx,leftstarty,rightstartx,rightstarty):
         accum = accum * 2
         testspot = ((adj(0.3),
                     adj(.045) + adj(n * v_delta_dash_to_dash)))
-
         pix = rightcrop.getpixel(testspot)
         if pix[0]<128:
             accum = accum + 1
@@ -205,6 +204,8 @@ def build_template(im,dpi,code,xoff,yoff,tilt,front=True):
     adj = lambda f: int(round(const.dpi * f))
     regionlist = []
     n = 0
+    # the xoff adjustment should be the difference between the actual
+    # xoff location found and the nominal one for a ballot.
     for x in (xoff+adj(column1_offset),xoff+adj(column2_offset)):
         # skip the code block if you're on a front
         if n==0 and front:
@@ -212,7 +213,7 @@ def build_template(im,dpi,code,xoff,yoff,tilt,front=True):
         else:
             starty = int(yoff - 1)
         adjx,adjy = x,starty # XXX assuming ballot derotated by here
-        # turn search on only when 0.6" of thick black line encountered
+        # turn search on only when 0.06" of thick black line encountered
         contig = 0
         for y in range(adjy,im.size[1]):
             all_black_line = True
@@ -237,7 +238,6 @@ def build_template(im,dpi,code,xoff,yoff,tilt,front=True):
         searchx1 = x + adj(0.15)
         # search at .55 inches in for second half of arrow
         searchx2 = x + adj(0.55)
-
         skip = 0
         contest_x = 0
         contest_y = 0
@@ -402,7 +402,7 @@ class SequoiaBallot(Ballot.Ballot):
         self.oval_margin = adj(.03) #XXX length should be in config or metadata
         self.min_contest_height = adj(const.minimum_contest_height_inches)
 
-        self.hotspot_x_offset_pixels = adj(const.hotspot_x_offset_inches)
+        self.hotspot_x_offset_inches = adj(const.hotspot_x_offset_inches)
         self.vote_target_horiz_offset = adj(const.vote_target_horiz_offset_inches)
         self.writein_xoff = adj(-2.9) #XXX
         self.writein_yoff = adj(-0.2)
@@ -483,10 +483,10 @@ class SequoiaBallot(Ballot.Ballot):
         """
         iround = lambda x: int(round(x))
         adj = lambda f: int(round(const.dpi * f))
-
+        normal_xoff = adj(0.2)
         barcode = get_code_from_blocks(page.image,
                                        const.dpi,
-                                       page.xoff,
+                                       max(0,page.xoff - normal_xoff),
                                        page.yoff,
                                        page.image.size[0] 
                                        + page.xoff - adj(0.65),
@@ -528,9 +528,9 @@ class SequoiaBallot(Ballot.Ballot):
 
         # NO horizontal margins in crop - grabbing region between marks!
         croplist = (
-            cropx + self.hotspot_x_offset_pixels ,
+            cropx + self.hotspot_x_offset_inches ,
             cropy - margin,
-            cropx + self.hotspot_x_offset_pixels + ow, 
+            cropx + self.hotspot_x_offset_inches + ow, 
             cropy + margin + oh
         )
         crop = page.image.crop(croplist)
@@ -564,11 +564,16 @@ class SequoiaBallot(Ballot.Ballot):
     def build_layout(self, page):
         """ get layout and ocr information by calling build_template
 
+            Provide not page.xoff (distance from edge to end 
+            of first small code block dash), but variance of page.xoff
+            from the normal location adj(0.2)
         """
+        adj = lambda f: int(round(const.dpi * f))
+        normal_xoff = adj(0.2)
         regionlist = build_template(page.image,
                                     const.dpi,
                                     page.barcode,
-                                    page.xoff,
+                                    page.xoff - normal_xoff,
                                     page.yoff,
                                     page.rot)
         return regionlist
