@@ -265,8 +265,8 @@ and the same for each choice in the contest.
         for cnum, column in enumerate(columns):
             print "Contests for Column", cnum, "at x offset", column
             while True:
-                contest = ask("Enter a contest name or close to move on to the next step")
-                if contest.strip().lower() == "close":
+                contest = ask("""Enter a contest name.  When done entering contests, \ntype 'x' and the <enter> key to continue.""")
+                if contest.strip().lower() == "x":
                     break
                 choices = ask("Enter a comma separated list of choices",
                     CSV())
