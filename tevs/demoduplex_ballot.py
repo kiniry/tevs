@@ -12,15 +12,15 @@ from adjust import rotator
 
 from demo_utils import *
 
-class DemoBallot(Ballot.Ballot):
-    """Class representing demonstration ballots.
+class DemoduplexBallot(Ballot.DuplexBallot):
+    """Class representing demonstration duplex ballots.
 
-    Each demonstration ballot's layout code, and contest and choice locations
+    Each ballot's layout code, and contest and choice locations for each side
     are entered by the user through a text interface.
 
     Precinct code can be any number from 1 to 100.
 
-    The file name demo_ballot.py and the class name DemoBallot
+    The file name demoduplex_ballot.py and the class name DemoduplexBallot
     correspond to the brand entry in tevs.cfg (demo.cfg), 
     the configuration file.
 
@@ -48,7 +48,7 @@ class DemoBallot(Ballot.Ballot):
         self.writein_xoff = adj(-2.5) #XXX
         self.writein_yoff = adj(-.1)
         self.allowed_corner_black = adj(const.allowed_corner_black_inches)
-        super(DemoBallot, self).__init__(images, extensions)
+        super(DemoduplexBallot, self).__init__(images, extensions)
 
     # Extenders do not need to supply even a stub flip
     # because flip in Ballot.py will print a stub message in the absence
@@ -57,6 +57,9 @@ class DemoBallot(Ballot.Ballot):
     #    # not implemented for Demo
     #    print "Flip not implemented for Demo."
     #    return im
+
+    def find_front_landmarks(self, page):
+        return self.find_landmarks(page)
 
     def find_landmarks(self, page):
         """ retrieve landmarks for a demo template, set tang, xref, yref
@@ -227,6 +230,14 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
             print "will be saved by code in Ballot.py"
 
         return cropx, cropy, stats, crop, voted, writein, ambiguous
+
+    def build_front_layout(self, page):
+        self.build_layout(page)
+
+    def build_back_layout(self, page):
+        print "Entering build back layout."
+        pdb.set_trace()
+        self.build_layout(page)
 
     def build_layout(self, page):
         """ get layout and ocr information from Demo ballot
