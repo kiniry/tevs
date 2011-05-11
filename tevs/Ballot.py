@@ -450,7 +450,7 @@ class DuplexBallot(Ballot):
         front, back = self._page(page)
         lc = self.GetLayoutCode(page)
         ft = self.extensions.template_cache[lc]
-        bt = self.extensions.template_cache[lc + "back"]
+        bt = self.extensions.template_cache["%s%s" % (lc, "back")]
         if ft is not None:
             front.template = ft
         else:
@@ -460,7 +460,7 @@ class DuplexBallot(Ballot):
             back.template = bt
         else:
             tree = self.build_back_layout(back)
-            bt = self._BuildLayout1(back, lc + "back", tree)
+            bt = self._BuildLayout1(back, "%s%s" % (lc, "back"), tree)
         return ft, bt
 
     #CapturePageInfo can just call super, but must make sure template is built first
