@@ -125,7 +125,7 @@ class HartBallot(Ballot.Ballot):
         rot = shortdiff/float(longdiff)
         if abs(rot) > const.allowed_tangent:
             raise Ballot.BallotException(
-                "Tilt %f of %s exceeds %f" % (rot, page.filename, const.allowed_tanget)
+                "Tilt %f of %s exceeds %f" % (rot, page.filename, const.allowed_tangent)
             )
 
         return rot, xoff, yoff 
