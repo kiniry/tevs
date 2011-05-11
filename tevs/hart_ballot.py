@@ -9,6 +9,7 @@ import os
 import sys
 import subprocess
 import time
+import math
 
 import site; site.addsitedir(os.path.expanduser("~/tevs")) #XXX
 from PILB import Image, ImageStat
@@ -118,9 +119,8 @@ class HartBallot(Ballot.Ballot):
         xoff = tiltinfo[0][0]
         yoff = tiltinfo[0][1]
 
-        # note that tiltinfo[3][0] is not set!!!
-        shortdiff = tiltinfo[2][0] - tiltinfo[1][0]
-        longdiff  = tiltinfo[2][1] - tiltinfo[1][1]
+        shortdiff = tiltinfo[3][0] - tiltinfo[0][0]
+        longdiff  = tiltinfo[3][1] - tiltinfo[1][1]
 
         rot = shortdiff/float(longdiff)
         if abs(rot) > const.allowed_tangent:
