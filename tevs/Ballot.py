@@ -1129,6 +1129,7 @@ class TemplateCache(object):
         return self.__getitem__(id)
 
     def __getitem__(self, id):
+        id = str(id)
         if id == "blank":
             return BlankTemplate
         try:
@@ -1138,12 +1139,14 @@ class TemplateCache(object):
             return None
 
     def __setitem__(self, id, template):
+        id = str(id)
         if id == "blank":
             return
         self.cache[id] = template
         self.log.info("Template %s created", id)
 
     def save(self, id):
+        id = str(id)
         "write the template id to disk at self.location"
         fname = os.path.join(self.location, id)
         if not os.path.exists(fname):
