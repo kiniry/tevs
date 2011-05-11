@@ -148,6 +148,9 @@ class Ballot(object):
         
         If no layout code can be found, a BallotException is raised."""
         page = self._page(page)
+        return self._GetLayoutCode(page)
+
+    def _GetLayoutCode(self, page):
         if page.blank:
             return "blank"
         try:
@@ -422,7 +425,7 @@ class DuplexBallot(Ballot):
         """Only returns layout code for first page in pair-next page is that
         layout code + "back" """
         front, _ = self._page(page)
-        return super(DuplexBallot, self).GetLayoutCode(front)
+        return self._GetLayoutCode(front)
 
     def FindLandmarks(self, page=0):
         "returns ((rf, rx, ry), (rb, rx, ry))"
