@@ -2,6 +2,7 @@
 Ballot images. It is designed to be easy to use and easy to extend.
 """
 import os
+import math
 from xml.dom import minidom
 from xml.parsers.expat import ExpatError
 import logging
@@ -909,7 +910,7 @@ class _scannedPage(object):
         self.image = image
 
 def _fixup(im, rot, xoff, yoff):
-    im = im.rotate(rot)
+    im = im.rotate(180*rot/math.pi)
     xe, ye = im.size
     return im.crop((xoff, yoff, xe, ye))
 
@@ -929,6 +930,8 @@ class Page(_scannedPage):
        * self.yoff - the y offset of the ballot within the ballot image
        * self.rot - the rotation of the ballot within the ballot image
 
+    Note that self.rot is in radians, which is used by python's math library,
+    but that the rotate method in PIL uses degrees.
     """
     def __init__(self, dpi=0, xoff=0, yoff=0, rot=0.0, filename=None, image=None, template=None, number=0):
         super(Page, self).__init__(dpi, xoff, yoff, rot, image)
