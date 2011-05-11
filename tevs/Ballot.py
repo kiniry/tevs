@@ -149,6 +149,9 @@ class Ballot(object):
         
         If no layout code can be found, a BallotException is raised."""
         page = self._page(page)
+        return self._GetLayoutCode(page)
+
+    def _GetLayoutCode(self, page):
         if page.blank:
             return "blank"
         try:
@@ -196,6 +199,7 @@ class Ballot(object):
         
         If it cannot build a sensible layout, it will raise a BallotException.
         """
+        pagenum = page
         page = self._page(page)
         code = self.GetLayoutCode(page)
         tmpl = self.extensions.template_cache[code]
@@ -207,7 +211,12 @@ class Ballot(object):
             "Building a template for %s may take up to a minute",
             code,
         )
-        #TODO derotate image before trying to build layout. bilinear
+        # derotate image before trying to build layout.
+        # page.rot is tangent, equiv to rot in radians for small values
+        # convert to degrees for call to Image.rotate
+        r2d = 180/3.14
+        page.image = page.image.rotate(-r2d * page.rot, Image.BILINEAR)
+        self.FindLandmarks(pagenum)
         tree = self.build_layout(page)
         if len(tree) == 0:
             raise BallotException('No layout was built')
@@ -241,6 +250,9 @@ class Ballot(object):
         methods included by this module do not.
         """
         page = self._page(page)
+        self._CapturePageInfo(page)
+        
+    def _CapturePageInfo(self, page):
         if page.blank:
             return []
         if page.template is None:
@@ -366,6 +378,7 @@ class DuplexBallot(Ballot):
         if len(images)%2:
             raise TypeError("Requires an even number of ballot images")
         self.pages = []
+        number = 0
         for fnames in zip(images[::2], images[1::2]):
             try:
                 f = self.flip_front(Image.open(fnames[0]).convert("RGB"))
@@ -387,9 +400,10 @@ class DuplexBallot(Ballot):
                     dpi=const.dpi,
                     filename=fnames[1],
                     image=b,
-                    number="%db" % number,
+                    number="%db" % (number + 1,),
                 )
             ))
+            number += 2
 
         self.extensions = extensions
         self.results = []
@@ -405,7 +419,9 @@ class DuplexBallot(Ballot):
                 raise TypeError("page must either be length 2 or an int")
             return page
         try:
-            return self.pages[page]
+            if page%2:
+                raise BallotException("Invalid page number")
+            return (self.pages[page], self.pages[page+1])
         except IndexError:
             raise BallotException("Invalid page number")
 
@@ -413,7 +429,7 @@ class DuplexBallot(Ballot):
         """Only returns layout code for first page in pair-next page is that
         layout code + "back" """
         front, _ = self._page(page)
-        return super(DuplexBallot, self).GetLayoutCode(front)
+        return self._GetLayoutCode(front)
 
     def FindLandmarks(self, page=0):
         "returns ((rf, rx, ry), (rb, rx, ry))"
@@ -438,7 +454,7 @@ class DuplexBallot(Ballot):
         front, back = self._page(page)
         lc = self.GetLayoutCode(page)
         ft = self.extensions.template_cache[lc]
-        bt = self.extensions.template_cache[lc + "back"]
+        bt = self.extensions.template_cache["%sback" % (lc,)]
         if ft is not None:
             front.template = ft
         else:
@@ -448,15 +464,14 @@ class DuplexBallot(Ballot):
             back.template = bt
         else:
             tree = self.build_back_layout(back)
-            bt = self._BuildLayout1(back, lc + "back", tree)
+            bt = self._BuildLayout1(back, "%sback" % (lc,), tree)
         return ft, bt
 
     #CapturePageInfo can just call super, but must make sure template is built first
     def CapturePageInfo(self, page=0):
         "returns list of results of both pages processed"
         front, back = self._page(page)
-        up = lambda p: super(DuplexBallot, self).CapturePageInfo(p)
-        return up(front) + up(back)
+        return self._CapturePageInfo(front) + self._CapturePageInfo(back)
 
     def flip_front(self, im):
         "if unimplemented, returns im unmodified"
