@@ -443,7 +443,7 @@ class DuplexBallot(Ballot):
     def _BuildLayout1(self, page, lc, tree):
         if len(tree) == 0:
             raise BallotException('No front layout was built')
-        tree = self.OCRDescriptions(front, tree)
+        tree = self.OCRDescriptions(page, tree)
         tmpl = page.as_template(lc, tree)
         self.extensions.template_cache[lc] = tmpl
         page.template = tmpl
@@ -925,9 +925,7 @@ class _scannedPage(object):
         self.image = image
 
 def _fixup(im, rot, xoff, yoff):
-    im = im.rotate(180*rot/math.pi)
-    xe, ye = im.size
-    return im.crop((xoff, yoff, xe, ye))
+    return im.rotate(180*rot/math.pi)
 
 class Page(_scannedPage):
     """A ballot page represented by an image and a Template. It is created by
