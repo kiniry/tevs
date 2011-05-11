@@ -249,6 +249,9 @@ class Ballot(object):
         methods included by this module do not.
         """
         page = self._page(page)
+        self._CapturePageInfo(page)
+        
+    def _CapturePageInfo(self, page):
         if page.blank:
             return []
         if page.template is None:
@@ -450,7 +453,7 @@ class DuplexBallot(Ballot):
         front, back = self._page(page)
         lc = self.GetLayoutCode(page)
         ft = self.extensions.template_cache[lc]
-        bt = self.extensions.template_cache["%s%s" % (lc, "back")]
+        bt = self.extensions.template_cache["%sback" % (lc,)]
         if ft is not None:
             front.template = ft
         else:
@@ -460,15 +463,14 @@ class DuplexBallot(Ballot):
             back.template = bt
         else:
             tree = self.build_back_layout(back)
-            bt = self._BuildLayout1(back, "%s%s" % (lc, "back"), tree)
+            bt = self._BuildLayout1(back, "%sback" % (lc,), tree)
         return ft, bt
 
     #CapturePageInfo can just call super, but must make sure template is built first
     def CapturePageInfo(self, page=0):
         "returns list of results of both pages processed"
         front, back = self._page(page)
-        up = lambda p: super(DuplexBallot, self).CapturePageInfo(p)
-        return up(front) + up(back)
+        return self._CapturePageInfo(front) + self._CapturePageInfo(back)
 
     def flip_front(self, im):
         "if unimplemented, returns im unmodified"
