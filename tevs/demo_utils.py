@@ -32,7 +32,7 @@ def ask(prompt, verifier=str, default=None):
     inp = raw_input("%s%s%s: " % (prompt, valid_range, def_str))
 
     if inp == "":
-        if default is not None:
+        if default is None:
             print "No input, try again: ",
             return ask(prompt, verifier, default)
         return default_value
