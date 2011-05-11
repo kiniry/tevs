@@ -778,7 +778,7 @@ def results_to_mosaic(results):
             draw.line((X, Y, X + vopx, Y + vopy), fill="red")
             draw.line((X, Y + vopy, X + vopx, Y), fill="red")
         y += _yins + vopy
-        label = "%d:%04dx%04d%s%s%s" % (
+        label = "%s:%04dx%04d%s%s%s" % (
             vop.number,
             vop.coords[0],
             vop.coords[1],
