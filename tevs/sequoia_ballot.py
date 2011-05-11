@@ -22,7 +22,7 @@ v_offset_to_dash_center = 0.03
 v_delta_dash_to_dash = 0.17
 column1_offset = 2.95
 column2_offset = 5.95
-right_block_offset = 6.0
+right_block_offset = 6.1
 
 # the function below overrides any IsWriteIn extension
 def IsWriteIn(im,stats,choice):
@@ -100,7 +100,7 @@ def get_offsets_and_tangent_from_blocks(im,dpi,dash_sep_in_pixels):
     scanx = adj(0.2)
     for n in range(scanx):
         pix = leftcrop.getpixel(((scanx - n),
-                                 leftdashcentery+ vertical_dist_top_dashes))
+                                 leftdashcentery))
         if pix[0]>128:
             leftstartx = scanx - n
             break
@@ -108,7 +108,7 @@ def get_offsets_and_tangent_from_blocks(im,dpi,dash_sep_in_pixels):
     rightstartx = 0
     for n in range(scanx):
         pix = rightcrop.getpixel(((scanx - n),
-                                 rightdashcentery+ vertical_dist_top_dashes))
+                                 rightdashcentery))
         if pix[0]>128:
             rightstartx = scanx - n
             break
@@ -136,7 +136,7 @@ def get_code_from_blocks(im,dpi,leftstartx,leftstarty,rightstartx,rightstarty):
     leftstarty = iround(leftstarty)
     rightstarty = iround(rightstarty)
     leftcrop = im.crop(
-        (leftstartx,
+        (max(0,leftstartx),
          leftstarty,
          leftstartx+adj(block_zone_width_to_crop),
          leftstarty+adj(block_zone_height)
@@ -172,7 +172,6 @@ def get_code_from_blocks(im,dpi,leftstartx,leftstarty,rightstartx,rightstarty):
         accum = accum * 2
         testspot = ((adj(0.3),
                     adj(.045) + adj(n * v_delta_dash_to_dash)))
-
         pix = rightcrop.getpixel(testspot)
         if pix[0]<128:
             accum = accum + 1
@@ -212,7 +211,7 @@ def build_template(im,dpi,code,xoff,yoff,tilt,front=True):
         else:
             starty = int(yoff - 1)
         adjx,adjy = x,starty # XXX assuming ballot derotated by here
-        # turn search on only when 0.6" of thick black line encountered
+        # turn search on only when 0.06" of thick black line encountered
         contig = 0
         for y in range(adjy,im.size[1]):
             all_black_line = True
@@ -237,7 +236,6 @@ def build_template(im,dpi,code,xoff,yoff,tilt,front=True):
         searchx1 = x + adj(0.15)
         # search at .55 inches in for second half of arrow
         searchx2 = x + adj(0.55)
-
         skip = 0
         contest_x = 0
         contest_y = 0
@@ -402,7 +400,7 @@ class SequoiaBallot(Ballot.Ballot):
         self.oval_margin = adj(.03) #XXX length should be in config or metadata
         self.min_contest_height = adj(const.minimum_contest_height_inches)
 
-        self.hotspot_x_offset_pixels = adj(const.hotspot_x_offset_inches)
+        self.hotspot_x_offset_inches = adj(const.hotspot_x_offset_inches)
         self.vote_target_horiz_offset = adj(const.vote_target_horiz_offset_inches)
         self.writein_xoff = adj(-2.9) #XXX
         self.writein_yoff = adj(-0.2)
@@ -432,8 +430,6 @@ class SequoiaBallot(Ballot.Ballot):
             page.image,
             const.dpi,
             dash_sep_in_pixels)
-        if -1 in (a, b, c, d):
-            raise Ballot.BallotException("Could not find landmarks")
 
         # flunk ballots with more than 
         # allowed_corner_black_inches of black in corner
@@ -475,6 +471,7 @@ class SequoiaBallot(Ballot.Ballot):
             raise Ballot.BallotException(
                 "Tilt %f of %s exceeds %f" % (rot, page.filename, const.allowed_tangent)
             )
+        self.log.debug("find landmarks returning %f,%d,%d" %(rot,xoff,yoff))
         return rot, xoff, yoff 
 
     def get_layout_code(self, page):
@@ -483,7 +480,6 @@ class SequoiaBallot(Ballot.Ballot):
         """
         iround = lambda x: int(round(x))
         adj = lambda f: int(round(const.dpi * f))
-
         barcode = get_code_from_blocks(page.image,
                                        const.dpi,
                                        page.xoff,
@@ -528,9 +524,9 @@ class SequoiaBallot(Ballot.Ballot):
 
         # NO horizontal margins in crop - grabbing region between marks!
         croplist = (
-            cropx + self.hotspot_x_offset_pixels ,
+            cropx + self.hotspot_x_offset_inches ,
             cropy - margin,
-            cropx + self.hotspot_x_offset_pixels + ow, 
+            cropx + self.hotspot_x_offset_inches + ow, 
             cropy + margin + oh
         )
         crop = page.image.crop(croplist)
@@ -565,6 +561,7 @@ class SequoiaBallot(Ballot.Ballot):
         """ get layout and ocr information by calling build_template
 
         """
+        adj = lambda f: int(round(const.dpi * f))
         regionlist = build_template(page.image,
                                     const.dpi,
                                     page.barcode,
