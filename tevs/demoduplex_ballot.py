@@ -232,12 +232,12 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
         return cropx, cropy, stats, crop, voted, writein, ambiguous
 
     def build_front_layout(self, page):
-        self.build_layout(page)
+        print "Entering build front layout."
+        return self.build_layout(page)
 
     def build_back_layout(self, page):
         print "Entering build back layout."
-        pdb.set_trace()
-        self.build_layout(page)
+        return self.build_layout(page)
 
     def build_layout(self, page):
         """ get layout and ocr information from Demo ballot
