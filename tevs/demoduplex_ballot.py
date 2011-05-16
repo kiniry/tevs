@@ -232,12 +232,12 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
         return cropx, cropy, stats, crop, voted, writein, ambiguous
 
     def build_front_layout(self, page):
-        self.build_layout(page)
+        print "Entering build front layout."
+        return self.build_layout(page)
 
     def build_back_layout(self, page):
         print "Entering build back layout."
-        pdb.set_trace()
-        self.build_layout(page)
+        return self.build_layout(page)
 
     def build_layout(self, page):
         """ get layout and ocr information from Demo ballot
@@ -265,8 +265,8 @@ and the same for each choice in the contest.
         for cnum, column in enumerate(columns):
             print "Contests for Column", cnum, "at x offset", column
             while True:
-                contest = ask("Enter a contest name or close to move on to the next step")
-                if contest.strip().lower() == "close":
+                contest = ask("""Enter a contest name.  When done entering contests, \ntype 'x' and the <enter> key to continue.""")
+                if contest.strip().lower() == "x":
                     break
                 choices = ask("Enter a comma separated list of choices",
                     CSV())
