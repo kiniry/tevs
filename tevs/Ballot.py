@@ -428,8 +428,22 @@ class DuplexBallot(Ballot):
     def GetLayoutCode(self, page=0):
         """Only returns layout code for first page in pair-next page is that
         layout code + "back" """
-        front, _ = self._page(page)
-        return self._GetLayoutCode(front)
+        front, back = self._page(page)
+        try:
+            return self._GetLayoutCode(front)
+        except BallotException: #no layout code found, try swapping front&back
+            code = self._GetLayoutCode(back)
+            #we didn't raise so back and front are most likely swapped
+            #in order to permute in place we need page to be an int, if not we 
+            #recreate it
+            if type(page) != int:
+                for i, p in enumerate(self.pages):
+                    if p[0] == front:
+                        page = i
+                        break
+            #permute
+            self.pages[page] = (back, front)
+            return code
 
     def FindLandmarks(self, page=0):
         "returns ((rf, rx, ry), (rb, rx, ry))"
