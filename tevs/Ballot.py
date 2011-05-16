@@ -367,6 +367,25 @@ class DuplexBallot(Ballot):
     to the page number, the index refers to the pair-that is the first and 
     second image is index 0, the third and fourth image is index 1, and so on.
 
+    In a similiar vein to flip, DuplexBallot offers is_front: is_front returns
+    True if an image is a front image and False if it a back image. In
+    __init__, if is_front returns False, it swaps the pair of images so that
+    the front comes first (if neither in a pair returns True, we raise a
+    BallotException). This is one of three mechanisms for swapping images. The
+    other two are automatic and as follows. If get_layout_code raises, 
+    GetLayoutCode will swap the images and try again. If find_front_landmarks 
+    raises, FindLandmarks will swap the images and try again. None or all of
+    these may be leveraged to your needs. Use cases: If there's a known
+    nonunique barcode for backs, your get_layout_code could raise an exception
+    and GetLayoutCode will see if it's recoverable. If there are different
+    landmarks on the front and back (or there is some simple way to distinguish
+    between the two such as different colors), your find_front_landmarks could
+    raise an exception. If they are in completely different locations, it will
+    happen automatically. is_front makes the most sense when there is a
+    location on fronts and not backs (or vice versa) that is easily checked or
+    if neither landmarks nor layoutcodes betray a testable difference. All
+    three of these may be used in accord, or none may be used.
+
     DuplexBallot must be given an iterable of image names that must be of even
     length.
 
@@ -390,6 +409,11 @@ class DuplexBallot(Ballot):
             except IOError:
                 raise BallotException("Could not open one of %s", fnames)
             if not self.is_front(f):
+                if not self.is_front(b):
+                    raise BallotException(
+                        "Got two back images in a row. "
+                        + "Images need to be front/back, front/back, ..."
+                    )
                 f, b = b, f
                 fnames = fnames[::-1]
             self.pages.append((
@@ -442,7 +466,10 @@ class DuplexBallot(Ballot):
 
     def GetLayoutCode(self, page=0):
         """Only returns layout code for first page in pair-next page is that
-        layout code + "back" """
+        layout code + "back".
+        If no layout code is found, before bubbling the error, GetLayoutCode
+        will swap the pages and retry in case the front and back images were
+        swapped."""
         front, back = self._page(page)
         try:
             return self._GetLayoutCode(front)
@@ -455,7 +482,9 @@ class DuplexBallot(Ballot):
             return code
 
     def FindLandmarks(self, page=0):
-        "returns ((rf, rx, ry), (rb, rx, ry))"
+        """returns ((rf, rx, ry), (rb, rx, ry))
+        If find_front_landmarks raises an error, FindLandmarks will swap the
+        images and try again in case the front and back images were swapped."""
         front, back = self._page(page)
         try:
             r, x, y = self.find_front_landmarks(front)
