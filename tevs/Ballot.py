@@ -389,6 +389,9 @@ class DuplexBallot(Ballot):
                 raise
             except IOError:
                 raise BallotException("Could not open one of %s", fnames)
+            if not self.is_front(f):
+                f, b = b, f
+                fnames = fnames[::-1]
             self.pages.append((
                 Page(
                     dpi=const.dpi,
@@ -433,6 +436,7 @@ class DuplexBallot(Ballot):
                     page = i
                     break
         #permute
+        front.number, back.number = back.number, front.number
         self.pages[page] = (back, front)
 
     def GetLayoutCode(self, page=0):
@@ -490,6 +494,11 @@ class DuplexBallot(Ballot):
         "returns list of results of both pages processed"
         front, back = self._page(page)
         return self._CapturePageInfo(front) + self._CapturePageInfo(back)
+
+    def is_front(self, im):
+        """If unimplemented, returns True. Note that this is called After
+        flip_front/flip_back"""
+        return True
 
     def flip_front(self, im):
         "if unimplemented, returns im unmodified"
