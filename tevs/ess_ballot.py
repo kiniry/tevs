@@ -44,7 +44,9 @@ Reliably show at least .05" continuous dark pixels at top and bottom center
 import Ballot
 import const
 from adjust import rotator
-
+import Image, ImageStat
+import sys
+import pdb
 from demo_utils import *
 
 class EssBallot(Ballot.DuplexBallot):
@@ -83,8 +85,96 @@ class EssBallot(Ballot.DuplexBallot):
     #    print "Flip not implemented for Demo."
     #    return im
 
+    
     def find_front_landmarks(self, page):
-        return self.find_landmarks(page)
+        """ess ballots have circled plus signs at the four corners
+
+        We'll look for them at the following locations allowing 1/4" slip.
+        + target at 134,100 (1/2" x 1/3")
+        + target at 2380,88 (8" x 1/3")
+        + target at 2398,4114 (8" x 13 2/3" (1/3" from bottom)
+        + target at 154,4116 (1/2" x 13 2/3" (1/3" from bottom)
+        """
+        iround = lambda a: int(round(a))
+        adj = lambda a: int(round(const.dpi * a))
+        width = adj(0.65)
+        height = adj(0.65)
+        # for testing, fall back to image argument if can't get from page
+        try:
+            im = page.image
+        except:
+            im = page
+        # generate ulc, urc, lrc, llc coordinate pairs
+        landmarks = []
+        for x,y in zip(
+            # x starting points
+            (adj(0.25),
+             im.size[0]-adj(0.25)-width-1,
+             im.size[0]-adj(0.25)-width-1,
+             adj(0.25)),
+            # y starting points
+            (adj(0.08),
+             adj(0.08),
+             im.size[1]-adj(0.4)-1,
+             im.size[1]-adj(0.4)-1
+             )
+            ):
+            landmark = self.find_landmark_in_region(
+                page.image,
+                [x,y,x+width,y+height]
+            )
+            landmarks.extend(landmark)
+        
+    def find_landmark_in_region(self, image, croplist):
+        """ given an image and a cropbox, find the circled plus """
+        iround = lambda x: int(round(x))
+        adj = lambda f: int(round(const.dpi * f))
+        dpi = const.dpi
+        full_span_inches = 0.18
+        line_span_inches = 0.01
+        circle_radius_inches = 0.03
+        full_span_pixels = adj(full_span_inches)
+        line_span_pixels = adj(line_span_inches)
+        circle_radius_pixels = adj(circle_radius_inches)
+        croplist[2] = max(croplist[2],image.size[0]-1)
+        croplist[3] = max(croplist[3],image.size[1]-1)
+        image = image.crop(croplist)
+        for y in range(0,image.size[1]-full_span_pixels):
+            for x in range(circle_radius_pixels, image.size[0]-circle_radius_pixels):
+                if (image.getpixel((x,y))[0] < 128 
+                    and image.getpixel((x-1,y))[0]>=128 
+                    and image.getpixel((x+(2*line_span_pixels),y))[0]>=128):
+                    if ((image.getpixel((x,y+full_span_pixels-2))[0]<128
+                        or image.getpixel((x+1,y+full_span_pixels-2))[0]<128
+                        or image.getpixel((x-1,y+full_span_pixels-2))[0]<128)
+                        and (image.getpixel((x+(2*line_span_pixels),
+                                             y+full_span_pixels - 2))[0]>=128)):
+                        try:
+                            hline = image.crop((x-circle_radius_pixels,
+                                                y+(full_span_pixels/2)-2,
+                                                x+circle_radius_pixels,
+                                                y+(full_span_pixels/2)+2))
+                            hlinestat = ImageStat.Stat(hline)
+                            if hlinestat.mean[0]>64 and hlinestat.mean[0]<192:
+                                # we need to see some extremely white pixels nearby
+                                white1 = image.crop((x+line_span_pixels+1,
+                                                    y+ (full_span_pixels/10),
+                                                    x + (2*line_span_pixels),
+                                                    y + (full_span_pixels/5)))
+                                whitestat1 = ImageStat.Stat(white1)
+                                white2 = image.crop((x-(2*line_span_pixels),
+                                                    y+ (full_span_pixels/10),
+                                                    x - 1,
+                                                    y + (full_span_pixels/5)))
+                                whitestat2 = ImageStat.Stat(white2)
+                                if whitestat1.mean[0]>224 and whitestat2.mean[0]>224:
+                                    return (x+croplist[0],
+                                            y+(full_span_pixels/2)+croplist[1])
+                        except:
+                            pass
+        # successful return will have taken place by here
+        raise BallotException, "could not locate plus sign landmark at %s" % (crop,)
+
 
     def find_landmarks(self, page):
         """ retrieve landmarks for a demo template, set tang, xref, yref
@@ -315,7 +405,7 @@ def find_plus_target(image,dpi=300,
                      circle_radius_inches=0.03):
     """return ulc of the center of first "+" target in the image, or -1,-1"""
     full_span_pixels = int(round(full_span_inches * dpi))
-    line_width_pixels = int(round(line_width_inches * dpi))
+    line_span_pixels = int(round(line_width_inches * dpi))
     circle_radius_pixels = int(round(circle_radius_inches * dpi))
     return_x = -1
     return_y = -1
@@ -332,11 +422,11 @@ def find_plus_target(image,dpi=300,
         for x in range(circle_radius_pixels, image.size[0]-circle_radius_pixels):
             if (image.getpixel((x,y))[0] < 128 
                 and image.getpixel((x-1,y))[0]>=128 
-                and image.getpixel((x+(2*line_width_pixels),y))[0]>=128):
+                and image.getpixel((x+(2*line_span_pixels),y))[0]>=128):
                 if ((image.getpixel((x,y+full_span_pixels-2))[0]<128
                     or image.getpixel((x+1,y+full_span_pixels-2))[0]<128
                     or image.getpixel((x-1,y+full_span_pixels-2))[0]<128)
-                    and (image.getpixel((x+(2*line_width_pixels),
+                    and (image.getpixel((x+(2*line_span_pixels),
                                          y+full_span_pixels - 2))[0]>=128)):
                     try:
                         hline = image.crop((x-circle_radius_pixels,
@@ -346,12 +436,12 @@ def find_plus_target(image,dpi=300,
                         hlinestat = ImageStat.Stat(hline)
                         if hlinestat.mean[0]>64 and hlinestat.mean[0]<192:
                             # we need to see some extremely white pixels nearby
-                            white1 = image.crop((x+line_width_pixels+1,
+                            white1 = image.crop((x+line_span_pixels+1,
                                                 y+ (full_span_pixels/10),
-                                                x + (2*line_width_pixels),
+                                                x + (2*line_span_pixels),
                                                 y + (full_span_pixels/5)))
                             whitestat1 = ImageStat.Stat(white1)
-                            white2 = image.crop((x-(2*line_width_pixels),
+                            white2 = image.crop((x-(2*line_span_pixels),
                                                 y+ (full_span_pixels/10),
                                                 x - 1,
                                                 y + (full_span_pixels/5)))
