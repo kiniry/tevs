@@ -31,6 +31,7 @@ class DemoduplexBallot(Ballot.DuplexBallot):
     """
 
     def __init__(self, images, extensions):
+        print "Creating a DuplexBallot with", images
         #convert all our constants to locally correct values
         # many of these conversions will go to Ballot.py,
         # extenders will need to handle any new const values here, however
@@ -50,28 +51,47 @@ class DemoduplexBallot(Ballot.DuplexBallot):
         self.allowed_corner_black = adj(const.allowed_corner_black_inches)
         super(DemoduplexBallot, self).__init__(images, extensions)
 
-    # Extenders do not need to supply even a stub flip
-    # because flip in Ballot.py will print a stub message in the absence
-    # of a subclass implementation
-    #def flip(self, im):
-    #    # not implemented for Demo
-    #    print "Flip not implemented for Demo."
-    #    return im
+    #NEVER override this: ONLY overridden so we can add a print trace
+    def _swap(self, page): 
+        print "\nSWAPPING IMAGES\n"
+        return super(DemoduplexBallot, self)._swap(page)
+
+    def flip_front(self, im):
+        print "In flip_front"
+        return im
+    
+    def flip_back(self, im):
+        print "In flip_back"
+        return im
+
+    def is_front(self, im):
+        print "In is_front"
+        return True
+
+    def find_back_landmarks(self, page):
+        print "In find_back_landmarks"
+        print_spiel()
+        print "Following the default, we simply call find_front_layout from here"
+        return self.real_find_front_landmarks(page) #to skip spiel
 
     def find_front_landmarks(self, page):
-        return self.find_landmarks(page)
+        print "In find_front_landmarks"
+        print """ retrieve landmarks for a demo template, set tang, xref, yref
 
-    def find_landmarks(self, page):
-        """ retrieve landmarks for a demo template, set tang, xref, yref
+ Landmarks for the demo ballot are normally at 1/2" down and
+1" in from the top left and top right corners.
 
-        Landmarks for the demo ballot are normally at 1/2" down and
-        1" in from the top left and top right corners.
-
-        The "image" you are using as a template may be offset or 
-        tilted, in which case that information will be recorded
-        so it may be taken into account when future images are
-        examined.
+The "image" you are using as a template may be offset or 
+tilted, in which case that information will be recorded
+so it may be taken into account when future images are
+examined.
         """
+        print "Note that if no front landmarks are found that DuplexBallot"
+        print "will swap the images and you'll be asked for this information"
+        print "again and if none are found than it will raise an error"
+        return self.real_find_front_landmarks(page) #only so we don't repeat^
+
+    def real_find_front_landmarks(self, page):
         a = ask("""Enter the x coordinate of an upper left landmark;
 if your template is not offset or tilted, you could use 150.  If there's no
 such landmark, enter -1:
@@ -137,35 +157,41 @@ such landmark, enter -1:
         return rot, xoff, yoff 
 
     def get_layout_code(self, page):
-        """ Determine the layout code by getting it from the user
+        print "In get_layout_code"
+        print """ Determine the layout code by getting it from the user
 
-        The layout code must be determined on a vendor specific basis;
-        it is usually a series of dashes or a bar code at a particular
-        location on the ballot.
+The layout code must be determined on a vendor specific basis;
+it is usually a series of dashes or a bar code at a particular
+location on the ballot.
 
-        Layout codes may appear on both sides of the ballot, or only
-        on the fronts.  If the codes appear only on the front, you can
-        file the back layout under a layout code generated from the
-        front's layout code.
-        """
+Layout codes may appear on both sides of the ballot, or only
+on the fronts.  If the codes appear only on the front, you can
+file the back layout under a layout code generated from the
+front's layout code.  """
+        print "In get_layout_code. Note that DuplexBallot only calls this for"
+        print "the first in a pair of images."
+        print "Note that if there's no barcode that DuplexBallot will attempt"
+        print "to swap the front and back pages and you will be asked again"
+        print "and if you still say there is no barcode, an error will be"
+        print "raised"
         barcode = ask("""Enter a number as the simulated barcode,
         or -1 if your ballot is missing a barcode""", IntIn(0, 100), -1)
         # If this is a back page, need different arguments
         # to timing marks call; so have failure on front test
         # trigger a back page test
         if barcode == -1:
-            barcode = "BACK" + self.pages[0].barcode
+            raise Ballot.BallotException("No barcode on front page of duplex ballot")
         page.barcode = barcode
         return barcode
 
     def extract_VOP(self, page, rotate, scale, choice):
-        """Extract a single oval, or writein box, from the specified ballot.
-        We'll tell you the coordinates, you tell us the stats.  The
-        information gathered should enable the IsVoted function to 
-        make a reasonable decision about whether the area was voted,
-        but the data is also available to anyone else wanting to see
-        the raw statistics to make their own decision.
-        """
+        print "In extract_VOP"
+        print"""Extract a single oval, or writein box, from the specified ballot.
+We'll tell you the coordinates, you tell us the stats.  The
+information gathered should enable the IsVoted function to 
+make a reasonable decision about whether the area was voted,
+but the data is also available to anyone else wanting to see
+the raw statistics to make their own decision.  """
         # choice coords should be the upper left hand corner 
         # of the bounding box of the printed vote target
         x, y = choice.coords()
@@ -225,37 +251,36 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
             print cropx - margin, cropy - margin,
             print cropx + self.writein_xoff + margin,
             print cropy + self.writein_yoff + margin
-            print "In this version, it's your responsibility to save"
-            print "the write-in images; in subsequent versions they"
-            print "will be saved by code in Ballot.py"
 
         return cropx, cropy, stats, crop, voted, writein, ambiguous
 
-    def build_front_layout(self, page):
-        print "Entering build front layout."
-        return self.build_layout(page)
-
     def build_back_layout(self, page):
         print "Entering build back layout."
-        return self.build_layout(page)
+        print_spiel()
+        print "Following the default, we simply call build_front_layout"
+        print "from here."
+        print "In build front layout"
+        return self.real_build_front_layout(page) #to skip spiel
 
-    def build_layout(self, page):
-        """ get layout and ocr information from Demo ballot
+    def build_front_layout(self, page):
+        print """Entering build_front_layout.
+get layout and ocr information from Demo ballot
 
-        Building the layout will be the largest task for registering
-        a new ballot brand which uses a different layout style.
+Building the layout will be the largest task for registering
+a new ballot brand which uses a different layout style.
 
-        Here, we'll ask the user to enter column x-offsets, 
-        then contests and their regions,
-        and choices belonging to the contest.
-        """
-        print """Entering build_layout.
+Here, we'll ask the user to enter column x-offsets, 
+then contests and their regions,
+and choices belonging to the contest.
 
 You will need to provide a comma separated list of column offsets,
 then you will need to provide, for each column, information about
 each contest in that column: its contest text, its starting y offset,
 and the same for each choice in the contest.
 """
+        return self.real_build_front_layout( page) #so we skip this spiel
+
+    def real_build_front_layout(self, page):
         regionlist = []
         n = 0
         columns = ask(
@@ -284,3 +309,8 @@ and the same for each choice in the contest.
                     regionlist[-1].append(Ballot.Choice(x_offset, y_offset, choice))
         return regionlist
 
+def print_spiel():
+    print "It will rarely need to be overridden. It's most likely"
+    print "that a pair of images will have similiar enough layouts."
+    print "And only differ in landmarks and the lack of a unique layout"
+    print "code for the backside of ballot images."

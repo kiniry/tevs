@@ -31,6 +31,7 @@ class DemoBallot(Ballot.Ballot):
     """
 
     def __init__(self, images, extensions):
+        print "Creating a Ballot object with", images
         #convert all our constants to locally correct values
         # many of these conversions will go to Ballot.py,
         # extenders will need to handle any new const values here, however
@@ -53,10 +54,10 @@ class DemoBallot(Ballot.Ballot):
     # Extenders do not need to supply even a stub flip
     # because flip in Ballot.py will print a stub message in the absence
     # of a subclass implementation
-    #def flip(self, im):
-    #    # not implemented for Demo
-    #    print "Flip not implemented for Demo."
-    #    return im
+    def flip(self, im):
+        # not implemented for Demo
+        print "In flip"
+        return im
 
     def find_landmarks(self, page):
         """ retrieve landmarks for a demo template, set tang, xref, yref
@@ -69,6 +70,7 @@ class DemoBallot(Ballot.Ballot):
         so it may be taken into account when future images are
         examined.
         """
+        print "In find_landmarks"
         a = ask("""Enter the x coordinate of an upper left landmark;
 if your template is not offset or tilted, you could use 150.  If there's no
 such landmark, enter -1:
@@ -145,13 +147,14 @@ such landmark, enter -1:
         file the back layout under a layout code generated from the
         front's layout code.
         """
+        print "In get_layout_code"
         barcode = ask("""Enter a number as the simulated barcode,
         or -1 if your ballot is missing a barcode""", IntIn(0, 100), -1)
         # If this is a back page, need different arguments
         # to timing marks call; so have failure on front test
         # trigger a back page test
         if barcode == -1:
-            barcode = "BACK" + self.pages[0].barcode
+            raise Ballot.BallotException("No barcode found")
         page.barcode = barcode
         return barcode
 
@@ -163,6 +166,7 @@ such landmark, enter -1:
         but the data is also available to anyone else wanting to see
         the raw statistics to make their own decision.
         """
+        print "In extract_VOP"
         # choice coords should be the upper left hand corner 
         # of the bounding box of the printed vote target
         x, y = choice.coords()
@@ -222,9 +226,6 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
             print cropx - margin, cropy - margin,
             print cropx + self.writein_xoff + margin,
             print cropy + self.writein_yoff + margin
-            print "In this version, it's your responsibility to save"
-            print "the write-in images; in subsequent versions they"
-            print "will be saved by code in Ballot.py"
 
         return cropx, cropy, stats, crop, voted, writein, ambiguous
 

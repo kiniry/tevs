@@ -470,16 +470,12 @@ class DuplexBallot(Ballot):
         If no layout code is found, before bubbling the error, GetLayoutCode
         will swap the pages and retry in case the front and back images were
         swapped."""
-        front, back = self._page(page)
+        front, _ = self._page(page)
         try:
             return self._GetLayoutCode(front)
         except BallotException: #no layout code found, try swapping front&back
-            code = self._GetLayoutCode(back)
-            #we didn't raise so back and front are most likely swapped
-            #in order to permute in place we need page to be an int, if not we 
-            #recreate it
-            self._swap(page)
-            return code
+            front, _ = self._swap(page)
+            return self._GetLayoutCode(front)
 
     def FindLandmarks(self, page=0):
         """returns ((rf, rx, ry), (rb, rx, ry))
@@ -499,7 +495,7 @@ class DuplexBallot(Ballot):
 
     def _BuildLayout1(self, page, lc, tree):
         if len(tree) == 0:
-            raise BallotException('No front layout was built')
+            raise BallotException('No layout was built')
         tree = self.OCRDescriptions(page, tree)
         tmpl = page.as_template(lc, tree)
         self.extensions.template_cache[lc] = tmpl
@@ -857,7 +853,7 @@ def results_to_mosaic(results):
         y = d*wys + yle
         moz.paste(wrin.image, (x, y))
         y += _yins + wriny
-        label = "%d_%04d_%04d" % (wrin.number, wrin.coords[0], wrin.coords[1])
+        label = "%s_%04d_%04d" % (wrin.number, wrin.coords[0], wrin.coords[1])
         text(x, y, label)
 
     return moz

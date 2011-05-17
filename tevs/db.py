@@ -45,11 +45,16 @@ class PostgresDB(object):
         #clarity
 
         #XXX we should not have to chop it off to an arbitary and small length
-        search_key = "$".join(p.template.barcode for p in ballot.pages)[:14]
-        name1 = ballot.pages[0].filename
-        name2 = "<No such file>"
-        if len(ballot.pages) > 1:
-            name2 = ballot.pages[1].filename
+        if type(ballot.pages[0]) != tuple:
+            search_key = "$".join(p.template.barcode for p in ballot.pages)[:14]
+            name1 = ballot.pages[0].filename
+            name2 = "<No such file>"
+            if len(ballot.pages) > 1:
+                name2 = ballot.pages[1].filename
+        else:
+            search_key = "$".join(p[0].template.barcode for p in ballot.pages)[:14]
+            b = ballot.pages[0]
+            name1, name2 = b[0].filename, b[1].filename
 
         cur = self.conn.cursor()
 
