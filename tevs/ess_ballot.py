@@ -259,7 +259,7 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
 
         #can be in separate func?
         
-                                  voted, ambiguous = self.extensions.IsVoted(crop, stats, choice)
+        voted, ambiguous = self.extensions.IsVoted(crop, stats, choice)
         writein = False
         if voted:
            writein = self.extensions.IsWriteIn(crop, stats, choice)
@@ -282,49 +282,173 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
         print "Entering build back layout."
         return self.build_layout(page)
 
+    def get_left_edge_zones(self, page, column_x):
+        """ return a set of pairs, (y_value, letter) for zone starts"""
+        adj = lambda f: int(round(const.dpi * f))
+        left = column_x + adj(0.03)
+        right = left + adj(0.03)
+        im = page.image
+        stripe = im.crop((left,0,right,im.size[1]-1))
+        lastletter = "W"
+        lastred = 255
+        lastdarkest = 255
+        for y in range(stripe.size[1]-(const.dpi/2)):
+            crop = stripe.crop((0,y,1,y+(const.dpi/4)))
+            stat = ImageStat.Stat(crop)
+            red = stat.mean[0]
+            darkest = stat.extrema[0][0]
+            if (red < 32) and (darkest < 32) and (lastred >= 32):
+                letters.append((y-(const.dpi/8),"B"))
+                lastletter = "B"
+            elif red >= 32 and red < 240 and darkest < 224:
+                letters.append((y-(const.dpi/8),"G"))
+                lastletter = "G"
+            elif red >=240:
+                letters.append((y-(const.dpi/8),"W"))
+                lastletter = "W"
+            lastred = red
+            lastdarkest = darkest
+        return letters
+
+    def get_middle_zones(self, page, column_x):
+        """ return a set of pairs, (y_value, letter) for zone starts"""
+        adj = lambda f: int(round(const.dpi * f))
+        left = column_x
+        right = left + adj(0.5)
+        im = page.image
+        stripe = im.crop((left,0,right,im.size[1]-1))
+        lastletter = "W"
+        lastred = 255
+        lastdarkest = 255
+        for y in range(stripe.size[1]-(const.dpi/2)):
+            crop = stripe.crop((0,y,1,y+(const.dpi/4)))
+            stat = ImageStat.Stat(crop)
+            red = stat.mean[0]
+            darkest = stat.extrema[0][0]
+            if (darkest < 128) and lastletter -= "W":
+                letters.append((y-(const.dpi/8),"B"))
+                lastletter = "B"
+            elif (darkest >= 128) and lastletter == "B":
+                letters.append((y-(const.dpi/20),"W"))
+                lastletter = "W"
+        return letters
+
+    def generate_transition_list_from_zones(self,left,middle):
+        """ given the pair of zone lists, generate a comprehensive list"""
+        print left
+        print middle
+        pass
+
     def build_layout(self, page):
-        """ get layout and ocr information from Demo ballot
+        """ get layout and ocr information from ess ballot
+    The column markers represent the vote oval x offsets.
+    The columns actually begin .14" before.
+    We search the strip between the column edge and the vote ovals,
+    looking for intensity changes that represent region breaks
+    such as Jurisdiction and Contest changes.
 
-        Building the layout will be the largest task for registering
-        a new ballot brand which uses a different layout style.
+    Unfortunately, there may be a full-ballot-width column at the top,
+    containing instructions.  Random text in the instructions will trigger
+    various false region breaks.
 
-        Here, we'll ask the user to enter column x-offsets, 
-        then contests and their regions,
-        and choices belonging to the contest.
+    More unfortunately, there is an inconsistency in the way jurisdictions
+    and contests are handled.  (It looks good to humans.)
+
+    Contests may begin with a black text on grey header (generally 
+    following Jurisdictions as white text on black.  Contests with only
+    Yes and No choices begin with black text on white background, and
+    may precede either a white text on black zone OR another contest.
+
+    The contest titles are hard to differentiate from contest descriptions,
+    which can be lengthy.
+
+    Finally, contest descriptions can continue BELOW the voting area
+    of the contest.
+
+    We make one necessary assumption, and that is that the vote area in
+    such YES/NO contests will have text extending no more than halfway
+    into the column, while any text will extend, except for its last line,
+    more than halfway into the column.
+
+    We'll take a vertical stripe beginning at the column center and
+    of width 1/2", and look for the presence of black or gray pixels 
+    in zones 1/4" tall, enough to span one and a half text lines.
+    This should allow us to capture continuous vertical stretches of text
+    without repeatedly finding "text", "no text".
+
+    We'll take another vertical stripe at the very start of the column,
+    from .03" for .03".  This is the extreme margin, and should allow us
+    to capture zones with black headlines and grey backgrounds.  Halftoned
+    areas are tricky -- they may contain no pixels more than half dark.
+
+    We'll test for pixels of 224 or below, and an average intensity over
+    a block of 240 or below.
+
+    We should then be able to merge these sets of split information:
+    anything where we find solid black or halftone is a definite break
+    which may be followed either by another black or halftone area, by
+    a description area, or by a vote area.
+
+    Black, gray, and white zones are located by reading the thin margin strip.
+    They must be stored in such a way that there preceding zone color is
+    also available.  If the preceding zone color is gray, the white zone
+    is a Vote zone.  If the preceding color zone is black, the white zone
+    will contain Descriptions and YesNoVote zones.
+    White zones can be analyzed by the thick center strip, combined
+    with the last reading.  Where the white zone follows gray 
+    center strip has text, the white zone is a Description, where the
+    center strip has no text, the white zone is a YesNoVote zone.
+
+    The five types of zones (Black, Desc, Vote1, YesNoVote, Gray) will have the
+    following possible sequences.
+
+    B -> G,D,V (capture black as Jurisdiction AND Contest)
+
+    G -> D,V (capture G as Contest)
+
+    D -> V,Y,B (capture D as Contest)
+           
+    V -> B,D (capture V as sequence of votes for current Contest)
+    
+    Y -> B,D (capture Y as sequence of votes for current Contest)
+
+    When we find a vote area, it will be followed by a black or gray 
+    divider or by a new description area.
+
+    Description areas may likewise be followed by vote areas or black or gray.
+
+    in unbroken regions, any areas with their right halves empty 
+    will be presumed to represent either blank areas or voting locations.
+
         """
-        print """Entering build_layout.
+        adj = lambda f: int(round(const.dpi * f))
+        oval_offset_into_column = adj(0.14)
+        print "Entering build_layout."
 
-You will need to provide a comma separated list of column offsets,
-then you will need to provide, for each column, information about
-each contest in that column: its contest text, its starting y offset,
-and the same for each choice in the contest.
-"""
         regionlist = []
         n = 0
-        columns = ask(
-            """Enter the column offsets of the vote columns, separated by commas""",
-            CSV(int)
-        )
+        # column_markers returns a location 0.14" into the column
+        columns = column_markers(page.image,page.landmarks[0],const.dpi)
+        try:
+            column_width = columns[1] - columns[0]
+        except IndexError:
+            column_width = im.size[0] - const.dpi
         for cnum, column in enumerate(columns):
-            print "Contests for Column", cnum, "at x offset", column
-            while True:
-                contest = ask("""Enter a contest name.  When done entering contests, \ntype 'x' and the <enter> key to continue.""")
-                if contest.strip().lower() == "x":
-                    break
-                choices = ask("Enter a comma separated list of choices",
-                    CSV())
-                # values are the x1,y1,x2,y2 of the bounding box of the contest
-                # bounding box, 0 for regular contest or 1 for proposition,
-                # and the text of the contest; we'll just dummy them here
+            column_x = column - oval_offset_into_column
+            # determine the zones at two offsets into the column
+            left_edge_zones = self.get_left_edge_zones(page,column_x)
+            middle_zones = self.get_middle_zones(page,column_x+(column_width/2))
+            tlist = self.generate_transition_list_from_zones(
+                left_edge_zones,
+                middle_zones
+                )
+            regionlist = self.build_contests_and_choices(page,tlist)
+            """
+            print "Contests for Column", cnum, "at x offset", column_x
                 regionlist.append(Ballot.Contest(column, 1, 199, 5*const.dpi, 0, contest))
                 for choice in choices:
-                    x_offset = ask("Enter the x offset of the upper left hand corner \nof the printed vote target for " + choice, int)
-                    y_offset = ask("Enter the y offset of the upper left hand corner \nof the printed vote target for " + choice, int)
-                    # values are the x,y of the upper left corner
-                    # of the printed vote opportunity, 
-                    # and the text of the choice
-                    #TODO add x2,y2
                     regionlist[-1].append(Ballot.Choice(x_offset, y_offset, choice))
+            """
         return regionlist
 
 def adjust_ulc(image,left_x,top_y,max_adjust=5):
@@ -360,7 +484,7 @@ def adjust_ulc(image,left_x,top_y,max_adjust=5):
         elif above_right_target_intensity <= 127:
             top_y -= 2
             changed = True
-                                  if not changed:
+        if not changed:
             break
     if max_adjust == 0 and changed == True:
         e = "could not fine adj edge at (%d, %d) after %d moves" % (left_x,
@@ -434,13 +558,30 @@ def block_type(image,pixcount,x,y):
 
 
 def column_markers(image,tm_marker,dpi,min_runlength_inches=.2,zonelength_inches=.25):
-    """given timing marks, find column x offsets"""
+    """given first timing mark, find column x offsets by inspecting boxes
+
+    The uppermost timing mark is vertically aligned with a box containing
+    column headers.  This column header box is approximately 1/6" tall.
+    
+    We go halfway down into the column header box, looking for .24" 
+    black rectangles which are spaced .14 inches from vertical lines 
+    left and right; these represent the x offsets of vote opportunities.  
+
+    The actual test is for runs of pixels of red intensity < 128.  
+    The run must have only one miss for min_runlength_inches
+    in a horizontal strip one pixel high.
+
+    If the timing mark is in the left ballot half, we search rightwards;
+    else, we search leftwards.
+    """
+    adj = lambda f: int(round(const.dpi * f))
     columns = []
     top_y = tm_marker[1]
     first_x = tm_marker[0]
-    twelfth = int(round(dpi/12.))
-    min_runlength = int(round(dpi * min_runlength_inches))
-    true_pixel_width_of_votezone = int(round(dpi*zonelength_inches))
+
+    twelfth = adj(0.083)
+    min_runlength = adj(min_runlength_inches)
+    true_pixel_width_of_votezone = adj(zonelength_inches)
     # go in 1" from edge, 
     # follow top line across, adjusting y as necessary, 
     black_run_misses = 0
@@ -497,14 +638,17 @@ def get_marker_offset(tm_markers,height):
     return xoffset
 
 def column_dividers(image, top_x, tm_markers,dpi=300,stop=True):
-    """take narrow strip at start of column and return intensity changes"""
+    """take narrow strip at start of column and return intensity changes
+
+    """
+    adj = lambda f: int(round(const.dpi * f))
     print "Column dividers for column w/ top_x = ",top_x
     changelist = []
-    line_to_oval = int(round(dpi * .14))
+    line_to_oval = adj(.14)
     pixels_to_backup_to_zone_start = ((line_to_oval * 2) / 3)
     pixels_to_backup_to_zone_end = ((line_to_oval * 1) / 3)
-    fiftieth = int (round(dpi * .02))
-    twelfth = int (round(dpi * .08))
+    fiftieth = adj(0.02)
+    twelfth = adj(0.083)
     # for each column, generate a list of crops
     # at x,y+twelfth,x+.02",y+twelfth+.02" every marker, adjusting x based
     # on any change in x in the tm_markers
