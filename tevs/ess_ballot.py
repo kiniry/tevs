@@ -399,59 +399,6 @@ and the same for each choice in the contest.
                     regionlist[-1].append(Ballot.Choice(x_offset, y_offset, choice))
         return regionlist
 
-def find_plus_target(image,dpi=300,
-                     full_span_inches=0.18,
-                     line_width_inches=0.01,
-                     circle_radius_inches=0.03):
-    """return ulc of the center of first "+" target in the image, or -1,-1"""
-    full_span_pixels = int(round(full_span_inches * dpi))
-    line_span_pixels = int(round(line_width_inches * dpi))
-    circle_radius_pixels = int(round(circle_radius_inches * dpi))
-    return_x = -1
-    return_y = -1
-    min_hrun = 50
-    y_darknesses = []
-    x_darknesses = []
-    # for candidates, look for a white black white transition
-    # when found, check for line below at half span width +/- 2 pixels
-    # if found, look for a white black white transition at
-    # at full span width less 2 pixels
-    # If pass, all situation is likely; optionally check further;
-    # possibly for white black white seq of one or more quadrants
-    for y in range(0,image.size[1]-full_span_pixels):
-        for x in range(circle_radius_pixels, image.size[0]-circle_radius_pixels):
-            if (image.getpixel((x,y))[0] < 128 
-                and image.getpixel((x-1,y))[0]>=128 
-                and image.getpixel((x+(2*line_span_pixels),y))[0]>=128):
-                if ((image.getpixel((x,y+full_span_pixels-2))[0]<128
-                    or image.getpixel((x+1,y+full_span_pixels-2))[0]<128
-                    or image.getpixel((x-1,y+full_span_pixels-2))[0]<128)
-                    and (image.getpixel((x+(2*line_span_pixels),
-                                         y+full_span_pixels - 2))[0]>=128)):
-                    try:
-                        hline = image.crop((x-circle_radius_pixels,
-                                            y+(full_span_pixels/2)-2,
-                                            x+circle_radius_pixels,
-                                            y+(full_span_pixels/2)+2))
-                        hlinestat = ImageStat.Stat(hline)
-                        if hlinestat.mean[0]>64 and hlinestat.mean[0]<192:
-                            # we need to see some extremely white pixels nearby
-                            white1 = image.crop((x+line_span_pixels+1,
-                                                y+ (full_span_pixels/10),
-                                                x + (2*line_span_pixels),
-                                                y + (full_span_pixels/5)))
-                            whitestat1 = ImageStat.Stat(white1)
-                            white2 = image.crop((x-(2*line_span_pixels),
-                                                y+ (full_span_pixels/10),
-                                                x - 1,
-                                                y + (full_span_pixels/5)))
-                            whitestat2 = ImageStat.Stat(white2)
-                            if whitestat1.mean[0]>224 and whitestat2.mean[0]>224:
-                                return (x,y+(full_span_pixels/2))
-                    except:
-                        pass
-    return (-1,-1)
-                    
 def timing_marks(image,x,y,backup,dpi):
     """locate timing marks and code, starting from ulc + symbol"""
     # go out from + towards left edge by 1/8", whichever is closer
