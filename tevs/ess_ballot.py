@@ -176,80 +176,6 @@ class EssBallot(Ballot.DuplexBallot):
         raise BallotException, "could not locate plus sign landmark at %s" % (crop,)
 
 
-    def find_landmarks(self, page):
-        """ retrieve landmarks for a demo template, set tang, xref, yref
-
-        Landmarks for the demo ballot are normally at 1/2" down and
-        1" in from the top left and top right corners.
-
-        The "image" you are using as a template may be offset or 
-        tilted, in which case that information will be recorded
-        so it may be taken into account when future images are
-        examined.
-        """
-        a = ask("""Enter the x coordinate of an upper left landmark;
-if your template is not offset or tilted, you could use 150.  If there's no
-such landmark, enter -1:
-""", int, -1)
-        b = ask("""Now enter the corresponding y coordinate;
-if your template is not offset or tilted, you could use 75.  If there's no
-such landmark, enter -1:
-""", int, -1)
-        c = ask("""Enter the x coordinate of an upper RIGHT landmark;
-if your template is not offset or tilted, you could use 2050.  If there's no
-such landmark, enter -1:
-""", int, -1)
-        d = ask("""Enter the corresponding y coordinate;
-if your template is not offset or tilted, you could use 75.  If there's no
-such landmark, enter -1:
-""", int, -1)
-        if -1 in (a, b, c, d):
-            raise Ballot.BallotException("Could not find landmarks")
-
-        # flunk ballots with more than 
-        # allowed_corner_black_inches of black in corner
-        # to avoid dealing with severely skewed ballots
-
-        errmsg = "Dark %s corner on %s"
-        testlen = self.allowed_corner_black
-        xs, ys = page.image.size
-
-        #boxes to test
-        ul = (0,             0,           
-              testlen,       testlen)
- 
-        ur = (xs - testlen,  0,           
-              xs - 1,        testlen)
-
-        lr = (xs - testlen,  ys - testlen,
-              xs - 1,        ys - 1)
- 
-        ll = (0,             ys - testlen,
-              testlen,       ys - 1)
-
-        for area, corner in ((ul, "upper left"),
-                             (ur, "upper right"),
-                             (lr, "lower right"),
-                             (ll, "lower left")):
-            avg_darkness = ask(
-                "What's the intensity at the " + corner,
-                IntIn(0, 255)
-            )
-            if int(avg_darkness) < 16:
-                raise Ballot.BallotException(errmsg % (corner, page.filename))
-
-        xoff = a
-        yoff = b
-
-        shortdiff = d - b
-        longdiff = c - a
-        rot = -shortdiff/float(longdiff)
-        if abs(rot) > const.allowed_tangent:
-            raise Ballot.BallotException(
-                "Tilt %f of %s exceeds %f" % (rot, page.filename, const.allowed_tangent)
-            )
-
-        return rot, xoff, yoff 
 
     def get_layout_code(self, page):
         """ Determine the layout code by getting it from the user
@@ -263,14 +189,16 @@ such landmark, enter -1:
         file the back layout under a layout code generated from the
         front's layout code.
         """
-        barcode = ask("""Enter a number as the simulated barcode,
-        or -1 if your ballot is missing a barcode""", IntIn(0, 100), -1)
-        # If this is a back page, need different arguments
-        # to timing marks call; so have failure on front test
-        # trigger a back page test
-        if barcode == -1:
-            barcode = "BACK" + self.pages[0].barcode
-        page.barcode = barcode
+        # if front, starting point is 1/4" before plus horizontal offset,
+        # and .36" below plus vertical offset
+        adj = lambda a: int(round(const.dpi * a))
+        front_adj_x = adj(-0.25)
+        front_adj_y = adj(0.36)
+        barcode,tm = timing_marks(page.image,
+                                  page.landmarks[0][0] + front_adj_x,
+                                  page.landmarks[0][1] + front_adj_y,
+                                  const.dpi)
+                                  
         return barcode
 
     def extract_VOP(self, page, rotate, scale, choice):
@@ -331,7 +259,7 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
 
         #can be in separate func?
         
-        voted, ambiguous = self.extensions.IsVoted(crop, stats, choice)
+                                  voted, ambiguous = self.extensions.IsVoted(crop, stats, choice)
         writein = False
         if voted:
            writein = self.extensions.IsWriteIn(crop, stats, choice)
@@ -399,71 +327,76 @@ and the same for each choice in the contest.
                     regionlist[-1].append(Ballot.Choice(x_offset, y_offset, choice))
         return regionlist
 
-def timing_marks(image,x,y,backup,dpi):
-    """locate timing marks and code, starting from ulc + symbol"""
+def adjust_ulc(image,left_x,top_y,max_adjust=5):
+    """ brute force adjustment to locate precise b/w boundary corner"""
+    target_intensity = 255
+    gray50pct = 128
+    gray25pct = 64
+    orig_adj = max_adjust
+    while max_adjust > 0 and target_intensity > gray50pct:
+        max_adjust -= 1
+        left_target_intensity = image.getpixel((left_x-2,top_y))[0]
+        target_intensity = image.getpixel((left_x,top_y))[0]
+        right_target_intensity = image.getpixel((left_x+2,top_y))[0]
+        above_target_intensity = image.getpixel((left_x,top_y-2))[0]
+        above_right_target_intensity = image.getpixel((left_x+2,top_y-2))[0]
+        above_left_target_intensity = image.getpixel((left_x-2,top_y-2))[0]
+        below_target_intensity = image.getpixel((left_x,top_y+2))[0]
+        below_left_target_intensity = image.getpixel((left_x-2,top_y+2))[0]
+        below_right_target_intensity = image.getpixel((left_x+2,top_y+2))[0]
+        #print above_left_target_intensity,above_target_intensity,above_right_target_intensity
+        #print left_target_intensity,target_intensity,right_target_intensity
+        #print below_left_target_intensity,below_target_intensity,below_right_target_intensity
+        changed = False
+        if below_target_intensity > gray25pct and target_intensity > gray25pct:
+            left_x += 2
+            changed = True
+        elif below_left_target_intensity <= gray50pct:
+            left_x -= 2
+            changed = True
+        if right_target_intensity > gray25pct and target_intensity > gray25pct:
+            top_y += 2
+            changed = True
+        elif above_right_target_intensity <= 127:
+            top_y -= 2
+            changed = True
+                                  if not changed:
+            break
+    if max_adjust == 0 and changed == True:
+        e = "could not fine adj edge at (%d, %d) after %d moves" % (left_x,
+                                                                    top_y,
+                                                                    orig_adjust)
+        raise Ballot.BallotException, e
+    return (left_x,top_y)
+
+def timing_marks(image,x,y,dpi=300):
+    """locate timing marks and code, starting from closest to ulc symbol"""
     # go out from + towards left edge by 1/8", whichever is closer
     # down from + target to first dark, then left to first white
     # and right to last white, allowing a pixel of "tilt"
-    retlist = []
-    half = int(round(dpi/2.))
-    third = int(round(dpi/3.))
-    down = int(round(dpi/3.))
-    sixth = int(round(dpi/6.))
-    twelfth = int(round(dpi/12.))
-    search_x = x - backup
-    initial_y = y + down + twelfth
-    
-    # search up and down to see extent of black, 
-    # do horizontal search from vertical center
-    blacks_above = 0
-    blacks_below = 0
-    for search_inc in range(sixth):
-        if image.getpixel((search_x,initial_y + search_inc))[0]<128:
-            blacks_below += 1
-        if image.getpixel((search_x,initial_y - search_inc))[0]<128:
-            blacks_above += 1
-    final_y = initial_y + ((blacks_below-blacks_above)/2)
-    top_y = initial_y - blacks_above
 
-    blacks_behind = 0
-    misses = 0
-    for search_inc in range(dpi):
-        if search_x > search_inc:
-            if image.getpixel((search_x-search_inc,final_y))[0]<128:
-                blacks_behind += 1
-                misses = 0
-            else:
-                misses += 1
-            if misses > 1:
-                break
-    blacks_ahead = 0
-    misses = 0
-    for search_inc in range(dpi):
-        if search_x > search_inc:
-            if image.getpixel((search_x+search_inc,final_y))[0]<128:
-                blacks_ahead += 1
-                misses = 0
-            else:
-                misses += 1
-            if misses > 1:
-                break
-    #print "At y =",final_y,"width is",blacks_behind+blacks_ahead
-    left_x = search_x - blacks_behind
-    #print "ULC = (",search_x - blacks_behind,top_y,")"
-    retlist.append( (search_x - blacks_behind, top_y) )
+    adj = lambda f: int(round(const.dpi * f))
+
+    retlist = []
+    half = adj(0.5)
+    third = adj(0.33)
+    qtr = adj(0.25)
+    down = adj(0.33)
+    sixth = adj(0.167)
+    twelfth = adj(0.083)
+    gray50pct = 128
+
+    left_x = x
+    top_y = y
+    retlist.append( (left_x,top_y) )
     # now go down 1/2" and find next ulc, checking for drift
     top_y += half
     code_string = ""
     zero_block_count = 0
     while True:
         (left_x,top_y) = adjust_ulc(image,left_x,top_y)
-        if left_x == -1: break
         # check for large or small block to side of timing mark
-        if backup > 0:
-            # dealing with a left side, proper orientation; get block 
-            block = block_type(image,dpi/4,left_x+half,top_y+twelfth)
-        else:
-            block=0
+        block = block_type(image,qtr,left_x+half,top_y+twelfth)
         if block==0: 
             zero_block_count += 1
         elif block==1:
@@ -484,16 +417,9 @@ def timing_marks(image,x,y,backup,dpi):
     retlist.append((left_x,top_y))
     
     return (code_string, retlist)
-    # get length of first block; 3/4" signals left, 1/4" signals right
-    
-    # repeat search 1/2" below, then at 1/3" intervals
-    # when a 1/3" interval fails, try a 1/2" interval to get the last
 
-    # at v-center of each timing mark, search out horizontally for length
-    # for existence and length of additional block
-
-def block_type(image,pixtocheck,x,y):
-    """check line for quarter inch and return pct below 128 intensity"""
+def block_type(image,pixcount,x,y):
+    """check pixcount pix starting at x,y; return code from avg intensity"""
     intensity = 0
     for testx in range(x,x+pixtocheck):
         intensity += image.getpixel((testx,y))[0]
