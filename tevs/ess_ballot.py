@@ -45,9 +45,141 @@ import Ballot
 import const
 from adjust import rotator
 import Image, ImageStat
+import ocr
 import sys
 import pdb
 from demo_utils import *
+
+def elim_halftone(x):
+    if x>64:
+        retval = 255
+    else:
+        retval = 0
+    return retval
+
+def get_contests_and_votes_from(image,regionlist,croplist):
+    """ given an area known to contain votes and desc text, return info
+
+    The cropped area will contain contest descriptions and voting areas.
+    Unfortunately, the contest descriptions are not indented away from
+    the oval voting areas.  So...  we crop looking for white line splits,
+    and then treat every line as either part of a contest or as a vote
+    line, depending on whether we find a pattern of white indicating
+    the line contains only an oval and a single word, YES or NO.
+    """
+    adj = lambda f: int(round(const.dpi * f))
+    oval_offset_into_column = adj(0.14)
+    oval_end_offset_into_column = adj(0.39)
+
+    votetext_offset_into_column = oval_offset_into_column
+    votetext_offset_into_column += oval_end_offset_into_column 
+    votetext_offset_into_column += adj(0.02)
+
+    half_intensity = 128
+    contests = []
+    contest_string = ""
+    crop = image.crop(croplist)
+    # indent by 1/10" to avoid edges, then crop single pixel lines,
+    # finding beginning and end of zones which include dark pixels
+    in_dark = False
+    dark_zones = []
+    dark_start = 0
+    dark_end = 0
+    for y in range(crop.size[1]-1):
+        linecrop = crop.crop((const.dpi/10,
+                              y,
+                              crop.size[0] - (const.dpi/10),
+                              y+1))
+        linestat = ImageStat.Stat(linecrop)
+        if (linestat.extrema[0][0] < half_intensity) and not in_dark:
+            in_dark = True
+            dark_start = y
+        elif (linestat.extrema[0][0] >= half_intensity) and in_dark:
+            in_dark = False
+            dark_end = y
+            dark_zones.append([dark_start,dark_end])
+    # now check each dark zone to see if it is a vote op 
+    # or if it is descriptive text; vote ops will have an oval
+    # in the oval channel beginning at 0.14 and extending for .24,
+    # then text beginning at .38
+    contest_created = False
+    for dz in dark_zones:
+        zonecrop1 = crop.crop((const.dpi/10,
+                                dz[0],
+                                crop.size[0]-(const.dpi/10), 
+                                dz[1]))
+        zonecrop1.save("/tmp/zonecrop1.jpg")
+        zonecrop2 = crop.crop((oval_end_offset_into_column,
+                                dz[0],
+                                votetext_offset_into_column, 
+                                dz[1]))
+        zonecrop2.save("/tmp/zonecrop2.jpg")
+        zone2stat = ImageStat.Stat(zonecrop2)
+        zonecrop3 = crop.crop((votetext_offset_into_column,
+                                dz[0],
+                                votetext_offset_into_column + const.dpi,
+                                dz[1]))
+        zonecrop3.save("/tmp/zonecrop3.jpg")
+        zone1text = ocr.tesseract(zonecrop1)
+        #print "1", zone1text
+        #print "2",zone2stat.mean
+        zone3text = ocr.tesseract(zonecrop3)
+        #print "3", zone3text
+        intensity_suggests_voteop = False
+        length_suggests_voteop = False
+        if zone2stat.mean[0]>244: intensity_suggests_voteop = True
+        if len(zone3text)<6: length_suggests_voteop = True
+        if not intensity_suggests_voteop and not length_suggests_voteop:
+            # add line to contest
+            contest_created = False
+            contest_string += zone1text.replace("\n","//")
+        elif intensity_suggests_voteop and length_suggests_voteop:
+            # create contest if none created, then
+            if not contest_created:
+                contest_created = True
+                print "Creating contest",contest_string
+                regionlist.append(Ballot.Contest(croplist[0],
+                                                 croplist[1]+dz[0],
+                                                 croplist[2],
+                                                 croplist[1]+dz[1],
+                                                 0,
+                                                 contest_string))
+                contest_string = ""
+            # add voteop to contest
+            choice_string = zone3text
+            print "Adding choice",choice_string
+            regionlist[-1].append(
+                Ballot.Choice(
+                    croplist[0]+oval_offset_into_column,
+                    croplist[1]+ dz[0],
+                    choice_string
+                    )
+                )
+
+        else:
+            if contest_created:
+                contest_string += zone1text.replace("\n","//")
+            else:
+                print "Problem determining whether contest or choice"
+                print zone2stat.mean
+                print zone3text
+                print contest_string
+    #pdb.set_trace()
+    return dark_zones
+
+def get_only_votes_from(image,croplist):
+    """ given an area known to contain only votes, return info
+
+    The cropped area will contain only voting areas.  Voting areas will
+    contain ovals in the oval column.  Descriptive text to the right of
+    the ovals will be assigned to each oval based on being at or below
+    the oval.
+
+    """
+    choices = []
+    crop = image.crop(croplist)
+    return choices
+
 
 class EssBallot(Ballot.DuplexBallot):
     """Class representing ESS duplex ballots.
@@ -75,6 +207,8 @@ class EssBallot(Ballot.DuplexBallot):
         self.writein_xoff = adj(-2.5) #XXX
         self.writein_yoff = adj(-.1)
         self.allowed_corner_black = adj(const.allowed_corner_black_inches)
+        self.back_upper_right_plus_x = 0
+        self.back_upper_right_plus_y = 0
         super(EssBallot, self).__init__(images, extensions)
 
     # Extenders do not need to supply even a stub flip
@@ -84,8 +218,10 @@ class EssBallot(Ballot.DuplexBallot):
     #    # not implemented for Demo
     #    print "Flip not implemented for Demo."
     #    return im
+    def find_back_landmarks(self, page):
+        """just dup find_front_landmarks"""
+        return self.find_front_landmarks(page)
 
-    
     def find_front_landmarks(self, page):
         """ess ballots have circled plus signs at the four corners
 
@@ -129,6 +265,9 @@ class EssBallot(Ballot.DuplexBallot):
         shortdiff = landmarks[3][0] - landmarks[0][0]
         r = float(shortdiff)/float(longdiff)
         print landmarks
+        # we depend on back landmarks being processed after front
+        self.back_upper_right_plus_x = landmarks[1][0]
+        self.back_upper_right_plus_y = landmarks[1][1]
         print r,x,y
         return r,x,y
 
@@ -288,7 +427,7 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
 
     def build_back_layout(self, page):
         print "Entering build back layout."
-        return self.build_layout(page)
+        return self.build_layout(page,back=True)
 
     def get_left_edge_zones(self, page, column_x):
         """ return a set of pairs, (y_value, letter) for zone starts"""
@@ -325,7 +464,6 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
             lastred = red
             lastdarkest = darkest
         print letters
-        pdb.set_trace()
         return letters
 
     def get_middle_zones(self, page, column_x):
@@ -352,18 +490,106 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
                 lastletter = "W"
         return letters
 
-    def generate_transition_list_from_zones(self,left,middle):
+    def generate_transition_list_from_zones(self,image,regionlist,column_bounds,left,middle):
         """ given the pair of zone lists, generate a comprehensive list"""
         print left
         print middle
-        pass
-    def build_contests(self,tlist):
-        """ given the comprehensive list of transitions, generate contests"""
-        print left
-        print middle
-        pass
+        """
+        We should then be able to merge these sets of split information:
+        anything where we find solid black or halftone is a definite break
+        which may be followed either by another black or halftone area, by
+        a description area, or by a vote area.
+        """
+        ccontest = "No current contest"
+        cjurisdiction = "No current jurisdiction"
+        next_white_is_votearea = False
+        this_white_is_votearea = False
+        next_white_is_yesno = False
+        this_white_is_yesno = False
+        for n in range(len(left)):
+            this_white_is_votearea = False
+            if next_white_is_votearea == True:
+                this_white_is_votearea = True
+                next_white_is_votearea = False
+            this_white_is_yesno = False
+            if next_white_is_yesno == True:
+                this_white_is_yesno = True
+                next_white_is_yesno = False
+            this_y = left[n][0]
+            rel_start = left[n][0] - (const.dpi/10)
+            try:
+                next_zone = left[n+1]
+            except IndexError:
+                next_zone = [0,'X']
+            next_y = next_zone[0]
+            rel_end = next_y - (const.dpi/10)
+            if left[n][1]=='B':
+                print "Black zone at %d to %d %s" % (this_y,next_y,next_zone)
+                # if it's a legitimate black zone and the next zone is white,
+                # that white zone is a Yes/No Vote Area (or empty)
+                if (next_y - this_y) > (const.dpi/4):
+                    next_white_is_yesno = True
+                    # this zone becomes the current Jurisdiction
+                    crop = image.crop((column_bounds[0],
+                                       this_y,
+                                       column_bounds[1],
+                                       next_y))
+                    cjurisdiction = ocr.tesseract(crop)
+                    print "Jurisdiction",cjurisdiction
+                    cjurisdiction = ocr.clean_ocr_text(cjurisdiction)
+                    print "Cleaned Jurisdiction",cjurisdiction
+                    # and the current contest is set 
+                    # from the descriptive text
+                    # at the start of the Yes No Vote area
+            if left[n][1]=='G':
+                print "Gray zone at %d to %d %s" % (this_y,next_y,next_zone)
+                # if it's a legitimage gray zone and the next zone is white,
+                # that white zone is a voting area (or empty)
+                if (next_y - this_y) > (const.dpi/2):
+                    next_white_is_votearea = True
+                    crop = image.crop((column_bounds[0],
+                                       this_y,
+                                       column_bounds[1],
+                                       next_y))
+                    crop = Image.eval(crop,elim_halftone)
+                    ccontest = ocr.tesseract(crop)
+                    print "Contest",ccontest.replace("\n","//")
+                    ccontest = ocr.clean_ocr_text(ccontest)
+                    print "Cleaned Contest",ccontest
+                    regionlist.append(
+                        Ballot.Contest(column_bounds[0],
+                                       this_y,
+                                       column_bounds[1],
+                                       this_y+next_y,
+                                       0,
+                                       ccontest)
+                        )
+                    
 
-    def build_layout(self, page):
+            if left[n][1]=='W':
+                if this_white_is_votearea:
+                    # no descriptive text anticipated
+                    print "Search Vote area"
+                    get_only_votes_from(image,
+                                        (column_bounds[0],
+                                         this_y,
+                                         column_bounds[1],
+                                         next_y))
+                if this_white_is_yesno:
+                    # descriptive text sets current contest,
+                    # votes are in stretches where the middle is white
+                    print "Search YesNo Vote area"
+                    get_contests_and_votes_from(image,
+                                                regionlist,
+                                                (column_bounds[0],
+                                                 this_y,
+                                                 column_bounds[1],
+                                                 next_y))
+                print "White zone at %d to %d %s" % (this_y,next_y,next_zone)
+            #relevant = filter(lambda x: x[0]>=rel_start and x[0]<=rel_end,middle)
+        return regionlist
+
+    def build_layout(self, page, back=False):
         """ get layout and ocr information from ess ballot
     The column markers represent the vote oval x offsets.
     The columns actually begin .14" before.
@@ -452,26 +678,34 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
         regionlist = []
         n = 0
         # column_markers returns a location 0.14" into the column
-        landmark = [0,0]
-        landmark[0] = page.xoff + adj(-0.25)
-        landmark[1] = page.yoff + adj(0.36)
-
-        print landmark
-        columns = column_markers(page.image,landmark,const.dpi)
+        ref_pt = [0,0]
+        ref_pt[0] = page.xoff + adj(-0.25)
+        ref_pt[1] = page.yoff + adj(0.36)
+        if back:
+            ref_pt[0] = self.back_upper_right_plus_x
+            ref_pt[1] = self.back_upper_right_plus_y + adj(0.36)
+            print "BACK"
+        print ref_pt
+        columns = column_markers(page.image,ref_pt)
         try:
             column_width = columns[1][0] - columns[0][0]
         except IndexError:
             column_width = im.size[0] - const.dpi
+        regionlist = []
         for cnum, column in enumerate(columns):
             column_x = column[0] - oval_offset_into_column
             # determine the zones at two offsets into the column
             left_edge_zones = self.get_left_edge_zones(page,column_x)
             middle_zones = self.get_middle_zones(page,column_x+(column_width/2))
-            tlist = self.generate_transition_list_from_zones(
+            print cnum, column
+            self.generate_transition_list_from_zones(
+                page.image,
+                regionlist,
+                (column_x,
+                column_x+column_width),
                 left_edge_zones,
                 middle_zones
                 )
-            regionlist = self.build_contests(page,tlist)
             """
             print "Contests for Column", cnum, "at x offset", column_x
                 regionlist.append(Ballot.Contest(column, 1, 199, 5*const.dpi, 0, contest))
@@ -592,7 +826,7 @@ def block_type(image,pixtocheck,x,y):
     return retval
 
 
-def column_markers(image,tm_marker,dpi,min_runlength_inches=.2,zonelength_inches=.25):
+def column_markers(image,ref_pt,min_runlength_inches=.2,zonelength_inches=.25):
     """given first timing mark, find column x offsets by inspecting boxes
 
     The uppermost timing mark is vertically aligned with a box containing
@@ -611,8 +845,8 @@ def column_markers(image,tm_marker,dpi,min_runlength_inches=.2,zonelength_inches
     """
     adj = lambda f: int(round(const.dpi * f))
     columns = []
-    top_y = tm_marker[1]
-    first_x = tm_marker[0]
+    top_y = ref_pt[1]
+    first_x = ref_pt[0]
 
     twelfth = adj(0.083)
     min_runlength = adj(min_runlength_inches)
@@ -623,15 +857,25 @@ def column_markers(image,tm_marker,dpi,min_runlength_inches=.2,zonelength_inches
     black_runlength = 0
     if first_x > (image.size[0]/2):
         run_backwards = True
-        startx = first_x - dpi
-        endx = dpi/2
+        startx = first_x - const.dpi
+        endx = const.dpi/4
         incrementx = -1
     else:
         run_backwards = False
-        startx = first_x+dpi
-        endx = image.size[0]-dpi
+        startx = first_x + const.dpi
+        endx = image.size[0] - const.dpi
         incrementx = 1
-        
+
+    # start by scanning downwards until you pick up the line
+    counter = 0
+    while True:
+        pix = image.getpixel((startx,top_y))
+        if pix[0]<64: break
+        top_y += 1
+        counter += 1
+        if counter > (const.dpi/10):
+            raise Ballot.BallotException, "couldn't find line atop columns"
+
     for x in range(startx,endx,incrementx):
         # if we lose the line,
         if image.getpixel((x,top_y))[0]>64:
@@ -671,373 +915,4 @@ def get_marker_offset(tm_markers,height):
             xoffset = tm_marker[0] - tm_markers[0][0]
             break
     return xoffset
-
-def column_dividers(image, top_x, tm_markers,dpi=300,stop=True):
-    """take narrow strip at start of column and return intensity changes
-
-    """
-    adj = lambda f: int(round(const.dpi * f))
-    print "Column dividers for column w/ top_x = ",top_x
-    changelist = []
-    line_to_oval = adj(.14)
-    pixels_to_backup_to_zone_start = ((line_to_oval * 2) / 3)
-    pixels_to_backup_to_zone_end = ((line_to_oval * 1) / 3)
-    fiftieth = adj(0.02)
-    twelfth = adj(0.083)
-    # for each column, generate a list of crops
-    # at x,y+twelfth,x+.02",y+twelfth+.02" every marker, adjusting x based
-    # on any change in x in the tm_markers
-    first_xdist = top_x - tm_markers[0][0]
-    lastintensity = 255
-    lastshade = "W"
-    # don't capture changes until you enter your first black zone
-    skip = True
-    for marker in tm_markers:
-        marker_adj = marker[0] - tm_markers[0][0]
-        #print marker, marker_adj
-        y = marker[1]
-        croplist = (top_x+marker_adj-pixels_to_backup_to_zone_start,
-                    y+twelfth,
-                    top_x+marker_adj-pixels_to_backup_to_zone_end,
-                    y+twelfth+fiftieth)
-        #print "Crop",croplist,
-        crop = image.crop(croplist)
-        s = ImageStat.Stat(crop)
-        intensity = int(round(s.mean[0]))
-        # capture changes once you enter a black zone
-        if intensity < 64: skip = False
-        #print intensity, s.mean[0], s.mean[1], s.mean[2]
-        if (intensity > 64 and intensity < 224): shade = "G"
-        elif (intensity >= 224): shade = "W"
-        else: shade = "B"
-        if (shade <> lastshade):
-            if not skip:
-                # the actual transition starts approx 1/12" above 
-                # the start of each timing mark
-                changelist.append((y-twelfth,shade))
-        lastintensity = intensity
-        lastshade = shade
-
-    # list is now constructed, but some entries need to be split
-    #some white regions will include blocks of text
-    #in addition to the vote ops.
-    #Try to find a white vertical strip starting at the bottom
-    #and after the column marker's x offset; if this strip
-    #goes all the way up, it's all vote ops, otherwise you've
-    #got some sort of text at the top (or, worse, the middle)
-    #print "Changelist:",changelist
-    split1list = []
-    for n in range(len(changelist)):
-        split1list.append(changelist[n])
-        if changelist[n][1] <> "W":
-            #print top_x,changelist[n]
-            continue
-        else:
-            # this has been modified to deal with T/W/T/W/T/W
-            # why is Jurisdiction CHAMPAIGN COUNTY on 00000002.jpg 
-            # not picking up its one contest?  find out next.
-            if n == (len(changelist)-1):
-                bottom_y = image.size[1] - onethird
-            else:
-                top_y = changelist[n][0]
-                bottom_y = changelist[n+1][0]
-            zone_height = dpi/16#!!! changed from dpi/16
-            # adjust top_x based on tilt and how far down we are
-            #print top_x+(0.3*dpi), top_x+(0.4*dpi)
-            #pdb.set_trace()
-            marker_offset = get_marker_offset(tm_markers,(changelist[n][0]+bottom_y)/2)
-            print "Marker offset",marker_offset
-            #pdb.set_trace()
-            zones = white_stripes_height_zones(image,
-                                               dpi,
-                                               zone_height,
-                                               marker_offset + top_x + (0.3*dpi),
-                                               changelist[n][0]-twelfth,
-                                               bottom_y-twelfth)
-            cumulative = 0
-            print top_x, changelist[n],zones
-            #pdb.set_trace()
-            """
-            When zones contains a sequence of more than 2 contig of one shade
-            followed by more than 2 contig of the other, it must be split at the
-            transition, with the dark zone treated as "T/ext" and the light
-            zone treated as "W/hite"; ignore any switch in the last two
-            zones, because a late switch is just the end of the White region
-            """
-            lastz = "X"
-            contig = 0
-            cumulative = 0
-            split = False
-            split2list = []
-            # ignore the bottom four slices (at 1/16", the bottom 1/4")
-            for z in zones[:-4]:
-                if (z == 'D' and lastz == 'W') or (z == 'W' and lastz == 'D'):
-                    if contig > 4:
-                        #print
-                        #print "split_here at",lastz,"to",z
-                        split2list.append((changelist[n][0]+(cumulative*zone_height),z))
-                        split = True
-                        contig = 0
-                elif z == lastz:
-                    contig = contig + 1
-                lastz = z
-                cumulative += 1                           
-                #print z,
-            #print
-            # if split, we alter the last entry in split1list to flavor "D"
-            # and append everything in split2list
-            # if not split, we leave the last entry in split1list alone
-            if split:
-                lasty = split1list[-1][0]
-                #print "Removing",split1list[-1]
-                split1list = split1list[:-1]
-                split1list.append((lasty,'D'))
-                #print "Appending",split1list[-1]
-                for item in split2list:
-                    #print "Appending",item
-                    split1list.append(item)
-    # Whites should be further split into zones
-    # corresponding to single vote opportunities
-    # by splitting at horizontal white gaps and confirming
-    # existence of filled or empty oval at left and text at right
-    outlist = []
-    for n in range(len(split1list)):
-        outlist.append(split1list[n])
-        if split1list[n][1] <> "W":
-            continue
-        try:
-            white_ys = []
-            last_white_y = 0
-            last_dark_y = 0
-
-            for y in range(split1list[n][0],split1list[n+1][0]):
-                all_white = True
-                for x in range(top_x - int(0.1 * dpi), top_x + dpi):
-                    if image.getpixel((x,y))[0]<128:
-                        all_white = False
-                if all_white:
-                    if last_white_y <> (y - 1):
-                        white_ys.append([y,y])
-                    last_white_y = y
-                else:
-                    if last_dark_y <> (y - 1) and (last_dark_y <> 0):
-                        white_ys[-1][1]=y-1
-                    last_dark_y = y
-                pass
-
-            #if top_x > 500 and split1list[n][0] >3200: 
-            #    print split1list[n][0], split1list[n+1][0]
-            #    print white_ys
-            #    pdb.set_trace()
-
-            first = True
-            for white in white_ys:
-                if (((white[1] - white[0]) > twelfth)
-                    and (white[1] < (split1list[n+1][0]-(dpi/10)))):
-                    outlist.append((white[1]-3,"W"))
-            #print "Outlist",outlist
-        except IndexError:
-            pass
-                           
-
-    # return list of sharp intensity changes, starting with black
-    #print outlist
-
-    return outlist
-
-def white_stripes_height_zones(im,dpi,height,x1,y1,y2):
-    # from the lowest y to the highest, for 1/10" from x1
-    # search for zones of 1/8" with and without dark pixels;
-    # return list of dark/white...
-    # of first such encounter
-    retval = ""
-    black_count = 0
-    contig_lines_no_black = 0
-    for y in range(y2-3,y1,-height):
-        crop = im.crop((x1,y-height,x1+(dpi/10),y)) 
-        stat = ImageStat.Stat(crop)
-        if stat.extrema[0][0] < 192:
-            retval = "D%s" % (retval,)
-        else:
-            # check an inch beyond to confirm zone is truly white
-            crop2 = im.crop((x1,y-height,x1+dpi,y)) 
-            stat2 = ImageStat.Stat(crop)
-            if stat2.extrema[0][0]>=192:
-                retval = "W%s" % (retval,)
-    return retval
-class BallotRegion(object):
-    JURISDICTION = 1
-    CONTEST = 2
-    PROP = 3
-    TEXT = 4
-    CHOICE = 5
-
-    def __init__(self,flavor,x1,y1,x2,y2,vop_x=0,vop_y=0,text=""):
-        self.flavor = flavor
-        self.x1 = x1
-        self.y1 = y1
-        self.x2 = x2
-        self.y2 = y2
-        self.vop_x = vop_x
-        self.vop_y = vop_y
-        self.bbox = (self.x1,self.y1,self.x2,self.y2)
-        self.text = text
-        self.purpose = "?"
-        # set purpose based on flavor
-        if self.flavor=='B':
-            self.purpose = BallotRegion.JURISDICTION
-        elif self.flavor=='G':
-            self.purpose = BallotRegion.CONTEST
-        # "D" split out from a white region as a dark area
-        elif self.flavor=='D':
-            self.purpose = BallotRegion.CONTEST
-        elif self.flavor=='T':
-            self.purpose = BallotRegion.TEXT
-        elif self.flavor=='W':
-            self.purpose = BallotRegion.CHOICE
-        
-    def croplist(self):
-        return (self.x1,self.y1,self.x2,self.y2)
-
-
-def build_regions(im,top_columns,tm_list,dpi,stop=True,verbose=False):
-    regionlist = []
-    onethird = int(round(dpi/3.))
-    twelfth = int(round(dpi/12.))
-    guard_twentieth = int(round(dpi/20.))
-    guard_tenth = int(round(dpi/10.))
-    guard_fifth = int(round(dpi/5.))
-    cropnum = 0
-    for top_xy in top_columns:
-        dividers = column_dividers(im,top_xy[0],tm_list,dpi,stop)
-        #print top_xy,dividers
-        for n in range(len(dividers)):
-            flavor = dividers[n][1]
-            if verbose and top_xy[0] > 500 and dividers[n][0] >3200: 
-                print top_xy, dividers
-                print n,dividers[n]
-
-            # only flavor "W" will have vote ops
-            # flavors may be W/hite, B/lack, G/ray, or T/extonlywhite or D/ark
-            if flavor == "W":
-                indent = onethird
-            else:
-                indent = -(dpi/10)
-            # for the last entry in dividers, crop to bottom
-            # for earlier entries, crop to next divider
-            if n == (len(dividers)-1):
-                bottom = im.size[1]-(dpi/3)
-            else:
-                bottom = dividers[n+1][0]
-
-            # skip anything within a third of an inch of the bottom
-            if bottom > (im.size[1] - (dpi/3)): 
-                continue
-
-            # skip anything where bottom is <= top
-            if bottom <= (dividers[n][0]-twelfth): 
-                print "Dividers[n]",dividers[n]
-                print "Bottom",bottom
-                print "Bottom less than dividers[n][0] - twelfth"
-                pdb.set_trace()
-                continue
-
-            btregion = BallotRegion(flavor,
-                                    top_xy[0]+indent,
-                                    dividers[n][0]-twelfth, #backup to pick up top of first line if necessary
-                                    top_xy[0]+(column_width-indent)-onethird,
-                                    bottom-twelfth ) # backup to lose top of next segment
-            # if you are creating a ballot region containing a vote op
-            # find the vote op and set the region's vop_x and vop_y
-            if flavor == "W":
-                vop_x = top_xy[0]
-                btregion.vop_x = top_xy[0]
-                # having set the templates vop_x, 
-                # let's adjust OUR vop_x for tilt
-                marker_adjust = get_marker_offset(tm_list,dividers[n][0])
-                #print marker_adjust, vop_x,marker_adjust+vop_x
-                #if dividers[n][0]>2400:
-                #    pdb.set_trace()
-                for vop_y in range(dividers[n][0] - twelfth,dividers[n][0]+(dpi/3)):
-                    #if vop_y == 2471:
-                    #    pdb.set_trace()
-                    pix1 = im.getpixel((marker_adjust+vop_x+(dpi/8),vop_y))[0]
-                    pix2 = im.getpixel((marker_adjust+vop_x+(dpi/8),vop_y+(dpi/10)))[0]
-                    pix3 = im.getpixel((marker_adjust+vop_x+(dpi/8),vop_y-1+(dpi/10)))[0]
-                    pix4 = im.getpixel((marker_adjust+vop_x+(dpi/8),vop_y+1+(dpi/10)))[0]
-                    pix5 = im.getpixel((marker_adjust+vop_x+(dpi/8),vop_y-2+(dpi/10)))[0]
-                    pix6 = im.getpixel((marker_adjust+vop_x+(dpi/8),vop_y+2+(dpi/10)))[0]
-                    # above left should be light
-                    pix7 = im.getpixel((marker_adjust+vop_x,vop_y-1))[0]
-                    # below left should be light
-                    pix8 = im.getpixel((marker_adjust+vop_x,vop_y+(dpi/10)+2))[0]
-                    if pix1 < 192 and (pix2<192 or pix3<192 or pix4<192 or pix5<192 or pix6<192) and pix7 > 192 and pix8 > 192:
-                        # check to see if there's a clean line 1/10" above
-                        test_y = vop_y - guard_tenth
-                        clean = True
-                        for test_x in range(marker_adjust+vop_x - guard_twentieth,
-                                            marker_adjust+vop_x + guard_fifth):
-                            pix = im.getpixel((test_x,test_y))[0]
-                            if pix < 192:
-                                clean = False
-                                break
-                        if clean:
-                            btregion.vop_y = vop_y
-                            break
-                if btregion.vop_y == 0:
-                    #pdb.set_trace()
-                    print "No vote op found y to y",dividers[n][0],dividers[n][0]+dpi
-
-            crop = btregion.croplist()
-            if crop[3]<=crop[1] or crop[2]<=crop[0] or crop[3]>= im.size[1] or crop[2]>=im.size[0]:
-                print "Skipping bad crop",crop
-                continue
-            crop = im.crop(crop)
-            jpg_name = "/tmp/crops/crop%02d_%s.jpg" % (cropnum,flavor)
-            tif_name = "/tmp/crops/crop%02d_%s.tif" % (cropnum,flavor)
-            bare_name = "/tmp/crops/crop%02d_%s" % (cropnum,flavor)
-            crop.save(jpg_name)
-            arglist = ["/usr/bin/convert","-compress","None"]
-            if (flavor == "G"):
-                arglist.append("-threshold")
-                arglist.append("35%")
-            arglist.append(jpg_name)
-            arglist.append(tif_name)
-            p = subprocess.Popen(arglist,
-                                 stdout = subprocess.PIPE,
-                                 stderr = subprocess.PIPE
-                                 )
-            errstuff = p.stderr.read()
-            outstuff = p.stdout.read()
-            sts = os.waitpid(p.pid,0)[1]
-            if len(errstuff)>100:
-                print errstuff
-            p = subprocess.Popen(["/usr/local/bin/tesseract", 
-                                  tif_name, 
-                                  bare_name],
-                                 stdout = subprocess.PIPE,
-                                 stderr = subprocess.PIPE
-                                 )
-            errstuff = p.stderr.read()
-            outstuff = p.stdout.read()
-            sts = os.waitpid(p.pid,0)[1]
-            if len(errstuff)>100:
-                print errstuff
-            textfile = open(bare_name+".txt","r")
-            
-            btregion.text = textfile.read()
-            textfile.close()
-            os.remove(jpg_name)
-            os.remove(tif_name)
-            os.remove(bare_name+".txt")
-            regionlist.append(btregion)
-            #if stop and btregion.text.find("Champ")>-1:
-            #    for x in regionlist: print x.x1,x.y1,x.text
-            #    pdb.set_trace()
-            cropnum += 1
-    return regionlist
-    # to capture black text off gray, threshold at 96/255 (empirical)
-    # capture text within each intensity region that is gray or black
-    # divide text where intensity region is white into individual lines
-    # by splitting into 
 
