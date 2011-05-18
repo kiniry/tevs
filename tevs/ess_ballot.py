@@ -49,7 +49,6 @@ from cropstats import cropstats
 import Image, ImageStat
 import ocr
 import sys
-import pdb
 from demo_utils import *
 
 def elim_halftone(x):
@@ -107,27 +106,6 @@ class EssBallot(Ballot.DuplexBallot):
         #XXX end move into transformer (which should now just take a page obj)
 
         ow, oh = self.oval_size
-        #begin pilb cropstats
-        #stats = Ballot.IStats(page.image.cropstats(
-        #    const.dpi,
-        #    self.vote_target_horiz_offset, #XXX is this the only part that can't be pulled out of this specific ballot kind?!
-        #    x, y,
-        #    ow, oh,
-        #    1
-        #))
-
-        #can be in separate func?
-        #cropx = stats.adjusted.x
-        #cropy = stats.adjusted.y
-        #crop = page.image.crop((
-        #    cropx - margin,
-        #    cropy - margin,
-        #    cropx + margin + ow, 
-        #    cropy + margin + oh
-        #))
-        #end pilb cropstats
-
-
         # Below is using the pure python cropstats:
         cropx, cropy = x, y #not adjusted like in PILB cropstats
         crop = page.image.crop((
@@ -516,30 +494,24 @@ class EssBallot(Ballot.DuplexBallot):
                                     dz[0],
                                     crop.size[0]-(const.dpi/10), 
                                     dz[1]))
-            zonecrop1.save("/tmp/zonecrop1.jpg")
             zonecrop2 = crop.crop((oval_end_offset_into_column,
                                     dz[0],
                                     votetext_offset_into_column, 
                                     dz[1]))
-            zonecrop2.save("/tmp/zonecrop2.jpg")
             zone2stat = ImageStat.Stat(zonecrop2)
             zonecrop3 = crop.crop((votetext_offset_into_column,
                                     dz[0],
                                     votetext_offset_into_column + const.dpi,
                                     dz[1]))
-            zonecrop3.save("/tmp/zonecrop3.jpg")
             zone1text = ocr.tesseract(zonecrop1)
             zone1text = ocr.clean_ocr_text(zone1text)
-            #print zone1text
-            #print "2",zone2stat.mean
             zone3text = ocr.tesseract(zonecrop3)
-            #print "3", zone3text
+            zone3text = ocr.clean_ocr_text(zone3text)
             intensity_suggests_voteop = False
             length_suggests_voteop = False
             if zone2stat.mean[0]>244: intensity_suggests_voteop = True
             if len(zone3text)<6: length_suggests_voteop = True
             if not intensity_suggests_voteop and not length_suggests_voteop:
-                # add line to contest
                 contest_created = False
                 contest_string += zone1text.replace("\n","/")
             elif intensity_suggests_voteop and length_suggests_voteop:
@@ -573,7 +545,6 @@ class EssBallot(Ballot.DuplexBallot):
                     self.log.debug("Gap mean values %s" % (zone2stat.mean,))
                     self.log.debug("Zone3 text %s" % (zone3text,))
                     self.log.debug("Contest string: %s" % (contest_string,))
-        #pdb.set_trace()
         return dark_zones
 
     def get_only_votes_from(self,image,contest_instance,croplist):
@@ -621,7 +592,9 @@ class EssBallot(Ballot.DuplexBallot):
                                   crop.size[0]-(const.dpi/10),
                                   ndz[end]))
             zonetext = ocr.tesseract(zonecrop)
-            zonetext = ocr.clean_ocr_text(zonetext).replace("\n","//").strip()
+            zonetext = ocr.clean_ocr_text(zonetext)
+            zonetext = zonetext.strip()
+            zonetext = zonetext.replace("\n","//").strip()
             if blankzonestat.mean[0]>244: 
                 append_x = croplist[0] + adj(0.14)
                 append_y = croplist[1] + dz[0]
@@ -645,9 +618,9 @@ class EssBallot(Ballot.DuplexBallot):
                         contig = 0
                 if not found:
                     continue
-                print "Appending choice %d %d %s" % (append_x,
-                                                     append_y,
-                                                     zonetext)
+                self.log.debug("Appending choice %d %d %s" % (append_x,
+                                                              append_y,
+                                                              zonetext))
                 choice = Ballot.Choice(append_x, append_y, zonetext)
                 contest_instance.append(choice)
         return contest_instance
