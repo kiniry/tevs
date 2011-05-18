@@ -75,7 +75,7 @@ class EssBallot(Ballot.DuplexBallot):
         self.writein_xoff = adj(-2.5) #XXX
         self.writein_yoff = adj(-.1)
         self.allowed_corner_black = adj(const.allowed_corner_black_inches)
-        super(DemoduplexBallot, self).__init__(images, extensions)
+        super(EssBallot, self).__init__(images, extensions)
 
     # Extenders do not need to supply even a stub flip
     # because flip in Ballot.py will print a stub message in the absence
@@ -97,8 +97,8 @@ class EssBallot(Ballot.DuplexBallot):
         """
         iround = lambda a: int(round(a))
         adj = lambda a: int(round(const.dpi * a))
-        width = adj(0.65)
-        height = adj(0.65)
+        width = adj(0.75)
+        height = adj(0.75)
         # for testing, fall back to image argument if can't get from page
         try:
             im = page.image
@@ -109,8 +109,8 @@ class EssBallot(Ballot.DuplexBallot):
         for x,y in zip(
             # x starting points
             (adj(0.25),
-             im.size[0]-adj(0.25)-width-1,
-             im.size[0]-adj(0.25)-width-1,
+             im.size[0]-adj(0.3)-width-1,
+             im.size[0]-adj(0.3)-width-1,
              adj(0.25)),
             # y starting points
             (adj(0.08),
@@ -123,8 +123,15 @@ class EssBallot(Ballot.DuplexBallot):
                 page.image,
                 [x,y,x+width,y+height]
             )
-            landmarks.extend(landmark)
-        
+            landmarks.append(landmark)
+        x,y = landmarks[0][0],landmarks[0][1]
+        longdiff = landmarks[3][1] - landmarks[0][1]
+        shortdiff = landmarks[3][0] - landmarks[0][0]
+        r = float(shortdiff)/float(longdiff)
+        print landmarks
+        print r,x,y
+        return r,x,y
+
     def find_landmark_in_region(self, image, croplist):
         """ given an image and a cropbox, find the circled plus """
         iround = lambda x: int(round(x))
@@ -136,8 +143,8 @@ class EssBallot(Ballot.DuplexBallot):
         full_span_pixels = adj(full_span_inches)
         line_span_pixels = adj(line_span_inches)
         circle_radius_pixels = adj(circle_radius_inches)
-        croplist[2] = max(croplist[2],image.size[0]-1)
-        croplist[3] = max(croplist[3],image.size[1]-1)
+        croplist[2] = min(croplist[2],image.size[0]-1)
+        croplist[3] = min(croplist[3],image.size[1]-1)
         image = image.crop(croplist)
         for y in range(0,image.size[1]-full_span_pixels):
             for x in range(circle_radius_pixels, image.size[0]-circle_radius_pixels):
@@ -194,9 +201,10 @@ class EssBallot(Ballot.DuplexBallot):
         adj = lambda a: int(round(const.dpi * a))
         front_adj_x = adj(-0.25)
         front_adj_y = adj(0.36)
+        print dir(page)
         barcode,tm = timing_marks(page.image,
-                                  page.landmarks[0][0] + front_adj_x,
-                                  page.landmarks[0][1] + front_adj_y,
+                                  page.xoff + front_adj_x,
+                                  page.yoff + front_adj_y,
                                   const.dpi)
                                   
         return barcode
@@ -284,7 +292,8 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
 
     def get_left_edge_zones(self, page, column_x):
         """ return a set of pairs, (y_value, letter) for zone starts"""
-        adj = lambda f: int(round(const.dpi * f))
+        adj = lambda f: int(round(const.dpi * f)) 
+        letters = []
         left = column_x + adj(0.03)
         right = left + adj(0.03)
         im = page.image
@@ -293,26 +302,36 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
         lastred = 255
         lastdarkest = 255
         for y in range(stripe.size[1]-(const.dpi/2)):
-            crop = stripe.crop((0,y,1,y+(const.dpi/4)))
+            crop = stripe.crop((0,y,1,y+(const.dpi/32)))
             stat = ImageStat.Stat(crop)
             red = stat.mean[0]
             darkest = stat.extrema[0][0]
             if (red < 32) and (darkest < 32) and (lastred >= 32):
-                letters.append((y-(const.dpi/8),"B"))
-                lastletter = "B"
+                if lastletter <> "B":
+                    if lastletter == "G" and letters[-1][0]>(y-adj(0.1)):
+                        letters = letters[:-1]
+                    letters.append((y,"B"))
+                    lastletter = "B"
             elif red >= 32 and red < 240 and darkest < 224:
-                letters.append((y-(const.dpi/8),"G"))
-                lastletter = "G"
+                if lastletter <> "G":
+                    letters.append((y,"G"))
+                    lastletter = "G"
             elif red >=240:
-                letters.append((y-(const.dpi/8),"W"))
-                lastletter = "W"
+                if lastletter <> "W":
+                    if lastletter == "G" and letters[-1][0]>(y-adj(0.1)):
+                        letters = letters[:-1]
+                    letters.append((y,"W"))
+                    lastletter = "W"
             lastred = red
             lastdarkest = darkest
+        print letters
+        pdb.set_trace()
         return letters
 
     def get_middle_zones(self, page, column_x):
         """ return a set of pairs, (y_value, letter) for zone starts"""
         adj = lambda f: int(round(const.dpi * f))
+        letters = []
         left = column_x
         right = left + adj(0.5)
         im = page.image
@@ -325,16 +344,21 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
             stat = ImageStat.Stat(crop)
             red = stat.mean[0]
             darkest = stat.extrema[0][0]
-            if (darkest < 128) and lastletter -= "W":
-                letters.append((y-(const.dpi/8),"B"))
+            if (darkest < 128) and lastletter == "W":
+                letters.append((y+(const.dpi/4),"B"))
                 lastletter = "B"
             elif (darkest >= 128) and lastletter == "B":
-                letters.append((y-(const.dpi/20),"W"))
+                letters.append((y,"W"))
                 lastletter = "W"
         return letters
 
     def generate_transition_list_from_zones(self,left,middle):
         """ given the pair of zone lists, generate a comprehensive list"""
+        print left
+        print middle
+        pass
+    def build_contests(self,tlist):
+        """ given the comprehensive list of transitions, generate contests"""
         print left
         print middle
         pass
@@ -428,13 +452,18 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
         regionlist = []
         n = 0
         # column_markers returns a location 0.14" into the column
-        columns = column_markers(page.image,page.landmarks[0],const.dpi)
+        landmark = [0,0]
+        landmark[0] = page.xoff + adj(-0.25)
+        landmark[1] = page.yoff + adj(0.36)
+
+        print landmark
+        columns = column_markers(page.image,landmark,const.dpi)
         try:
-            column_width = columns[1] - columns[0]
+            column_width = columns[1][0] - columns[0][0]
         except IndexError:
             column_width = im.size[0] - const.dpi
         for cnum, column in enumerate(columns):
-            column_x = column - oval_offset_into_column
+            column_x = column[0] - oval_offset_into_column
             # determine the zones at two offsets into the column
             left_edge_zones = self.get_left_edge_zones(page,column_x)
             middle_zones = self.get_middle_zones(page,column_x+(column_width/2))
@@ -442,7 +471,7 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
                 left_edge_zones,
                 middle_zones
                 )
-            regionlist = self.build_contests_and_choices(page,tlist)
+            regionlist = self.build_contests(page,tlist)
             """
             print "Contests for Column", cnum, "at x offset", column_x
                 regionlist.append(Ballot.Contest(column, 1, 199, 5*const.dpi, 0, contest))
@@ -489,7 +518,7 @@ def adjust_ulc(image,left_x,top_y,max_adjust=5):
     if max_adjust == 0 and changed == True:
         e = "could not fine adj edge at (%d, %d) after %d moves" % (left_x,
                                                                     top_y,
-                                                                    orig_adjust)
+                                                                    orig_adj)
         raise Ballot.BallotException, e
     return (left_x,top_y)
 
@@ -515,9 +544,15 @@ def timing_marks(image,x,y,dpi=300):
     retlist.append( (left_x,top_y) )
     # now go down 1/2" and find next ulc, checking for drift
     top_y += half
+    for n in range(adj(0.1)):
+        pix = image.getpixel((left_x+adj(0.1),top_y + n))
+        if pix[0] > 128:
+            top_y = top_y + 1
     code_string = ""
     zero_block_count = 0
     while True:
+        if top_y > (image.size[1] - const.dpi):
+            break
         (left_x,top_y) = adjust_ulc(image,left_x,top_y)
         # check for large or small block to side of timing mark
         block = block_type(image,qtr,left_x+half,top_y+twelfth)
@@ -542,7 +577,7 @@ def timing_marks(image,x,y,dpi=300):
     
     return (code_string, retlist)
 
-def block_type(image,pixcount,x,y):
+def block_type(image,pixtocheck,x,y):
     """check pixcount pix starting at x,y; return code from avg intensity"""
     intensity = 0
     for testx in range(x,x+pixtocheck):
