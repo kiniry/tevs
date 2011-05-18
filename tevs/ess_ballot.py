@@ -1,6 +1,7 @@
 # ess_ballot.py implements the interface 
 # in Ballot.py for ballots following the style used in 
-# Champaign County, IL
+# Champaign County, IL. 
+# Please see the file README_ESS.txt for details.
 # The Trachtenberg Election Verification System (TEVS)
 # is copyright 2009, 2010 by Mitch Trachtenberg 
 # and is licensed under the GNU General Public License version 2.
@@ -44,6 +45,7 @@ Reliably show at least .05" continuous dark pixels at top and bottom center
 import Ballot
 import const
 from adjust import rotator
+from cropstats import cropstats
 import Image, ImageStat
 import ocr
 import sys
@@ -57,128 +59,6 @@ def elim_halftone(x):
         retval = 0
     return retval
 
-def get_contests_and_votes_from(image,regionlist,croplist):
-    """ given an area known to contain votes and desc text, return info
-
-    The cropped area will contain contest descriptions and voting areas.
-    Unfortunately, the contest descriptions are not indented away from
-    the oval voting areas.  So...  we crop looking for white line splits,
-    and then treat every line as either part of a contest or as a vote
-    line, depending on whether we find a pattern of white indicating
-    the line contains only an oval and a single word, YES or NO.
-    """
-    adj = lambda f: int(round(const.dpi * f))
-    oval_offset_into_column = adj(0.14)
-    oval_end_offset_into_column = adj(0.39)
-
-    votetext_offset_into_column = oval_offset_into_column
-    votetext_offset_into_column += oval_end_offset_into_column 
-    votetext_offset_into_column += adj(0.02)
-
-    half_intensity = 128
-    contests = []
-    contest_string = ""
-    crop = image.crop(croplist)
-    # indent by 1/10" to avoid edges, then crop single pixel lines,
-    # finding beginning and end of zones which include dark pixels
-    in_dark = False
-    dark_zones = []
-    dark_start = 0
-    dark_end = 0
-    for y in range(crop.size[1]-1):
-        linecrop = crop.crop((const.dpi/10,
-                              y,
-                              crop.size[0] - (const.dpi/10),
-                              y+1))
-        linestat = ImageStat.Stat(linecrop)
-        if (linestat.extrema[0][0] < half_intensity) and not in_dark:
-            in_dark = True
-            dark_start = y
-        elif (linestat.extrema[0][0] >= half_intensity) and in_dark:
-            in_dark = False
-            dark_end = y
-            dark_zones.append([dark_start,dark_end])
-    # now check each dark zone to see if it is a vote op 
-    # or if it is descriptive text; vote ops will have an oval
-    # in the oval channel beginning at 0.14 and extending for .24,
-    # then text beginning at .38
-    contest_created = False
-    for dz in dark_zones:
-        zonecrop1 = crop.crop((const.dpi/10,
-                                dz[0],
-                                crop.size[0]-(const.dpi/10), 
-                                dz[1]))
-        zonecrop1.save("/tmp/zonecrop1.jpg")
-        zonecrop2 = crop.crop((oval_end_offset_into_column,
-                                dz[0],
-                                votetext_offset_into_column, 
-                                dz[1]))
-        zonecrop2.save("/tmp/zonecrop2.jpg")
-        zone2stat = ImageStat.Stat(zonecrop2)
-        zonecrop3 = crop.crop((votetext_offset_into_column,
-                                dz[0],
-                                votetext_offset_into_column + const.dpi,
-                                dz[1]))
-        zonecrop3.save("/tmp/zonecrop3.jpg")
-        zone1text = ocr.tesseract(zonecrop1)
-        #print "1", zone1text
-        #print "2",zone2stat.mean
-        zone3text = ocr.tesseract(zonecrop3)
-        #print "3", zone3text
-        intensity_suggests_voteop = False
-        length_suggests_voteop = False
-        if zone2stat.mean[0]>244: intensity_suggests_voteop = True
-        if len(zone3text)<6: length_suggests_voteop = True
-        if not intensity_suggests_voteop and not length_suggests_voteop:
-            # add line to contest
-            contest_created = False
-            contest_string += zone1text.replace("\n","//")
-        elif intensity_suggests_voteop and length_suggests_voteop:
-            # create contest if none created, then
-            if not contest_created:
-                contest_created = True
-                print "Creating contest",contest_string
-                regionlist.append(Ballot.Contest(croplist[0],
-                                                 croplist[1]+dz[0],
-                                                 croplist[2],
-                                                 croplist[1]+dz[1],
-                                                 0,
-                                                 contest_string))
-                contest_string = ""
-            # add voteop to contest
-            choice_string = zone3text
-            print "Adding choice",choice_string
-            regionlist[-1].append(
-                Ballot.Choice(
-                    croplist[0]+oval_offset_into_column,
-                    croplist[1]+ dz[0],
-                    choice_string
-                    )
-                )
-
-        else:
-            if contest_created:
-                contest_string += zone1text.replace("\n","//")
-            else:
-                print "Problem determining whether contest or choice"
-                print zone2stat.mean
-                print zone3text
-                print contest_string
-    #pdb.set_trace()
-    return dark_zones
-
-def get_only_votes_from(image,croplist):
-    """ given an area known to contain only votes, return info
-
-    The cropped area will contain only voting areas.  Voting areas will
-    contain ovals in the oval column.  Descriptive text to the right of
-    the ovals will be assigned to each oval based on being at or below
-    the oval.
-
-    """
-    choices = []
-    crop = image.crop(croplist)
-    return choices
 
 
 class EssBallot(Ballot.DuplexBallot):
@@ -210,6 +90,71 @@ class EssBallot(Ballot.DuplexBallot):
         self.back_upper_right_plus_x = 0
         self.back_upper_right_plus_y = 0
         super(EssBallot, self).__init__(images, extensions)
+
+    def extract_VOP(self, page, rotate, scale, choice):
+        """Extract a single oval, or writein box, from the specified ballot"""
+        x, y = choice.coords()
+        iround = lambda x: int(round(x))
+        margin = iround(.03 * const.dpi) #XXX should be in config file? class attr?
+
+        #XXX BEGIN move into transformer
+        xoff = page.xoff - iround(page.template.xoff*scale)
+        yoff = page.yoff - iround(page.template.yoff*scale)
+
+        x, y = rotate(xoff + x, yoff + y)
+        x = iround(x * scale)
+        y = iround(y * scale)
+        #XXX end move into transformer (which should now just take a page obj)
+
+        ow, oh = self.oval_size
+        #begin pilb cropstats
+        #stats = Ballot.IStats(page.image.cropstats(
+        #    const.dpi,
+        #    self.vote_target_horiz_offset, #XXX is this the only part that can't be pulled out of this specific ballot kind?!
+        #    x, y,
+        #    ow, oh,
+        #    1
+        #))
+
+        #can be in separate func?
+        #cropx = stats.adjusted.x
+        #cropy = stats.adjusted.y
+        #crop = page.image.crop((
+        #    cropx - margin,
+        #    cropy - margin,
+        #    cropx + margin + ow, 
+        #    cropy + margin + oh
+        #))
+        #end pilb cropstats
+
+
+        # Below is using the pure python cropstats:
+        cropx, cropy = x, y #not adjusted like in PILB cropstats
+        crop = page.image.crop((
+            cropx - margin,
+            cropy - margin,
+            cropx + margin + ow,
+            cropy + margin + oh
+        ))
+        stats = Ballot.IStats(cropstats(crop, x, y))
+        # end pure python cropstats
+
+
+        voted, ambiguous = self.extensions.IsVoted(crop, stats, choice)
+        writein = self.extensions.IsWriteIn(crop, stats, choice)
+        if writein:
+            crop = page.image.crop((
+                 cropx - margin,
+                 cropy - margin,
+                 cropx - margin + self.writein_xoff,
+                 cropy - margin + self.writein_yoff
+            ))
+
+        return cropx, cropy, stats, crop, voted, writein, ambiguous
+
+
+
+
 
     # Extenders do not need to supply even a stub flip
     # because flip in Ballot.py will print a stub message in the absence
@@ -264,11 +209,10 @@ class EssBallot(Ballot.DuplexBallot):
         longdiff = landmarks[3][1] - landmarks[0][1]
         shortdiff = landmarks[3][0] - landmarks[0][0]
         r = float(shortdiff)/float(longdiff)
-        print landmarks
         # we depend on back landmarks being processed after front
         self.back_upper_right_plus_x = landmarks[1][0]
         self.back_upper_right_plus_y = landmarks[1][1]
-        print r,x,y
+        self.log.debug("landmarks %s,rot %f,(%d,%d)" % (landmarks,r,x,y))
         return r,x,y
 
     def find_landmark_in_region(self, image, croplist):
@@ -340,7 +284,6 @@ class EssBallot(Ballot.DuplexBallot):
         adj = lambda a: int(round(const.dpi * a))
         front_adj_x = adj(-0.25)
         front_adj_y = adj(0.36)
-        print dir(page)
         barcode,tm = timing_marks(page.image,
                                   page.xoff + front_adj_x,
                                   page.yoff + front_adj_y,
@@ -348,85 +291,12 @@ class EssBallot(Ballot.DuplexBallot):
                                   
         return barcode
 
-    def extract_VOP(self, page, rotate, scale, choice):
-        """Extract a single oval, or writein box, from the specified ballot.
-        We'll tell you the coordinates, you tell us the stats.  The
-        information gathered should enable the IsVoted function to 
-        make a reasonable decision about whether the area was voted,
-        but the data is also available to anyone else wanting to see
-        the raw statistics to make their own decision.
-        """
-        # choice coords should be the upper left hand corner 
-        # of the bounding box of the printed vote target
-        x, y = choice.coords()
-        x = int(x)
-        y = int(y)
-        iround = lambda x: int(round(x))
-        margin = iround(.03 * const.dpi)
-
-        #XXX BEGIN move into transformer
-        xoff = page.xoff - iround(page.template.xoff*scale)
-        yoff = page.yoff - iround(page.template.yoff*scale)
-        x, y = rotate(xoff + x, yoff + y)
-        x = iround(x * scale)
-        y = iround(y * scale)
-        #XXX end move into transformer (which should now just take a page obj)
-
-        ow, oh = self.oval_size
-        print """At %d dpi, on a scale of 0 to 255, 
-tell us the average intensity from (%d, %d) for width %d height %d, 
-given an offset from the specified x of %d
-""" % (const.dpi, x, y, ow, oh, self.vote_target_horiz_offset)
-        intensity = ask("Intensity", IntIn(0, 255))
-        lowest = ask("Lowest count", IntIn(0, 1000))
-        low = ask("Low count", IntIn(0, 1000))
-        high = ask("High count", IntIn(0, 1000))
-        highest = ask("Highest count", IntIn(0, 1000))
-        suspicious = ask("Value of suspicious", int)
-        ari, agi, abi  = intensity, intensity, intensity
-        lowestr, lowestg, lowestb = lowest, lowest, lowest
-        lowr, lowg, lowb = low, low, low
-        highestr, highestg, highestb = highest, highest, highest
-        highr, highg, highb = high, high, high
-        stats = Ballot.IStats(
-(ari, lowestr, lowr, highr, highestr,
-agi, lowestg, lowg, highg, highestg,
-abi, lowestb, lowb, highb, highestb, x, y, 0)
-        )
-
-        #can be in separate func?
-        cropx = stats.adjusted.x
-        cropy = stats.adjusted.y
-        crop = page.image.crop((
-            cropx - margin,
-            cropy - margin,
-            cropx + margin + ow, 
-            cropy + margin + oh
-        ))
-
-        #can be in separate func?
-        
-        voted, ambiguous = self.extensions.IsVoted(crop, stats, choice)
-        writein = False
-        if voted:
-           writein = self.extensions.IsWriteIn(crop, stats, choice)
-        if writein:
-            print "Gather information about the write-in at",
-            print cropx - margin, cropy - margin,
-            print cropx + self.writein_xoff + margin,
-            print cropy + self.writein_yoff + margin
-            print "In this version, it's your responsibility to save"
-            print "the write-in images; in subsequent versions they"
-            print "will be saved by code in Ballot.py"
-
-        return cropx, cropy, stats, crop, voted, writein, ambiguous
-
     def build_front_layout(self, page):
-        print "Entering build front layout."
+        self.log.debug("Entering build front layout.")
         return self.build_layout(page)
 
     def build_back_layout(self, page):
-        print "Entering build back layout."
+        self.log.debug( "Entering build back layout.")
         return self.build_layout(page,back=True)
 
     def get_left_edge_zones(self, page, column_x):
@@ -463,7 +333,7 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
                     lastletter = "W"
             lastred = red
             lastdarkest = darkest
-        print letters
+        self.log.debug("Left edge zones: %s" % (letters,))
         return letters
 
     def get_middle_zones(self, page, column_x):
@@ -491,17 +361,18 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
         return letters
 
     def generate_transition_list_from_zones(self,image,regionlist,column_bounds,left,middle):
-        """ given the pair of zone lists, generate a comprehensive list"""
-        print left
-        print middle
-        """
+        """ given the pair of zone lists, generate a comprehensive list
+
         We should then be able to merge these sets of split information:
         anything where we find solid black or halftone is a definite break
         which may be followed either by another black or halftone area, by
         a description area, or by a vote area.
         """
-        ccontest = "No current contest"
-        cjurisdiction = "No current jurisdiction"
+        ccontest_default = "No current contest"
+        ccontest = ccontest_default
+        cjurisdiction_default = "No current jurisdiction"
+        cjurisdiction = cjurisdiction_default
+        contest_instance = None
         next_white_is_votearea = False
         this_white_is_votearea = False
         next_white_is_yesno = False
@@ -516,7 +387,6 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
                 this_white_is_yesno = True
                 next_white_is_yesno = False
             this_y = left[n][0]
-            rel_start = left[n][0] - (const.dpi/10)
             try:
                 next_zone = left[n+1]
             except IndexError:
@@ -524,7 +394,9 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
             next_y = next_zone[0]
             rel_end = next_y - (const.dpi/10)
             if left[n][1]=='B':
-                print "Black zone at %d to %d %s" % (this_y,next_y,next_zone)
+                self.log.debug("Black zone at %d to %d %s" % (this_y,
+                                                              next_y,
+                                                              next_zone))
                 # if it's a legitimate black zone and the next zone is white,
                 # that white zone is a Yes/No Vote Area (or empty)
                 if (next_y - this_y) > (const.dpi/4):
@@ -535,14 +407,17 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
                                        column_bounds[1],
                                        next_y))
                     cjurisdiction = ocr.tesseract(crop)
-                    print "Jurisdiction",cjurisdiction
+                    self.log.debug( "Jurisdiction %s" % (cjurisdiction,))
                     cjurisdiction = ocr.clean_ocr_text(cjurisdiction)
-                    print "Cleaned Jurisdiction",cjurisdiction
+                    cjurisdiction = cjurisdiction.replace("\n","//").strip()
+                    self.log.debug( "Cleaned Jurisdiction %s" % (cjurisdiction,))
                     # and the current contest is set 
                     # from the descriptive text
                     # at the start of the Yes No Vote area
             if left[n][1]=='G':
-                print "Gray zone at %d to %d %s" % (this_y,next_y,next_zone)
+                self.log.debug("Gray zone at %d to %d %s" % (this_y,
+                                                             next_y,
+                                                             next_zone))
                 # if it's a legitimage gray zone and the next zone is white,
                 # that white zone is a voting area (or empty)
                 if (next_y - this_y) > (const.dpi/2):
@@ -553,41 +428,229 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
                                        next_y))
                     crop = Image.eval(crop,elim_halftone)
                     ccontest = ocr.tesseract(crop)
-                    print "Contest",ccontest.replace("\n","//")
+                    ccontest = ccontest.replace("\n","//").strip()
+                    self.log.debug( "Contest %s" % (ccontest,))
                     ccontest = ocr.clean_ocr_text(ccontest)
-                    print "Cleaned Contest",ccontest
-                    regionlist.append(
-                        Ballot.Contest(column_bounds[0],
-                                       this_y,
-                                       column_bounds[1],
-                                       this_y+next_y,
-                                       0,
-                                       ccontest)
-                        )
-                    
-
+                    self.log.debug( "Cleaned Contest %s" % (ccontest,))
+                    contest_instance = Ballot.Contest(column_bounds[0],
+                                                      this_y,
+                                                      column_bounds[1],
+                                                      this_y+next_y,
+                                                      0,
+                                                      ccontest)
+                    regionlist.append(contest_instance)
             if left[n][1]=='W':
                 if this_white_is_votearea:
                     # no descriptive text anticipated
-                    print "Search Vote area"
-                    get_only_votes_from(image,
-                                        (column_bounds[0],
-                                         this_y,
-                                         column_bounds[1],
-                                         next_y))
+                    self.get_only_votes_from(image,contest_instance,
+                                             (column_bounds[0],
+                                              this_y,
+                                              column_bounds[1],
+                                              next_y))
                 if this_white_is_yesno:
                     # descriptive text sets current contest,
                     # votes are in stretches where the middle is white
-                    print "Search YesNo Vote area"
-                    get_contests_and_votes_from(image,
-                                                regionlist,
-                                                (column_bounds[0],
-                                                 this_y,
-                                                 column_bounds[1],
-                                                 next_y))
-                print "White zone at %d to %d %s" % (this_y,next_y,next_zone)
-            #relevant = filter(lambda x: x[0]>=rel_start and x[0]<=rel_end,middle)
+                    self.get_contests_and_votes_from(image,
+                    regionlist,
+                                                     (column_bounds[0],
+                                                      this_y,
+                                                      column_bounds[1],
+                                                      next_y))
+                self.log.debug( "White zone at %d to %d %s" % (this_y,next_y,next_zone))
         return regionlist
+
+    def get_dark_zones(self,crop):
+        """ return starting and ending y offsets of dark areas in crop"""
+        half_intensity = 128
+        in_dark = False
+        dark_zones = []
+        dark_start = 0
+        dark_end = 0
+        for y in range(crop.size[1]-1):
+            linecrop = crop.crop((const.dpi/10,
+                                  y,
+                                  crop.size[0] - (const.dpi/10),
+                                  y+1))
+            linestat = ImageStat.Stat(linecrop)
+            if (linestat.extrema[0][0] < half_intensity) and not in_dark:
+                in_dark = True
+                dark_start = y
+            elif (linestat.extrema[0][0] >= half_intensity) and in_dark:
+                in_dark = False
+                dark_end = y
+                dark_zones.append([dark_start,dark_end])
+        return dark_zones
+
+    def get_contests_and_votes_from(self,image,regionlist,croplist):
+        """ given an area known to contain votes and desc text, return info
+
+        The cropped area will contain contest descriptions and voting areas.
+        Unfortunately, the contest descriptions are not indented away from
+        the oval voting areas.  So...  we crop looking for white line splits,
+        and then treat every line as either part of a contest or as a vote
+        line, depending on whether we find a pattern of white indicating
+        the line contains only an oval and a single word, YES or NO.
+        """
+        adj = lambda f: int(round(const.dpi * f))
+        oval_offset_into_column = adj(0.14)
+        oval_end_offset_into_column = adj(0.39)
+
+        votetext_offset_into_column = oval_end_offset_into_column
+        votetext_offset_into_column += oval_offset_into_column 
+        votetext_offset_into_column += adj(0.02)
+
+        half_intensity = 128
+        contests = []
+        contest_string = ""
+        crop = image.crop(croplist)
+        # indent by 1/10" to avoid edges, then crop single pixel lines,
+        # finding beginning and end of zones which include dark pixels
+        # now check each dark zone to see if it is a vote op 
+        # or if it is descriptive text; vote ops will have an oval
+        # in the oval channel beginning at 0.14 and extending for .24,
+        # then text beginning at .38
+        dark_zones = self.get_dark_zones(crop)
+        contest_created = False
+        for dz in dark_zones:
+            zonecrop1 = crop.crop((const.dpi/10,
+                                    dz[0],
+                                    crop.size[0]-(const.dpi/10), 
+                                    dz[1]))
+            zonecrop1.save("/tmp/zonecrop1.jpg")
+            zonecrop2 = crop.crop((oval_end_offset_into_column,
+                                    dz[0],
+                                    votetext_offset_into_column, 
+                                    dz[1]))
+            zonecrop2.save("/tmp/zonecrop2.jpg")
+            zone2stat = ImageStat.Stat(zonecrop2)
+            zonecrop3 = crop.crop((votetext_offset_into_column,
+                                    dz[0],
+                                    votetext_offset_into_column + const.dpi,
+                                    dz[1]))
+            zonecrop3.save("/tmp/zonecrop3.jpg")
+            zone1text = ocr.tesseract(zonecrop1)
+            zone1text = ocr.clean_ocr_text(zone1text)
+            #print zone1text
+            #print "2",zone2stat.mean
+            zone3text = ocr.tesseract(zonecrop3)
+            #print "3", zone3text
+            intensity_suggests_voteop = False
+            length_suggests_voteop = False
+            if zone2stat.mean[0]>244: intensity_suggests_voteop = True
+            if len(zone3text)<6: length_suggests_voteop = True
+            if not intensity_suggests_voteop and not length_suggests_voteop:
+                # add line to contest
+                contest_created = False
+                contest_string += zone1text.replace("\n","/")
+            elif intensity_suggests_voteop and length_suggests_voteop:
+                # create contest if none created, then
+                if not contest_created:
+                    contest_created = True
+                    self.log.debug("Creating contest %s" % (contest_string,))
+                    regionlist.append(Ballot.Contest(croplist[0],
+                                                     croplist[1]+dz[0],
+                                                     croplist[2],
+                                                     croplist[1]+dz[1],
+                                                     0,
+                                                     contest_string))
+                    contest_string = ""
+                # add voteop to contest
+                choice_string = zone3text
+                self.log.debug("Adding choice %s" % (choice_string,))
+                regionlist[-1].append(
+                    Ballot.Choice(
+                        croplist[0]+oval_offset_into_column,
+                        croplist[1]+ dz[0],
+                        choice_string
+                        )
+                    )
+
+            else:
+                if contest_created:
+                    contest_string += zone1text.replace("\n","//")
+                else:
+                    self.log.debug( "Problem determining whether contest or choice")
+                    self.log.debug("Gap mean values %s" % (zone2stat.mean,))
+                    self.log.debug("Zone3 text %s" % (zone3text,))
+                    self.log.debug("Contest string: %s" % (contest_string,))
+        #pdb.set_trace()
+        return dark_zones
+
+    def get_only_votes_from(self,image,contest_instance,croplist):
+        """ given an area known to contain only votes, return info
+
+        The cropped area will contain only voting areas.  Voting areas will
+        contain ovals in the oval column.  Descriptive text to the right of
+        the ovals will be assigned to each oval based on being at or below
+        the oval.
+
+        """
+        adj = lambda f: int(round(const.dpi * f))
+        oval_offset_into_column = adj(0.14)
+        oval_end_offset_into_column = adj(0.39)
+
+        votetext_offset_into_column = oval_end_offset_into_column
+        votetext_offset_into_column += oval_offset_into_column 
+        votetext_offset_into_column += adj(0.02)
+        choices = []
+        crop = image.crop(croplist)
+        dark_zones = self.get_dark_zones(crop)
+        next_dark_zones = dark_zones[1:]
+        next_dark_zones.append([crop.size[1]-2,crop.size[1]-1])
+        skip = False
+        for dz,ndz in zip(dark_zones,next_dark_zones):
+            # if two dark zones are less than 0.3" apart, merge them and skip
+            # this allows two line entries to be handled as single choices
+            # !!! check for existence of oval in oval zone instead
+            if skip == True: 
+                skip = False
+                continue
+            if (ndz[0] - dz[0]) < adj(0.3):
+                skip = True
+            if skip:
+                end = 1
+            else: 
+                end = 0
+            blankzone = crop.crop((oval_end_offset_into_column,
+                                   dz[0],
+                                   votetext_offset_into_column, 
+                                   ndz[end]))
+            blankzonestat = ImageStat.Stat(blankzone)
+            zonecrop = crop.crop((votetext_offset_into_column,
+                                  dz[0],
+                                  crop.size[0]-(const.dpi/10),
+                                  ndz[end]))
+            zonetext = ocr.tesseract(zonecrop)
+            zonetext = ocr.clean_ocr_text(zonetext).replace("\n","//").strip()
+            if blankzonestat.mean[0]>244: 
+                append_x = croplist[0] + adj(0.14)
+                append_y = croplist[1] + dz[0]
+                # search through oval zone looking for oval, 
+                # adjust y to top of oval, not top of text
+                contig = 0
+                found = False
+                for adj_y in range(adj(0.04),adj(0.2)):
+                    ovalcrop = crop.crop((oval_offset_into_column,
+                                          dz[0]+adj_y,
+                                          oval_end_offset_into_column,
+                                          dz[0]+adj_y+1))
+                    ovalstat = ImageStat.Stat(ovalcrop)
+                    if ovalstat.extrema[0][0] < 240:
+                        contig += 1
+                        if contig > 10:
+                            append_y += (adj_y-10)
+                            found = True
+                            break
+                    else:
+                        contig = 0
+                if not found:
+                    continue
+                print "Appending choice %d %d %s" % (append_x,
+                                                     append_y,
+                                                     zonetext)
+                choice = Ballot.Choice(append_x, append_y, zonetext)
+                contest_instance.append(choice)
+        return contest_instance
 
     def build_layout(self, page, back=False):
         """ get layout and ocr information from ess ballot
@@ -673,7 +736,7 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
         """
         adj = lambda f: int(round(const.dpi * f))
         oval_offset_into_column = adj(0.14)
-        print "Entering build_layout."
+        self.log.debug( "Entering build_layout.")
 
         regionlist = []
         n = 0
@@ -684,8 +747,8 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
         if back:
             ref_pt[0] = self.back_upper_right_plus_x
             ref_pt[1] = self.back_upper_right_plus_y + adj(0.36)
-            print "BACK"
-        print ref_pt
+            self.log.debug( "Building BACK layout" )
+        self.log.debug("Reference point: %s" % ( ref_pt,))
         columns = column_markers(page.image,ref_pt)
         try:
             column_width = columns[1][0] - columns[0][0]
@@ -697,7 +760,7 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
             # determine the zones at two offsets into the column
             left_edge_zones = self.get_left_edge_zones(page,column_x)
             middle_zones = self.get_middle_zones(page,column_x+(column_width/2))
-            print cnum, column
+            self.log.debug("Column %d at x offset %d" % (cnum,column_x))
             self.generate_transition_list_from_zones(
                 page.image,
                 regionlist,
@@ -706,12 +769,6 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
                 left_edge_zones,
                 middle_zones
                 )
-            """
-            print "Contests for Column", cnum, "at x offset", column_x
-                regionlist.append(Ballot.Contest(column, 1, 199, 5*const.dpi, 0, contest))
-                for choice in choices:
-                    regionlist[-1].append(Ballot.Choice(x_offset, y_offset, choice))
-            """
         return regionlist
 
 def adjust_ulc(image,left_x,top_y,max_adjust=5):
