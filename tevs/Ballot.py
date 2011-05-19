@@ -6,7 +6,6 @@ import math
 from xml.dom import minidom
 from xml.parsers.expat import ExpatError
 import logging
-
 import site; site.addsitedir(os.path.expanduser("~/tevs")) #XXX
 from PILB import Image, ImageDraw, ImageFont, ImageChops
 import const
@@ -271,7 +270,6 @@ class Ballot(object):
                 "number":   page.number
             }) 
             results.append(VoteData(**kw))
-
         for contest in page.template.contests:
             if int(contest.y2) - int(contest.y) < self.min_contest_height: #XXX only defined insubclass!!!!!!
                 for choice in contest.choices:
@@ -1046,7 +1044,8 @@ class Template(_scannedPage):
     all the top level elements stored in the template in the order they were
     discovered."""
     def __init__(self, dpi, xoff, yoff, rot, barcode, contests, image=None):
-        super(Template, self).__init__(dpi, xoff, yoff, rot, image)
+        # don't save images in templates (causes high memory usage)
+        super(Template, self).__init__(dpi, xoff, yoff, rot, None)
         self.barcode = barcode
         self.contests = contests #TODO should be jurisdictions
 
