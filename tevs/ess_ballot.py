@@ -48,7 +48,6 @@ from adjust import rotator
 from cropstats import cropstats
 import Image, ImageStat
 import ocr
-import pdb
 import sys
 from demo_utils import *
 
