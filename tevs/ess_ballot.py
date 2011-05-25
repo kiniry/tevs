@@ -48,6 +48,7 @@ from adjust import rotator
 from cropstats import cropstats
 import Image, ImageStat
 import ocr
+import pdb
 import sys
 from demo_utils import *
 
@@ -61,7 +62,7 @@ def elim_halftone(x):
 
 
 class EssBallot(Ballot.DuplexBallot):
-    """Class representing ESS duplex ballots.
+    """Class representing ESS duplex ballots (or single-sided).
 
     The file name ess_ballot.py and the class name EssBallot
     correspond to the brand entry in tevs.cfg (ess.cfg), 
@@ -80,7 +81,7 @@ class EssBallot(Ballot.DuplexBallot):
         )
         # add these margins to the vote target's bounding box 
         # when cropping and analyzing for votes
-        self.oval_margin = adj(.03) #XXX length should be in config or metadata
+        self.oval_margin = adj(.06) #XXX length should be in config or metadata
         self.min_contest_height = adj(const.minimum_contest_height_inches)
         self.vote_target_horiz_offset = adj(const.vote_target_horiz_offset_inches)
         self.writein_xoff = adj(-2.5) #XXX
@@ -94,7 +95,9 @@ class EssBallot(Ballot.DuplexBallot):
         """Extract a single oval, or writein box, from the specified ballot"""
         x, y = choice.coords()
         iround = lambda x: int(round(x))
-        margin = iround(.03 * const.dpi) #XXX should be in config file? class attr?
+        adj = lambda a: int(round(const.dpi * a))
+        margin = adj(.06) #XXX should be in config file? class attr?
+        printed_oval_height = adj(0.097)
 
         #XXX BEGIN move into transformer
         xoff = page.xoff - iround(page.template.xoff*scale)
@@ -111,9 +114,49 @@ class EssBallot(Ballot.DuplexBallot):
         crop = page.image.crop((
             cropx - margin,
             cropy - margin,
-            cropx + margin + ow,
-            cropy + margin + oh
+            min(cropx + margin + ow,page.image.size[0]-1),
+            min(cropy + margin + oh,page.image.size[1]-1)
         ))
+
+        # check strip at center to look for either filled or empty oval;
+        # recenter vertically
+        stripe = crop.crop(((crop.size[0]/2),0,(crop.size[0]/2)+1,crop.size[1]-1))
+        before_oval = 0
+        after_oval = 0
+        oval = 0
+        stripedata = list(stripe.getdata())
+        for num,p in enumerate(stripedata):
+            if p[0] > 245:
+                before_oval += 1
+            else:
+                try:
+                    if ((stripedata[before_oval+printed_oval_height-2][0] < 245) or 
+                        (stripedata[before_oval+printed_oval_height-1][0] < 245) or 
+                        (stripedata[before_oval+printed_oval_height][0] < 245) or
+                        (stripedata[before_oval+printed_oval_height+1][0] < 245) or
+                        (stripedata[before_oval+printed_oval_height+2][0] < 245)):
+                        oval_start = num
+                        oval_end = num + printed_oval_height
+                        after_oval = stripe.size[1] - (oval_start+printed_oval_height)
+                        break
+                except IndexError:
+                    break
+        #print cropy,before_oval,oval,after_oval
+        afterlessbefore = int(round((after_oval - before_oval)/2))
+        if abs(afterlessbefore)>2:
+            cropy -= afterlessbefore
+            #print "Adjusted",cropy
+            crop = page.image.crop((
+                cropx - margin,
+                cropy - margin,
+                min(cropx + margin + ow,page.image.size[0]-1),
+                min(cropy + margin + oh,page.image.size[1]-1)
+                ))
+        stats = Ballot.IStats(cropstats(crop, x, y))
+        # end pure python cropstats
+
+
+
         stats = Ballot.IStats(cropstats(crop, x, y))
         # end pure python cropstats
 
@@ -141,6 +184,10 @@ class EssBallot(Ballot.DuplexBallot):
     #    # not implemented for Demo
     #    print "Flip not implemented for Demo."
     #    return im
+    def find_landmarks(self, page):
+        """just dup find_front_landmarks"""
+        return self.find_front_landmarks(page)
+
     def find_back_landmarks(self, page):
         """just dup find_front_landmarks"""
         return self.find_front_landmarks(page)
@@ -165,6 +212,17 @@ class EssBallot(Ballot.DuplexBallot):
             im = page
         # generate ulc, urc, lrc, llc coordinate pairs
         landmarks = []
+        move_up = 0
+        for n in range(3):
+            bottom = im.crop((0,
+                              im.size[1]-adj(0.03)-move_up,
+                              im.size[0],
+                              im.size[1]-move_up))
+            bottomstat = ImageStat.Stat(bottom)
+            if bottomstat.mean[0]<128:
+                move_up += adj(0.03)
+            else:
+                break
         for x,y in zip(
             # x starting points
             (adj(0.25),
@@ -174,8 +232,8 @@ class EssBallot(Ballot.DuplexBallot):
             # y starting points
             (adj(0.08),
              adj(0.08),
-             im.size[1]-adj(0.4)-1,
-             im.size[1]-adj(0.4)-1
+             im.size[1]-adj(0.47)-1-move_up,
+             im.size[1]-adj(0.47)-1-move_up
              )
             ):
             landmark = self.find_landmark_in_region(
@@ -212,36 +270,37 @@ class EssBallot(Ballot.DuplexBallot):
                 if (image.getpixel((x,y))[0] < 128 
                     and image.getpixel((x-1,y))[0]>=128 
                     and image.getpixel((x+(2*line_span_pixels),y))[0]>=128):
-                    if ((image.getpixel((x,y+full_span_pixels-2))[0]<128
-                        or image.getpixel((x+1,y+full_span_pixels-2))[0]<128
-                        or image.getpixel((x-1,y+full_span_pixels-2))[0]<128)
+                    if ((image.getpixel((x,y+full_span_pixels-4))[0]<128
+                        or image.getpixel((x+1,y+full_span_pixels-4))[0]<128
+                        or image.getpixel((x-1,y+full_span_pixels-4))[0]<128)
                         and (image.getpixel((x+(2*line_span_pixels),
-                                             y+full_span_pixels - 2))[0]>=128)):
+                                             y+full_span_pixels - 4))[0]>=128)):
                         try:
-                            hline = image.crop((x-circle_radius_pixels,
-                                                y+(full_span_pixels/2)-2,
-                                                x+circle_radius_pixels,
-                                                y+(full_span_pixels/2)+2))
-                            hlinestat = ImageStat.Stat(hline)
-                            if hlinestat.mean[0]>64 and hlinestat.mean[0]<192:
-                                # we need to see some extremely white pixels nearby
-                                white1 = image.crop((x+line_span_pixels+1,
-                                                    y+ (full_span_pixels/10),
-                                                    x + (2*line_span_pixels),
-                                                    y + (full_span_pixels/5)))
-                                whitestat1 = ImageStat.Stat(white1)
-                                white2 = image.crop((x-(2*line_span_pixels),
-                                                    y+ (full_span_pixels/10),
-                                                    x - 1,
-                                                    y + (full_span_pixels/5)))
-                                whitestat2 = ImageStat.Stat(white2)
-                                if whitestat1.mean[0]>224 and whitestat2.mean[0]>224:
-                                    return (x+croplist[0],
-                                            y+(full_span_pixels/2)+croplist[1])
+                            for n in range(-3,3,1):
+                                hline = image.crop((x-circle_radius_pixels,
+                                                    y+(full_span_pixels/2)-n,
+                                                    x+circle_radius_pixels,
+                                                    y+(full_span_pixels/2)-n+1))
+                                hlinestat = ImageStat.Stat(hline)
+                                if hlinestat.mean[0]<192:
+                                    # we need to see some extremely white pixels nearby
+                                    white1 = image.crop((x+(2*line_span_pixels)+1,
+                                                        y+ (full_span_pixels/10),
+                                                        x + (3*line_span_pixels),
+                                                        y + (full_span_pixels/5)))
+                                    whitestat1 = ImageStat.Stat(white1)
+                                    white2 = image.crop((x-(3*line_span_pixels),
+                                                        y+ (full_span_pixels/10),
+                                                        x - (2*line_span_pixels),
+                                                        y + (full_span_pixels/5)))
+                                    whitestat2 = ImageStat.Stat(white2)
+                                    if whitestat1.mean[0]>224 and whitestat2.mean[0]>224:
+                                        return (x+croplist[0],
+                                                y+(full_span_pixels/2)+croplist[1])
                         except:
                             pass
         # successful return will have taken place by here
-        raise BallotException, "could not locate plus sign landmark at %s" % (crop,)
+        raise Ballot.BallotException, "could not locate plus sign landmark at %s" % (croplist,)
 
 
 
