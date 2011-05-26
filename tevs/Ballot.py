@@ -123,12 +123,13 @@ class Ballot(object):
         return acc
 
     def ProcessPages(self):
-        """Helper to process and anaylze all the pages of this Ballot. There is
+        """Helper to process and analyze all the pages of this Ballot. There is
         no need to do anything else when using this method"""
-        for page in self.pages:
-            self.FindLandmarks(page)
-            self.BuildLayout(page)
-            self.CapturePageInfo(page)
+        # see _page; XXX
+        for page_tuple_or_number in self.pages:
+            self.FindLandmarks(page_tuple_or_number)
+            self.BuildLayout(page_tuple_or_number)
+            self.CapturePageInfo(page_tuple_or_number)
         return self.results
 
     def GetLayoutCode(self, page=0):
@@ -215,10 +216,17 @@ class Ballot(object):
         # convert to degrees for call to Image.rotate
         r2d = 180/3.14
         page.image = page.image.rotate(-r2d * page.rot, Image.BILINEAR)
-        self.FindLandmarks(pagenum)
+        try:
+            self.FindLandmarks(pagenum)
+
+        except BallotException:
+            page.blank = True
         tree = self.build_layout(page)
         if len(tree) == 0:
-            raise BallotException('No layout was built')
+            if pagenum == 0:
+                raise BallotException('No layout was built')
+            else:
+                page.blank = True
         tree = self.OCRDescriptions(page, tree)
         tmpl = page.as_template(code, tree)
         self.extensions.template_cache[code] = tmpl
@@ -487,7 +495,11 @@ class DuplexBallot(Ballot):
             front, back = self._swap(page)
             r, x, y = self.find_front_landmarks(front)
         front.rot, front.xoff, front.yoff = r, x, y
-        r2, x2, y2 = self.find_back_landmarks(back)
+        if not back.blank:
+            r2, x2, y2 = self.find_back_landmarks(back)
+        else:
+            # handle blank backs by allowing build of blank template
+            r2, x2, y2 = 0,front.xoff,front.yoff
         back.rot, back.xoff, back.yoff = r2, x2, y2
         return (r, x, y), (r2, x2, y2)
 
@@ -514,15 +526,22 @@ class DuplexBallot(Ballot):
         if bt is not None:
             back.template = bt
         else:
-            tree = self.build_back_layout(back)
-            bt = self._BuildLayout1(back, "%sback" % (lc,), tree)
+            if back.blank:
+                bt = []
+            else:
+                tree = self.build_back_layout(back)
+                bt = self._BuildLayout1(back, "%sback" % (lc,), tree)
         return ft, bt
 
     #CapturePageInfo can just call super, but must make sure template is built first
     def CapturePageInfo(self, page=0):
         "returns list of results of both pages processed"
         front, back = self._page(page)
-        return self._CapturePageInfo(front) + self._CapturePageInfo(back)
+        if not back.blank:
+            retval = self._CapturePageInfo(front) + self._CapturePageInfo(back)
+        else:
+            retval = self._CapturePageInfo(front)
+        return retval
 
     def is_front(self, im):
         """If unimplemented, returns True. Note that this is called After
