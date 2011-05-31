@@ -87,9 +87,6 @@ such landmark, enter -1:
 if your template is not offset or tilted, you could use 75.  If there's no
 such landmark, enter -1:
 """, int, -1)
-        y2y = ask("""Enter the vertical span in pixels between the upper left;
-and lower left landmarks.  Use 2400 if uncertain:
-""", int, -1)
         if -1 in (a, b, c, d):
             raise Ballot.BallotException("Could not find landmarks")
 
@@ -136,7 +133,7 @@ and lower left landmarks.  Use 2400 if uncertain:
                 "Tilt %f of %s exceeds %f" % (rot, page.filename, const.allowed_tangent)
             )
 
-        return rot, xoff, yoff, y2y 
+        return rot, xoff, yoff, longdiff 
 
     def get_layout_code(self, page):
         """ Determine the layout code by getting it from the user
