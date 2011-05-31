@@ -179,9 +179,9 @@ class Ballot(object):
         If no landmarks can be found, raises BallotException.
         """
         page = self._page(page)
-        r, x, y = self.find_landmarks(page)
-        page.rot, page.xoff, page.yoff = r, x, y
-        return r, x, y
+        r, x, y, y2y = self.find_landmarks(page)
+        page.rot, page.xoff, page.yoff, page.y2y = r, x, y, y2y
+        return r, x, y, y2y
 
     def BuildLayout(self, page=0):
         """Create a Template from a Page. The Template contains all of the
@@ -266,8 +266,17 @@ class Ballot(object):
             self.BuildLayout(page)
         R = self.extensions.transformer
         T = R(page.rot, page.template.xoff, page.template.yoff)
-        scale = page.dpi / page.template.dpi #should be in rotator--which should just be in Page?
-
+        #should be in rotator--which should just be in Page?
+        try:
+            scale = page.dpi / page.template.dpi 
+        except ZeroDivisionError:
+            print "Page",page
+            print "Template",page.template
+            raise BallotException("""Zero division error
+due to zero dpi in TEMPLATE
+%s
+AT PAGE
+%s""" % (page.template,page))
         results = []
         def append(contest, choice, **kw):
             kw.update({
@@ -325,7 +334,11 @@ class Ballot(object):
     def find_landmarks(self, page):
         """find_landmarks takes a Page and returns the rotation, x offset, and
         y offset resulting from scanning a ballot image. Rotation is a float.
-        The x and y offsets are ints.
+        The x and y offsets and y2y distance are ints.
+
+        The x and y offsets are the coordinates of the upper left corner
+        landmark.  The y2y distance is the distance in pixels between the
+        upper left landmark's y value and the lower left landmark's y value.
 
         landmarks are one or more known points on a ballot image that can be
         used in isolation or conjunction to infer the displacement naturally
@@ -489,19 +502,19 @@ class DuplexBallot(Ballot):
         images and try again in case the front and back images were swapped."""
         front, back = self._page(page)
         try:
-            r, x, y = self.find_front_landmarks(front)
+            r, x, y, y2y = self.find_front_landmarks(front)
         except BallotException:
             #see if the error was caused by front and back being switched
             front, back = self._swap(page)
-            r, x, y = self.find_front_landmarks(front)
-        front.rot, front.xoff, front.yoff = r, x, y
+            r, x, y, y2y = self.find_front_landmarks(front)
+        front.rot, front.xoff, front.yoff, front.y2y = r, x, y, y2y
         if not back.blank:
-            r2, x2, y2 = self.find_back_landmarks(back)
+            r2, x2, y2, y2y2 = self.find_back_landmarks(back)
         else:
             # handle blank backs by allowing build of blank template
-            r2, x2, y2 = 0,front.xoff,front.yoff
-        back.rot, back.xoff, back.yoff = r2, x2, y2
-        return (r, x, y), (r2, x2, y2)
+            r2, x2, y2, y2y2 = 0,front.xoff,front.yoff, front.y2y2
+        back.rot, back.xoff, back.yoff, back.y2y = r2, x2, y2, y2y2
+        return (r, x, y, y2y), (r2, x2, y2, y2y2)
 
     def _BuildLayout1(self, page, lc, tree):
         if len(tree) == 0:
@@ -993,9 +1006,14 @@ class Contest(Region):
         return self.choices
 
 class _scannedPage(object):
-    def __init__(self, dpi, xoff, yoff, rot, image):
+    """Superclass of ballot Page.
+    
+    Note: y2y, when nonzero, is pixel spacing between top and bottom landmark,
+    used for more precise/reliable scaling than asserted dpi.
+    """
+    def __init__(self, dpi, xoff, yoff, rot, image, y2y=0):
         self.dpi = int(dpi)
-        self.xoff, self.yoff = int(xoff), int(yoff)
+        self.xoff, self.yoff, self.y2y = int(xoff), int(yoff), int(y2y)
         self.rot = float(rot)
         self.image = image
 
@@ -1021,8 +1039,8 @@ class Page(_scannedPage):
     Note that self.rot is in radians, which is used by python's math library,
     but that the rotate method in PIL uses degrees.
     """
-    def __init__(self, dpi=0, xoff=0, yoff=0, rot=0.0, filename=None, image=None, template=None, number=0):
-        super(Page, self).__init__(dpi, xoff, yoff, rot, image)
+    def __init__(self, dpi=0, xoff=0, yoff=0, rot=0.0, filename=None, image=None, template=None, number=0, y2y=0):
+        super(Page, self).__init__(dpi, xoff, yoff, rot, image, y2y)
         self.filename = filename
         self.template = template
         self.number = number
@@ -1062,9 +1080,9 @@ class Template(_scannedPage):
     information of every Page with the same barcode. As an iterator, it yields
     all the top level elements stored in the template in the order they were
     discovered."""
-    def __init__(self, dpi, xoff, yoff, rot, barcode, contests, image=None):
+    def __init__(self, dpi, xoff, yoff, rot, barcode, contests, image=None,y2y=0):
         # don't save images in templates (causes high memory usage)
-        super(Template, self).__init__(dpi, xoff, yoff, rot, None)
+        super(Template, self).__init__(dpi, xoff, yoff, rot, None, y2y)
         self.barcode = barcode
         self.contests = contests #TODO should be jurisdictions
 
@@ -1094,7 +1112,8 @@ def Template_to_XML(template): #XXX needs to be updated for jurisdictions
         barcode=template.barcode,
         lx=template.xoff,
         ly=template.yoff,
-        rot=template.rot
+        rot=template.rot,
+        y2y=template.y2y
     )
     ins(">\n")
 
@@ -1137,15 +1156,18 @@ def Template_from_XML(xml): #XXX needs to be updated for jurisdictions
         get = root.getAttribute
         for attr in attrs:
             if type(attr) is tuple:
-                t, a = attr
-                yield t(get(a))
+                try:
+                    t, a = attr
+                    yield t(get(a))
+                except ValueError, e:
+                    yield 0
             else:
                 yield get(attr)
 
     side = tag(doc, "BallotSide")[0]
-    dpi, barcode, xoff, yoff, rot = attrs(
+    dpi, barcode, xoff, yoff, rot, y2y = attrs(
         side,
-        (int, "dpi"), "barcode", (int, "lx"), (int, "ly"), (float, "rot")
+        (int, "dpi"), "barcode", (int, "lx"), (int, "ly"), (float, "rot"), (int, "y2y")
     )
     contests = []
 
@@ -1166,7 +1188,7 @@ def Template_from_XML(xml): #XXX needs to be updated for jurisdictions
 
         contests.append(cur)
 
-    return Template(dpi, xoff, yoff, rot, barcode, contests)
+    return Template(dpi, xoff, yoff, rot, barcode, contests, y2y=y2y)
 
 BlankTemplate = Template(0, 0, 0, 0.0, "blank", [])
 

@@ -471,8 +471,11 @@ class SequoiaBallot(Ballot.Ballot):
             raise Ballot.BallotException(
                 "Tilt %f of %s exceeds %f" % (rot, page.filename, const.allowed_tangent)
             )
-        self.log.debug("find landmarks returning %f,%d,%d" %(rot,xoff,yoff))
-        return rot, xoff, yoff 
+        self.log.debug("find landmarks returning %f,%d,%d, %d" %(rot,xoff,yoff,longdiff))
+        # Ballot.py defines a distance y2y to be used for scaling between
+        # template and ballot images.  Because both our landmarks are at the
+        # top, we will consistently use longdiff for scaling in sequoia.
+        return rot, xoff, yoff, longdiff 
 
     def get_layout_code(self, page):
         """ Determine the layout code by calling get_code_from_blocks.

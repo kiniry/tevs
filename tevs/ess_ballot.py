@@ -48,6 +48,7 @@ from adjust import rotator
 from cropstats import cropstats
 import Image, ImageStat
 import ocr
+import pdb
 import sys
 from demo_utils import *
 
@@ -189,7 +190,12 @@ class EssBallot(Ballot.DuplexBallot):
 
     def find_back_landmarks(self, page):
         """just dup find_front_landmarks"""
-        return self.find_front_landmarks(page)
+        try:
+            retval = self.find_front_landmarks(page)
+        except Ballot.BallotException as e:
+            page.blank = True
+            retval = [0,0,0]
+        return retval
 
     def find_front_landmarks(self, page):
         """ess ballots have circled plus signs at the four corners
@@ -247,8 +253,8 @@ class EssBallot(Ballot.DuplexBallot):
         # we depend on back landmarks being processed after front
         self.back_upper_right_plus_x = landmarks[1][0]
         self.back_upper_right_plus_y = landmarks[1][1]
-        self.log.debug("landmarks %s,rot %f,(%d,%d)" % (landmarks,r,x,y))
-        return r,x,y
+        self.log.debug("landmarks %s,rot %f,(%d,%d), longdiff %d" % (landmarks,r,x,y,longdiff))
+        return r,x,y,longdiff
 
     def find_landmark_in_region(self, image, croplist):
         """ given an image and a cropbox, find the circled plus """
@@ -780,11 +786,16 @@ class EssBallot(Ballot.DuplexBallot):
             ref_pt[1] = self.back_upper_right_plus_y + adj(0.36)
             self.log.debug( "Building BACK layout" )
         self.log.debug("Reference point: %s" % ( ref_pt,))
-        columns = column_markers(page.image,ref_pt)
+        # we need to allow column markers to fail due to single sided
+        # duplex ballot instances being valid
+        try:
+            columns = column_markers(page.image,ref_pt)
+        except Ballot.BallotException:
+            columns = []
         try:
             column_width = columns[1][0] - columns[0][0]
         except IndexError:
-            column_width = im.size[0] - const.dpi
+            column_width = page.image.size[0] - const.dpi
         regionlist = []
         for cnum, column in enumerate(columns):
             column_x = column[0] - oval_offset_into_column
