@@ -268,7 +268,9 @@ class Ballot(object):
         T = R(page.rot, page.template.xoff, page.template.yoff)
         #should be in rotator--which should just be in Page?
         try:
-            scale = page.dpi / page.template.dpi 
+            if page.y2y <> 0 and page.template.y2y <> 0:
+                scale = float(page.y2y) / float(page.template.y2y)
+            scale = float(page.dpi) / float(page.template.dpi) 
         except ZeroDivisionError:
             print "Page",page
             print "Template",page.template
