@@ -2,6 +2,7 @@
 on_new_layout = accept
 save_vops = True
 images_per_ballot = 2
+filename_extension = .jpg
 
 [Layout]
 # select from Hart, ESS, Diebold (only Hart implemented, Diebold partly imp)
