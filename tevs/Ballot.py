@@ -133,6 +133,30 @@ class Ballot(object):
             self.CapturePageInfo(page_tuple_or_number)
         return self.results
 
+    def GetPrecinctId(self, page=0):
+        """Get the human readable precinct information.
+
+        This function is normally called only when a new layout code occurs
+        and a template is built.
+        """
+        page = self._page(page)
+        if page.blank:
+            return "blank"
+        pid = self.get_precinct_id(page)
+        return pid
+
+    def GetPartyId(self, page=0):
+        """Get the human readable party information.
+
+        This function is normally called only when a new layout code occurs
+        and a template is built.
+        """
+        page = self._page(page)
+        if page.blank:
+            return "blank"
+        pid = self.get_party_id(page)
+        return pid
+
     def GetLayoutCode(self, page=0):
         """Find a code that we can use to identify all ballots with this
         layout. 
@@ -228,8 +252,12 @@ class Ballot(object):
                 raise BallotException('No layout was built')
             else:
                 page.blank = True
+
+        precinct = self.GetPrecinctId()
+        party = self.GetPartyId()
+
         tree = self.OCRDescriptions(page, tree)
-        tmpl = page.as_template(code, tree)
+        tmpl = page.as_template(code, tree, precinct, party)
         self.extensions.template_cache[code] = tmpl
         page.template = tmpl
         return tmpl
@@ -357,6 +385,22 @@ page offsets (%d,%d) template offsets (%d,%d) margins(%d,%d)" % (
         """
         return im
 
+    def get_precinct_id(self,page):
+        """Return human readable precinct info.
+
+        Must be implemented at vendor ballot level and will typically
+        use ocr.tesseract to retrieve text off the ballot.
+        """
+        return "get_precinct_id not implemented by your ballot type"
+        
+    def get_party_id(self,page):
+        """Return human readable party info.
+
+        Must be implemented at vendor ballot level and will typically
+        use ocr.tesseract to retrieve text off the ballot.
+        """
+        return "get_party_id not implemented by your ballot type"
+        
     def get_layout_code(self, page):
         """get_layout_code takes a Page and returns a string representing a
         layout code. It MUST locate and interpret some data on a ballot
@@ -1098,11 +1142,11 @@ class Page(_scannedPage):
             raise AttributeError(e + " and is required in the tevs.cfg file.")
             print e
 
-    def as_template(self, barcode, contests):
+    def as_template(self, barcode, contests, precinct=None, party=None):
         """Given the barcode and contests, convert this page into a Template
         and store that objects as its own template. This is handled by
         Ballot.BuildLayout"""
-        t = Template(self.dpi, self.xoff, self.yoff, self.rot, barcode, contests, self.image, self.y2y) #XXX update
+        t = Template(self.dpi, self.xoff, self.yoff, self.rot, barcode, contests, self.image, self.y2y, precinct, party) #XXX update
         self.template = t
         return t
 
@@ -1125,16 +1169,18 @@ class Page(_scannedPage):
 class Template(_scannedPage):
     """A ballot page that has been fully mapped and is used as a
     template for similiar pages. A template MAY have an associated
-    image but it is not guranteed.
+    image but it is not guaranteed.
     
     A Template is very similiar to a Page but it contains the layout
     information of every Page with the same barcode. As an iterator, it yields
     all the top level elements stored in the template in the order they were
     discovered."""
-    def __init__(self, dpi, xoff, yoff, rot, barcode, contests, image=None,y2y=0):
+    def __init__(self, dpi, xoff, yoff, rot, barcode, contests, image=None,y2y=0, precinct=None, party=None):
         # don't save images in templates (causes high memory usage)
         super(Template, self).__init__(dpi, xoff, yoff, rot, None, y2y)
         self.barcode = barcode
+        self.precinct = precinct
+        self.party = party
         self.contests = contests #TODO should be jurisdictions
 
     def append(self, contest):
@@ -1164,7 +1210,9 @@ def Template_to_XML(template): #XXX needs to be updated for jurisdictions
         lx=template.xoff,
         ly=template.yoff,
         rot=template.rot,
-        y2y=template.y2y
+        y2y=template.y2y,
+        precinct=template.precinct,
+        party=template.party
     )
     ins(">\n")
 
