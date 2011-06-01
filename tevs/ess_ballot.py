@@ -91,8 +91,9 @@ class EssBallot(Ballot.DuplexBallot):
         self.back_upper_right_plus_y = 0
         super(EssBallot, self).__init__(images, extensions)
 
-    def extract_VOP(self, page, rotate, scale, choice):
+    def extract_VOP(self, page, rotatefunc, scale, choice):
         """Extract a single oval, or writein box, from the specified ballot"""
+        pdb.set_trace()
         x, y = choice.coords()
         iround = lambda x: int(round(x))
         adj = lambda a: int(round(const.dpi * a))

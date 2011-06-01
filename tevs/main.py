@@ -7,8 +7,8 @@ import errno
 import getopt
 import logging
 
-import site; site.addsitedir(os.path.expanduser("~/tevs")) #XXX
-from PILB import Image, ImageStat, ImageDraw #XXX only here so we break
+import site; site.addsitedir(os.path.expanduser("~/tevs")) 
+from PILB import Image, ImageStat, ImageDraw 
 
 import const #To be deprecated
 import config
@@ -61,7 +61,7 @@ def _fn(n):
     return "%03d" % (n/1000,)
 
 def incomingn(n):
-    return filen(os.path.join(const.incoming, _fn(n)), n) + ".jpg"
+    return filen(os.path.join(const.incoming, _fn(n)), n) + const.filename_extension
 
 def dirn(dir, n): # where dir is the "unrooted" name
     return util.root(dir, _fn(n))
@@ -194,13 +194,13 @@ def main():
                 #dbc does not commit if there is an error, just need to remove 
                 #partial files
                 remove_partial(resultsfilename + ".txt")
-                remove_partial(resultsfilename + ".jpg")
+                remove_partial(resultsfilename + const.filename_extension)
                 util.fatal("Could not commit vote information to database")
 
             #Post-processing
 
             # move the images from unproc to proc
-            procs = [filen(proc1d, n + m) + ".jpg"
+            procs = [filen(proc1d, n + m) + const.filename_extension
                         for m in range(const.num_pages)]
             for a, b in zip(unprocs, procs):
                 try:
