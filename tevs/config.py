@@ -83,6 +83,7 @@ def get(cfg_file="tevs.cfg"):
     tdpi = config.get("Scanner", "template_dpi")
     bdpi = config.get("Scanner", "ballot_dpi")
 
+
     const.ballot_width_inches = float(bwi)
     const.ballot_height_inches = float(bhi)
     const.oval_width_inches = float(owi)
@@ -98,12 +99,13 @@ def get(cfg_file="tevs.cfg"):
     const.problem_intensity_threshold = float(pit)
     const.dark_pixel_threshold = int(dpt)
     const.ballot_dpi = int(bdpi)
-    const.dpi = const.ballot_dpi #oops
+    const.dpi = const.ballot_dpi 
     const.template_dpi = int(tdpi)
 
     const.num_pages = int(config.get("Mode", "images_per_ballot"))
     const.layout_brand = config.get("Layout", "brand")
     const.on_new_layout = config.get("Mode", "on_new_layout")
+    const.filename_extension = config.get("Mode","filename_extension")
 
     const.save_vops = yesno(config, "Mode", "save_vops")
 

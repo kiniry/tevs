@@ -1882,8 +1882,8 @@ if __name__ == '__main__':
 
     proc = util.root("proc")
     results = util.root("results")
-    const.procformatstring = proc + "/%03d/%06d" + ".jpg"
-    const.unprocformatstring = const.incoming + "/%03d/%06d" + ".jpg"
+    const.procformatstring = proc + "/%03d/%06d" + const.filename_extension
+    const.unprocformatstring = const.incoming + "/%03d/%06d" + const.filename_extension
     const.resultsformatstring = results + "/%03d/%06d" + ".txt"
     print const.unprocformatstring
     print const.unprocformatstring % (123456/1000,123456)
