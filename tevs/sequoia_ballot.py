@@ -394,10 +394,10 @@ class SequoiaBallot(Ballot.Ballot):
         # extenders will need to handle any new const values here, however
         adj = lambda f: int(round(const.dpi * f))
         self.oval_size = (
-            adj(const.oval_width_inches),
-            adj(const.oval_height_inches)
+            adj(const.target_width_inches),
+            adj(const.target_height_inches)
         )
-        self.oval_margin = adj(.03) #XXX length should be in config or metadata
+        self.oval_margin = adj(const.margin_width_inches #XXX length should be in config or metadata
         self.min_contest_height = adj(const.minimum_contest_height_inches)
 
         self.hotspot_x_offset_inches = adj(const.hotspot_x_offset_inches)
@@ -508,7 +508,7 @@ class SequoiaBallot(Ballot.Ballot):
         x, y = choice.coords()
         x = int(x)
         y = int(y)
-        margin = iround(.03 * const.dpi)
+        margin = iround(const.margin_width_inches * const.dpi)
 
         #BEGIN SHARABLE
         scaled_page_offset_x = page.xoff/scale

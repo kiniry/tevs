@@ -318,7 +318,7 @@ AT PAGE
         """Extract a single oval, or writein box, from the specified ballot"""
         x, y = choice.coords()
         iround = lambda x: int(round(x))
-        margin = iround(.03 * const.dpi) #XXX should be in config file? class attr?
+        margin = iround(const.margin_width_inches * const.dpi) #XXX should be in config file? class attr?
         scaled_page_offset_x = page.xoff/scale
         scaled_page_offset_y = page.yoff/scale
         self.log.debug("Incoming coords (%d,%d), \

@@ -76,12 +76,12 @@ class EssBallot(Ballot.DuplexBallot):
         adj = lambda f: int(round(const.dpi * f))
         # this is the size of the printed vote target's bounding box
         self.oval_size = (
-            adj(const.oval_width_inches),
-            adj(const.oval_height_inches)
+            adj(const.target_width_inches),
+            adj(const.target_height_inches)
         )
         # add these margins to the vote target's bounding box 
         # when cropping and analyzing for votes
-        self.oval_margin = adj(.06) #XXX length should be in config or metadata
+        self.oval_margin = adj(const.margin_width_inches #XXX length should be in config or metadata
         self.min_contest_height = adj(const.minimum_contest_height_inches)
         self.vote_target_horiz_offset = adj(const.vote_target_horiz_offset_inches)
         self.writein_xoff = adj(-2.5) #XXX
@@ -97,7 +97,7 @@ class EssBallot(Ballot.DuplexBallot):
         x, y = choice.coords()
         iround = lambda x: int(round(x))
         adj = lambda a: int(round(const.dpi * a))
-        margin = adj(.06) #XXX should be in config file? class attr?
+        margin = adj(const.margin_width_inches #XXX should be in config file? class attr?
         printed_oval_height = adj(0.097)
 
         #BEGIN SHARABLE
