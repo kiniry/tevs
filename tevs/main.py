@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import sys
 import os
+import pdb
 import shutil
 import errno
 import getopt
@@ -80,7 +81,24 @@ def mark_error(e, *files):
             util.fatal("Could not copy unprocessable file to errors dir")
     return len(files)
 
+def results_to_vop_files(results,resultsfilename):
+    """Save all ovals from a list of Votedata"""
+    for r in results:
+        label = "%s_%04d_%04d_%s_%s.jpg" % (
+            resultsfilename,
+            r.coords[0],
+            r.coords[1],
+            "V" if r.was_voted else "v",
+            "A" if r.ambiguous else "a"
+        )
+        try:
+            if r.image is not None:
+                r.image.save(label)
+        except Exception as e:
+            print e
+
 def main():
+    miss_counter = 0
     # get command line arguments
     cfg_file = get_args()
 
@@ -122,8 +140,11 @@ def main():
         for n in next_ballot:
             unprocs = [incomingn(n + m) for m in range(const.num_pages)]
             if not os.path.exists(unprocs[0]):
+                miss_counter += 1
                 log.info(base(unprocs[0]) + " does not exist. No more records to process")
-                break
+                if miss_counter > 1000:
+                    break
+                continue
             for i, f in enumerate(unprocs[1:]):
                 if not os.path.exists(f):
                     log.info(base(f) + " does not exist. Cannot proceed.")
@@ -139,6 +160,7 @@ def main():
             )
 
             try:
+                pdb.set_trace()
                 ballot = ballotfrom(unprocs, extensions)
                 results = ballot.ProcessPages()
             except BallotException as e:
@@ -147,12 +169,8 @@ def main():
                 continue
 
             csv = Ballot.results_to_CSV(results)
-            moz = Ballot.results_to_mosaic(results)
-            wrins = []
-            for i, r in enumerate(results):
-                if r.is_writein and r.was_voted:
-                    wrins.append((i, r.image))
-
+            #moz = Ballot.results_to_mosaic(results)
+            
             #Write all data
 
             #make dirs:
@@ -161,28 +179,14 @@ def main():
             resultsfilename = filen(resultsd, n)
             for p in (proc1d, resultsd):
                 util.mkdirp(p)
-            wrind = os.path.join(dirn("writeins", n), resultsfilename)
-            if len(wrins) != 0:
-                util.mkdirp(wrind)
-
+            try:
+                results_to_vop_files(results,resultsfilename)
+            except Exception as e:
+                print e
+                pdb.set_trace()
             #write csv and mosaic
             util.genwriteto(resultsfilename + ".txt", csv)
-            try:
-                moz.save(resultsfilename + ".jpg")
-            except Exception as e: #TODO what exceptions does image.save throw?
-                #do not let partial results give us a false sense of security
-                remove_partial(resultsfilename + ".txt")
-                util.fatal("Could not write vote boxes to disk")
-
-            for i, wrin in wrins:
-                try:
-                    wrin.save(os.path.join(wrind, "%d.jpg" % i))
-                except Exception as e: #TODO what exceptions does image.save throw?
-                    shutil.rmdir(wrind)
-                    remove_partial(resultsfilename + ".txt")
-                    remove_partial(resultsfilename + ".jpg")
-                    util.fatal("Could not write write ins to disk")
-
+            pdb.set_trace()
             #write to the database
             try:
                 dbc.insert(ballot)

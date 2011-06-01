@@ -15,6 +15,7 @@
 # 1) get zoom info from slider to resize drawing areas
 # 2) remove start/end/now and replace with image>
 import os
+import pdb
 import site; site.addsitedir(os.path.expanduser("~/tevs"))
 import const
 import config
@@ -25,7 +26,6 @@ import pygtk
 pygtk.require('2.0')
 import gobject
 import gtk
-
 import subprocess
 import time
 from PIL import Image, ImageDraw, ImageFont
@@ -418,7 +418,7 @@ class App():
             try:
                 self.leftfilename = const.procformatstring % ((self.leftnumber+inc)/1000,self.leftnumber+inc)
                 self.rightfilename = const.procformatstring % ((self.rightnumber+inc)/1000,self.rightnumber+inc)
-
+                print self.leftfilename, self.rightfilename
                 self.leftimage = Image.open(self.leftfilename)
                 self.rightimage =Image.open(self.rightfilename)
 
