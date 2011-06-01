@@ -175,13 +175,21 @@ such landmark, enter -1:
         iround = lambda x: int(round(x))
         margin = iround(.03 * const.dpi)
 
-        #XXX BEGIN move into transformer
-        xoff = page.xoff - iround(page.template.xoff*scale)
-        yoff = page.yoff - iround(page.template.yoff*scale)
-        x, y = rotate(xoff + x, yoff + y)
-        x = iround(x * scale)
-        y = iround(y * scale)
-        #XXX end move into transformer (which should now just take a page obj)
+        #BEGIN SHARABLE
+        scaled_page_offset_x = page.xoff/scale
+        scaled_page_offset_y = page.yoff/scale
+        self.log.debug("Incoming coords (%d,%d), \
+page offsets (%d,%d) template offsets (%d,%d)" % (
+                x,y,
+                page.xoff,page.yoff,
+                scaled_page_offset_x,scaled_page_offset_y))
+        # adjust x and y for the shift of landmark between template and ballot
+        x = iround(x + scaled_page_offset_x - page.template.xoff)
+        y = iround(y + scaled_page_offset_y - page.template.yoff)
+        self.log.debug("Result of transform: (%d,%d)" % (x,y))
+        
+        x, y = rotatefunc(x, y, scale)
+        #END SHARABLE
 
         ow, oh = self.oval_size
         print """At %d dpi, on a scale of 0 to 255, 

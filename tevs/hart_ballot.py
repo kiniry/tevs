@@ -6,6 +6,7 @@
 # (see LICENSE file for details.)
 
 import os
+import pdb
 import sys
 import subprocess
 import time
@@ -86,7 +87,7 @@ class HartBallot(Ballot.Ballot):
         tiltinfo = page.image.gethartlandmarks(const.dpi, 0)
         if tiltinfo is None:
             page.blank = True #needs to ensure it is a page somehow
-            return 0.0, 0, 0
+            return 0.0, 0, 0, 0
         
         # flunk ballots with more than 
         # allowed_corner_black_inches of black in corner
@@ -121,14 +122,14 @@ class HartBallot(Ballot.Ballot):
 
         shortdiff = tiltinfo[3][0] - tiltinfo[0][0]
         longdiff  = tiltinfo[3][1] - tiltinfo[1][1]
-
+        hypot = math.sqrt(shortdiff*shortdiff + longdiff*longdiff)
         rot = shortdiff/float(longdiff)
         if abs(rot) > const.allowed_tangent:
             raise Ballot.BallotException(
                 "Tilt %f of %s exceeds %f" % (rot, page.filename, const.allowed_tangent)
             )
 
-        return rot, xoff, yoff 
+        return rot, xoff, yoff, hypot
 
     def get_layout_code(self, page):
         """ Determine the layout code(s) from the ulc barcode(s) """
@@ -176,67 +177,6 @@ class HartBallot(Ballot.Ballot):
                  raise Ballot.BallotException("bad bar code")
 
         return barcode
-
-    def extract_VOP(self, page, rotate, scale, choice):
-        """Extract a single oval, or writein box, from the specified ballot"""
-        x, y = choice.coords()
-        iround = lambda x: int(round(x))
-        margin = iround(.03 * const.dpi) #XXX should be in config file? class attr?
-
-        #XXX BEGIN move into transformer
-        xoff = page.xoff - iround(page.template.xoff*scale)
-        yoff = page.yoff - iround(page.template.yoff*scale)
-
-        x, y = rotate(xoff + x, yoff + y)
-        x = iround(x * scale)
-        y = iround(y * scale)
-        #XXX end move into transformer (which should now just take a page obj)
-
-        ow, oh = self.oval_size
-        #begin pilb cropstats
-        #stats = Ballot.IStats(page.image.cropstats(
-        #    const.dpi,
-        #    self.vote_target_horiz_offset, #XXX is this the only part that can't be pulled out of this specific ballot kind?!
-        #    x, y,
-        #    ow, oh,
-        #    1
-        #))
-
-        #can be in separate func?
-        #cropx = stats.adjusted.x
-        #cropy = stats.adjusted.y
-        #crop = page.image.crop((
-        #    cropx - margin,
-        #    cropy - margin,
-        #    cropx + margin + ow, 
-        #    cropy + margin + oh
-        #))
-        #end pilb cropstats
-
-
-        # Below is using the pure python cropstats:
-        cropx, cropy = x, y #not adjusted like in PILB cropstats
-        crop = page.image.crop((
-            cropx - margin,
-            cropy - margin,
-            cropx + margin + ow,
-            cropy + margin + oh
-        ))
-        stats = Ballot.IStats(cropstats(crop, x, y))
-        # end pure python cropstats
-
-
-        voted, ambiguous = self.extensions.IsVoted(crop, stats, choice)
-        writein = self.extensions.IsWriteIn(crop, stats, choice)
-        if writein:
-            crop = page.image.crop((
-                 cropx - margin,
-                 cropy - margin,
-                 cropx - margin + self.writein_xoff,
-                 cropy - margin + self.writein_yoff
-            ))
-
-        return cropx, cropy, stats, crop, voted, writein, ambiguous
 
     # gethartdetails remains ugly and is the candidate for DO OVER.
     # it gets the column dividers, then finds

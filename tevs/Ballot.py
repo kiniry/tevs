@@ -7,6 +7,7 @@ from xml.dom import minidom
 from xml.parsers.expat import ExpatError
 import logging
 import site; site.addsitedir(os.path.expanduser("~/tevs")) #XXX
+from cropstats import cropstats
 from PILB import Image, ImageDraw, ImageFont, ImageChops
 import const
 import util
@@ -264,13 +265,14 @@ class Ballot(object):
             return []
         if page.template is None:
             self.BuildLayout(page)
-        R = self.extensions.transformer
-        T = R(page.rot, page.template.xoff, page.template.yoff)
         #should be in rotator--which should just be in Page?
         try:
-            if page.y2y <> 0 and page.template.y2y <> 0:
-                scale = float(page.y2y) / float(page.template.y2y)
-            scale = float(page.dpi) / float(page.template.dpi) 
+            # Using y2y should handle cases where the printer slightly
+            # enlarges or reduces the image, but dpi works best in general.
+            # if page.y2y <> 0 and page.template.y2y <> 0:
+            #     scale = float(page.y2y) / float(page.template.y2y)
+            # else:
+                scale = float(page.dpi) / float(page.template.dpi) 
         except ZeroDivisionError:
             print "Page",page
             print "Template",page.template
@@ -279,7 +281,11 @@ due to zero dpi in TEMPLATE
 %s
 AT PAGE
 %s""" % (page.template,page))
+        R = self.extensions.transformer
+
+        T = R(page.rot, page.template.xoff, page.template.yoff, scale)
         results = []
+
         def append(contest, choice, **kw):
             kw.update({
                 "contest":  contest,
@@ -308,9 +314,34 @@ AT PAGE
         self.results.extend(results)
         return results
 
-    def extract_VOP(self, page, choice): #possible to use the one in hart_ballot with some modification?
-        #should ONLY extract VOPs, have a separate method for seeing if they're voted
-        raise NotImplementedError("subclasses must define an ExtractVOP method")
+    def extract_VOP(self, page, rotatefunc, scale, choice): 
+        """Extract a single oval, or writein box, from the specified ballot"""
+        x, y = choice.coords()
+        iround = lambda x: int(round(x))
+        margin = iround(.03 * const.dpi) #XXX should be in config file? class attr?
+        scaled_page_offset_x = page.xoff/scale
+        scaled_page_offset_y = page.yoff/scale
+        self.log.debug("Incoming coords (%d,%d), \
+page offsets (%d,%d) template offsets (%d,%d)" % (
+                x,y,
+                page.xoff,page.yoff,
+                scaled_page_offset_x,scaled_page_offset_y))
+        # adjust x and y for the shift of landmark between template and ballot
+        x = iround(x + scaled_page_offset_x - page.template.xoff)
+        y = iround(y + scaled_page_offset_y - page.template.yoff)
+        self.log.debug("Result of transform: (%d,%d)" % (x,y))
+        x, y = rotatefunc(x, y, scale)
+        ow, oh = self.oval_size
+        cropx, cropy = x, y 
+        crop = page.image.crop((
+            cropx - margin,
+            cropy - margin,
+            cropx + margin + ow,
+            cropy + margin + oh
+        ))
+        stats = IStats(cropstats(crop, x, y))
+        voted, ambiguous = self.extensions.IsVoted(crop, stats, choice)
+        return cropx, cropy, stats, crop, voted, 0, ambiguous
 
     def flip(self, im):
         """This method applies any 90 or 180 degree transformation required to 
@@ -1053,7 +1084,7 @@ class Page(_scannedPage):
         """Given the barcode and contests, convert this page into a Template
         and store that objects as its own template. This is handled by
         Ballot.BuildLayout"""
-        t = Template(self.dpi, self.xoff, self.yoff, self.rot, barcode, contests, self.image) #XXX update
+        t = Template(self.dpi, self.xoff, self.yoff, self.rot, barcode, contests, self.image, self.y2y) #XXX update
         self.template = t
         return t
 

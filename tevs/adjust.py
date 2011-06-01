@@ -3,7 +3,7 @@
 from __future__ import division
 import math
 
-def rotator(tang, xl, yl):
+def rotator(tang, xl, yl, scalefactor=1.0):
     """
     Given the difference in rotation between a ballot template
     and a particular ballot and the position of the landmark
@@ -28,24 +28,26 @@ def rotator(tang, xl, yl):
     """
     ra = math.atan(tang)
     cos, sin = math.cos(ra), math.sin(ra)
-    def r(x, y):
+    def r(x, y, scalefactor):
         """
         Transform (x, y) from the layout into
         (x, y) in the particular ballot
         """
-        # shift ballot relative to layout
-        xs = x - xl
-        ys = yl - y
+        # use scaled landmark as rotation origin
+        xs = x - (xl*scalefactor)
+        ys = (yl*scalefactor) - y
 
-        # rotate about layout's orgin
+        # rotate point
         xr = xs*cos - ys*sin
         yr = xs*sin + ys*cos
 
-        # shift back to ballot coords
-        xd = xl + xr
-        yd = yl - yr
+        # restore offsets from scaled landmark
+        xd = (xl*scalefactor) + xr
+        yd = (yl*scalefactor) - yr
 
-        return int(round(xd)), int(round(yd))
+        # return scaled output values
+
+        return int(round(xd*scalefactor)), int(round(yd*scalefactor))
     return r
 
 def rotate_pt_by(x,y,deltatang,lx,ly):
