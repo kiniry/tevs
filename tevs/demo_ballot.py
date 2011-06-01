@@ -38,12 +38,12 @@ class DemoBallot(Ballot.Ballot):
         adj = lambda f: int(round(const.dpi * f))
         # this is the size of the printed vote target's bounding box
         self.oval_size = (
-            adj(const.oval_width_inches),
-            adj(const.oval_height_inches)
+            adj(const.target_width_inches),
+            adj(const.target_height_inches)
         )
         # add these margins to the vote target's bounding box 
         # when cropping and analyzing for votes
-        self.oval_margin = adj(.03) #XXX length should be in config or metadata
+        self.oval_margin = adj(const.margin_width_inches #XXX length should be in config or metadata
         self.min_contest_height = adj(const.minimum_contest_height_inches)
         self.vote_target_horiz_offset = adj(const.vote_target_horiz_offset_inches)
         self.writein_xoff = adj(-2.5) #XXX
@@ -173,7 +173,7 @@ such landmark, enter -1:
         x = int(x)
         y = int(y)
         iround = lambda x: int(round(x))
-        margin = iround(.03 * const.dpi)
+        margin = iround(const.margin_width_inches * const.dpi)
 
         #BEGIN SHARABLE
         scaled_page_offset_x = page.xoff/scale

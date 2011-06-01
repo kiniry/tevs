@@ -205,8 +205,8 @@ class BallotVotes(object):
         for v in self.votelist:
             scaledx = int(round(v.xcoord*xscalefactor))
             scaledy = int(round(v.ycoord*yscalefactor))
-            oval_height = int(const.oval_height_inches * imagedpi)
-            oval_width = int(const.oval_width_inches * imagedpi)
+            oval_height = int(const.target_height_inches * imagedpi)
+            oval_width = int(const.target_width_inches * imagedpi)
             scaledx += int(round(const.hotspot_x_offset_inches * imagedpi * xscalefactor))
             scaledy += int(round(const.hotspot_y_offset_inches * imagedpi * yscalefactor))
 

@@ -34,10 +34,10 @@ class SaguacheBallot(Ballot.Ballot):
         # extenders will need to handle any new const values here, however
         adj = lambda f: int(round(const.dpi * f))
         self.oval_size = (
-            adj(const.oval_width_inches),
-            adj(const.oval_height_inches)
+            adj(const.target_width_inches),
+            adj(const.target_height_inches)
         )
-        self.oval_margin = adj(.03) #XXX length should be in config or metadata
+        self.oval_margin = adj(const.margin_width_inches #XXX length should be in config or metadata
         self.min_contest_height = adj(const.minimum_contest_height_inches)
         self.vote_target_horiz_offset = adj(const.vote_target_horiz_offset_inches)
         self.writein_xoff = adj(2.5) #XXX
@@ -183,7 +183,7 @@ class SaguacheBallot(Ballot.Ballot):
         x = int(x)
         y = int(y)
         iround = lambda x: int(round(x))
-        margin = iround(.03 * const.dpi)
+        margin = iround(const.margin_width_inches * const.dpi)
 
         #BEGIN SHARABLE
         scaled_page_offset_x = page.xoff/scale
