@@ -75,13 +75,8 @@ class EssBallot(Ballot.DuplexBallot):
         # extenders will need to handle any new const values here, however
         adj = lambda f: int(round(const.dpi * f))
         # this is the size of the printed vote target's bounding box
-        self.oval_size = (
-            adj(const.target_width_inches),
-            adj(const.target_height_inches)
-        )
         # add these margins to the vote target's bounding box 
         # when cropping and analyzing for votes
-        self.oval_margin = adj(const.margin_width_inches #XXX length should be in config or metadata
         self.min_contest_height = adj(const.minimum_contest_height_inches)
         self.vote_target_horiz_offset = adj(const.vote_target_horiz_offset_inches)
         self.writein_xoff = adj(-2.5) #XXX
@@ -93,11 +88,11 @@ class EssBallot(Ballot.DuplexBallot):
 
     def extract_VOP(self, page, rotatefunc, scale, choice):
         """Extract a single oval, or writein box, from the specified ballot"""
-        pdb.set_trace()
-        x, y = choice.coords()
         iround = lambda x: int(round(x))
         adj = lambda a: int(round(const.dpi * a))
-        margin = adj(const.margin_width_inches #XXX should be in config file? class attr?
+        x, y = choice.coords()
+        margin_width = adj(const.margin_width_inches)
+        margin_height = adj(const.margin_height_inches)
         printed_oval_height = adj(0.097)
 
         #BEGIN SHARABLE
@@ -116,14 +111,15 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         x, y = rotatefunc(x, y, scale)
         #END SHARABLE
 
-        ow, oh = self.oval_size
+        ow = adj(const.target_width_inches)
+        oh = adj(const.target_height_inches)
         # Below is using the pure python cropstats:
         cropx, cropy = x, y #not adjusted like in PILB cropstats
         crop = page.image.crop((
-            cropx - margin,
-            cropy - margin,
-            min(cropx + margin + ow,page.image.size[0]-1),
-            min(cropy + margin + oh,page.image.size[1]-1)
+            cropx - margin_width,
+            cropy - margin_height,
+            min(cropx + margin_width + ow,page.image.size[0]-1),
+            min(cropy + margin_height + oh,page.image.size[1]-1)
         ))
 
         # check strip at center to look for either filled or empty oval;
@@ -155,28 +151,23 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
             cropy -= afterlessbefore
             #print "Adjusted",cropy
             crop = page.image.crop((
-                cropx - margin,
-                cropy - margin,
-                min(cropx + margin + ow,page.image.size[0]-1),
-                min(cropy + margin + oh,page.image.size[1]-1)
+                cropx - margin_width,
+                cropy - margin_height,
+                min(cropx + margin_width + ow,page.image.size[0]-1),
+                min(cropy + margin_height + oh,page.image.size[1]-1)
                 ))
         stats = Ballot.IStats(cropstats(crop, x, y))
-        # end pure python cropstats
-
-
-
-        stats = Ballot.IStats(cropstats(crop, x, y))
-        # end pure python cropstats
-
 
         voted, ambiguous = self.extensions.IsVoted(crop, stats, choice)
         writein = self.extensions.IsWriteIn(crop, stats, choice)
         if writein:
             crop = page.image.crop((
-                 cropx - margin,
-                 cropy - margin,
-                 cropx - margin + self.writein_xoff,
-                 cropy - margin + self.writein_yoff
+                 cropx - margin_width,
+                 cropy - margin_height,
+                 min(cropx + margin_width + self.writein_xoff,
+                     page.image.size[0]-1),
+                 min(cropy + margin_height + self.writein_yoff,
+                     page.image.size[1]-1)
             ))
 
         return cropx, cropy, stats, crop, voted, writein, ambiguous

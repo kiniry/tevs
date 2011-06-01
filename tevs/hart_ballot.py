@@ -32,11 +32,6 @@ class HartBallot(Ballot.Ballot):
     def __init__(self, images, extensions):
         #convert all our constants to locally correct values
         adj = lambda f: int(round(const.dpi * f))
-        self.oval_size = (
-            adj(const.target_width_inches),
-            adj(const.target_height_inches)
-        )
-        self.oval_margin = adj(const.margin_width_inches #XXX length should be in config or metadata
         self.min_contest_height = adj(const.minimum_contest_height_inches)
         self.vote_target_horiz_offset = adj(const.vote_target_horiz_offset_inches)
         self.writein_xoff = adj(2.5) #XXX

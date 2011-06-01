@@ -393,11 +393,6 @@ class SequoiaBallot(Ballot.Ballot):
         # many of these conversions will go to Ballot.py,
         # extenders will need to handle any new const values here, however
         adj = lambda f: int(round(const.dpi * f))
-        self.oval_size = (
-            adj(const.target_width_inches),
-            adj(const.target_height_inches)
-        )
-        self.oval_margin = adj(const.margin_width_inches #XXX length should be in config or metadata
         self.min_contest_height = adj(const.minimum_contest_height_inches)
 
         self.hotspot_x_offset_inches = adj(const.hotspot_x_offset_inches)
@@ -508,7 +503,11 @@ class SequoiaBallot(Ballot.Ballot):
         x, y = choice.coords()
         x = int(x)
         y = int(y)
-        margin = iround(const.margin_width_inches * const.dpi)
+
+        # NO horizontal margins in crop - grabbing region between marks!
+        # const.margin_width_inches not used
+        # hotspot_x_offset_inches IS used
+        margin_height = adj(const.margin_height_inches)
 
         #BEGIN SHARABLE
         scaled_page_offset_x = page.xoff/scale
@@ -526,7 +525,8 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         x, y = rotatefunc(x, y, scale)
         #END SHARABLE
 
-        ow, oh = self.oval_size
+        ow = adj(const.target_width_inches)
+        oh = adj(const.target_height_inches)
         #can be in separate func?
         cropx = x
         cropy = y
@@ -536,9 +536,9 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         # NO horizontal margins in crop - grabbing region between marks!
         croplist = (
             cropx + self.hotspot_x_offset_inches ,
-            cropy - margin,
+            cropy - margin_height,
             cropx + self.hotspot_x_offset_inches + ow, 
-            cropy + margin + oh
+            cropy + margin_height + oh
         )
         crop = page.image.crop(croplist)
         cropstat = ImageStat.Stat(crop)
@@ -556,10 +556,10 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
                y1 = min(self.writein_yoff+cropy,cropy + adj(.2))
                y2 = max(self.writein_yoff+cropy,cropy + adj(.2))
                crop = page.image.crop((
-                       x1 - margin,
-                       y1 - margin,
-                       x2 + margin,
-                       y2 + margin
+                       x1,
+                       y1 - margin_height,
+                       x2,
+                       y2 + margin_height
                        ))
         return cropx, cropy, stats, crop, voted, writein, ambiguous
 
