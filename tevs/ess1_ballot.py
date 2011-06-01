@@ -1,5 +1,4 @@
-# USE ess1_ballot.py in preference to this
-# ess_ballot.py implements the DuplexBallot interface 
+# ess1_ballot.py implements the Ballot interface 
 # in Ballot.py for ballots following the style used in 
 # Champaign County, IL. 
 # Please see the file README_ESS.txt for details.
@@ -48,6 +47,7 @@ import const
 from adjust import rotator
 from cropstats import cropstats
 import Image, ImageStat
+import math
 import ocr
 import pdb
 import sys
@@ -62,10 +62,11 @@ def elim_halftone(x):
 
 
 
-class EssBallot(Ballot.DuplexBallot):
+class Ess1Ballot(Ballot.Ballot):
+#class EssBallot(Ballot.DuplexBallot):
     """Class representing ESS duplex ballots (or single-sided).
 
-    The file name ess_ballot.py and the class name EssBallot
+    The file name ess1_ballot.py and the class name EssBallot
     correspond to the brand entry in tevs.cfg (ess.cfg), 
     the configuration file.
     """
@@ -85,16 +86,15 @@ class EssBallot(Ballot.DuplexBallot):
         self.allowed_corner_black = adj(const.allowed_corner_black_inches)
         self.back_upper_right_plus_x = 0
         self.back_upper_right_plus_y = 0
-        super(EssBallot, self).__init__(images, extensions)
+        super(Ess1Ballot, self).__init__(images, extensions)
 
     def extract_VOP(self, page, rotatefunc, scale, choice):
         """Extract a single oval, or writein box, from the specified ballot"""
         iround = lambda x: int(round(x))
         adj = lambda a: int(round(const.dpi * a))
         x, y = choice.coords()
-        margin_width = page.margin_width
-        margin_height = page.margin_height
         printed_oval_height = adj(0.097)
+
 
         #BEGIN SHARABLE
         scaled_page_offset_x = page.xoff/scale
@@ -110,8 +110,9 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         self.log.debug("Result of transform: (%d,%d)" % (x,y))
         
         x, y = rotatefunc(x, y, scale)
-        #END SHARABLE
+        # Below is using the pure python cropstats:
         cropx, cropy = x, y #not adjusted like in PILB cropstats
+        cropy -= adj(0.035)
         crop = page.image.crop((
             cropx - page.margin_width,
             cropy - page.margin_height,
@@ -120,7 +121,6 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
             min(cropy + page.margin_height + page.target_height,
                 page.image.size[1]-1)
         ))
-
         # check strip at center to look for either filled or empty oval;
         # recenter vertically
         stripe = crop.crop(((crop.size[0]/2),0,(crop.size[0]/2)+1,crop.size[1]-1))
@@ -147,7 +147,7 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         #print cropy,before_oval,oval,after_oval
         afterlessbefore = int(round((after_oval - before_oval)/2))
         if abs(afterlessbefore)>2:
-            cropy -= afterlessbefore
+            cropy += afterlessbefore
             #print "Adjusted",cropy
             crop = page.image.crop((
                 cropx - page.margin_width,
@@ -173,10 +173,6 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
 
         return cropx, cropy, stats, crop, voted, writein, ambiguous
 
-
-
-
-
     # Extenders do not need to supply even a stub flip
     # because flip in Ballot.py will print a stub message in the absence
     # of a subclass implementation
@@ -190,12 +186,7 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
 
     def find_back_landmarks(self, page):
         """just dup find_front_landmarks"""
-        try:
-            retval = self.find_front_landmarks(page)
-        except Ballot.BallotException as e:
-            page.blank = True
-            retval = [0,0,0]
-        return retval
+        return self.find_front_landmarks(page)
 
     def find_front_landmarks(self, page):
         """ess ballots have circled plus signs at the four corners
@@ -217,17 +208,6 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
             im = page
         # generate ulc, urc, lrc, llc coordinate pairs
         landmarks = []
-        move_up = 0
-        for n in range(3):
-            bottom = im.crop((0,
-                              im.size[1]-adj(0.03)-move_up,
-                              im.size[0],
-                              im.size[1]-move_up))
-            bottomstat = ImageStat.Stat(bottom)
-            if bottomstat.mean[0]<128:
-                move_up += adj(0.03)
-            else:
-                break
         for x,y in zip(
             # x starting points
             (adj(0.25),
@@ -237,8 +217,8 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
             # y starting points
             (adj(0.08),
              adj(0.08),
-             im.size[1]-adj(0.47)-1-move_up,
-             im.size[1]-adj(0.47)-1-move_up
+             im.size[1]-adj(0.4)-1,
+             im.size[1]-adj(0.4)-1
              )
             ):
             landmark = self.find_landmark_in_region(
@@ -249,19 +229,20 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         x,y = landmarks[0][0],landmarks[0][1]
         longdiff = landmarks[3][1] - landmarks[0][1]
         shortdiff = landmarks[3][0] - landmarks[0][0]
+        hypot = math.sqrt(longdiff*longdiff + shortdiff*shortdiff)
         r = float(shortdiff)/float(longdiff)
         # we depend on back landmarks being processed after front
         self.back_upper_right_plus_x = landmarks[1][0]
         self.back_upper_right_plus_y = landmarks[1][1]
-        self.log.debug("landmarks %s,rot %f,(%d,%d), longdiff %d" % (landmarks,r,x,y,longdiff))
-        return r,x,y,longdiff
+        self.log.debug("landmarks %s,rot %f,(%d,%d)" % (landmarks,r,x,y))
+        return r,x,y,hypot
 
-    def find_landmark_in_region(self, image, croplist):
+    def find_landmark_in_region(self, image, croplist, darkthresh=192):
         """ given an image and a cropbox, find the circled plus """
         iround = lambda x: int(round(x))
         adj = lambda f: int(round(const.dpi * f))
         dpi = const.dpi
-        full_span_inches = 0.18
+        full_span_inches = 0.16
         line_span_inches = 0.01
         circle_radius_inches = 0.03
         full_span_pixels = adj(full_span_inches)
@@ -272,36 +253,36 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         image = image.crop(croplist)
         for y in range(0,image.size[1]-full_span_pixels):
             for x in range(circle_radius_pixels, image.size[0]-circle_radius_pixels):
-                if (image.getpixel((x,y))[0] < 128 
-                    and image.getpixel((x-1,y))[0]>=128 
-                    and image.getpixel((x+(2*line_span_pixels),y))[0]>=128):
-                    if ((image.getpixel((x,y+full_span_pixels-4))[0]<128
-                        or image.getpixel((x+1,y+full_span_pixels-4))[0]<128
-                        or image.getpixel((x-1,y+full_span_pixels-4))[0]<128)
+                if (image.getpixel((x,y))[0] < darkthresh 
+                    and image.getpixel((x-1,y))[0] >= darkthresh
+                    and image.getpixel((x+(2*line_span_pixels),y))[0]
+                    >= darkthresh):
+                    if ((image.getpixel((x,y+full_span_pixels-2))[0]<darkthresh
+                        or image.getpixel((x+1,y+full_span_pixels-2))[0]<darkthresh
+                        or image.getpixel((x-1,y+full_span_pixels-2))[0]<darkthresh)
                         and (image.getpixel((x+(2*line_span_pixels),
-                                             y+full_span_pixels - 4))[0]>=128)):
+                                             y+full_span_pixels - 2))[0]>=darkthresh)):
                         try:
-                            for n in range(-3,3,1):
-                                hline = image.crop((x-circle_radius_pixels,
-                                                    y+(full_span_pixels/2)-n,
-                                                    x+circle_radius_pixels,
-                                                    y+(full_span_pixels/2)-n+1))
-                                hlinestat = ImageStat.Stat(hline)
-                                if hlinestat.mean[0]<192:
-                                    # we need to see some extremely white pixels nearby
-                                    white1 = image.crop((x+(2*line_span_pixels)+1,
-                                                        y+ (full_span_pixels/10),
-                                                        x + (3*line_span_pixels),
-                                                        y + (full_span_pixels/5)))
-                                    whitestat1 = ImageStat.Stat(white1)
-                                    white2 = image.crop((x-(3*line_span_pixels),
-                                                        y+ (full_span_pixels/10),
-                                                        x - (2*line_span_pixels),
-                                                        y + (full_span_pixels/5)))
-                                    whitestat2 = ImageStat.Stat(white2)
-                                    if whitestat1.mean[0]>224 and whitestat2.mean[0]>224:
-                                        return (x+croplist[0],
-                                                y+(full_span_pixels/2)+croplist[1])
+                            hline = image.crop((x-circle_radius_pixels,
+                                                y+(full_span_pixels/2)-2,
+                                                x+circle_radius_pixels,
+                                                y+(full_span_pixels/2)+2))
+                            hlinestat = ImageStat.Stat(hline)
+                            if hlinestat.mean[0]>64 and hlinestat.mean[0]<192:
+                                # we need to see some extremely white pixels nearby
+                                white1 = image.crop((x+line_span_pixels+1,
+                                                    y+ (full_span_pixels/10),
+                                                    x + (2*line_span_pixels),
+                                                    y + (full_span_pixels/5)))
+                                whitestat1 = ImageStat.Stat(white1)
+                                white2 = image.crop((x-(2*line_span_pixels),
+                                                    y+ (full_span_pixels/10),
+                                                    x - 1,
+                                                    y + (full_span_pixels/5)))
+                                whitestat2 = ImageStat.Stat(white2)
+                                if whitestat1.mean[0]>224 and whitestat2.mean[0]>224:
+                                    return (x+croplist[0],
+                                            y+(full_span_pixels/2)+croplist[1])
                         except:
                             pass
         # successful return will have taken place by here
@@ -415,19 +396,7 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         cjurisdiction_default = "No current jurisdiction"
         cjurisdiction = cjurisdiction_default
         contest_instance = None
-        next_white_is_votearea = False
-        this_white_is_votearea = False
-        next_white_is_yesno = False
-        this_white_is_yesno = False
         for n in range(len(left)):
-            this_white_is_votearea = False
-            if next_white_is_votearea == True:
-                this_white_is_votearea = True
-                next_white_is_votearea = False
-            this_white_is_yesno = False
-            if next_white_is_yesno == True:
-                this_white_is_yesno = True
-                next_white_is_yesno = False
             this_y = left[n][0]
             try:
                 next_zone = left[n+1]
@@ -435,70 +404,33 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
                 next_zone = [0,'X']
             next_y = next_zone[0]
             rel_end = next_y - (const.dpi/10)
-            if left[n][1]=='B':
-                self.log.debug("Black zone at %d to %d %s" % (this_y,
-                                                              next_y,
-                                                              next_zone))
-                # if it's a legitimate black zone and the next zone is white,
-                # that white zone is a Yes/No Vote Area (or empty)
-                if (next_y - this_y) > (const.dpi/4):
-                    next_white_is_yesno = True
-                    # this zone becomes the current Jurisdiction
-                    crop = image.crop((column_bounds[0],
-                                       this_y,
-                                       column_bounds[1],
-                                       next_y))
-                    cjurisdiction = ocr.tesseract(crop)
-                    self.log.debug( "Jurisdiction %s" % (cjurisdiction,))
-                    cjurisdiction = ocr.clean_ocr_text(cjurisdiction)
-                    cjurisdiction = cjurisdiction.replace("\n","//").strip()
-                    self.log.debug( "Cleaned Jurisdiction %s" % (cjurisdiction,))
-                    # and the current contest is set 
-                    # from the descriptive text
-                    # at the start of the Yes No Vote area
-            if left[n][1]=='G':
-                self.log.debug("Gray zone at %d to %d %s" % (this_y,
-                                                             next_y,
-                                                             next_zone))
+            if left[n][1]=='B' or left[n][1]=='G':
+                self.log.debug("%s zone at %d to %d %s" % (left[n][1],
+                                                           this_y,
+                                                           next_y,
+                                                           next_zone))
                 # if it's a legitimage gray zone and the next zone is white,
                 # that white zone is a voting area (or empty)
-                if (next_y - this_y) > (const.dpi/2):
-                    next_white_is_votearea = True
+                if (next_y - this_y) > (const.dpi/4):
                     crop = image.crop((column_bounds[0],
                                        this_y,
                                        column_bounds[1],
                                        next_y))
                     crop = Image.eval(crop,elim_halftone)
-                    ccontest = ocr.tesseract(crop)
-                    ccontest = ccontest.replace("\n","//").strip()
-                    self.log.debug( "Contest %s" % (ccontest,))
-                    ccontest = ocr.clean_ocr_text(ccontest)
-                    self.log.debug( "Cleaned Contest %s" % (ccontest,))
-                    contest_instance = Ballot.Contest(column_bounds[0],
-                                                      this_y,
-                                                      column_bounds[1],
-                                                      this_y+next_y,
-                                                      0,
-                                                      ccontest)
-                    regionlist.append(contest_instance)
+                    cjurisdiction = ocr.tesseract(crop)
+                    cjurisdiction = cjurisdiction.replace("\n","//").strip()
+                    self.log.debug( "Jurisdiction %s" % (cjurisdiction,))
+                    cjurisdiction = ocr.clean_ocr_text(cjurisdiction)
+                    self.log.debug( "Cleaned Jurisdiction %s" % (cjurisdiction,))
             if left[n][1]=='W':
-                if this_white_is_votearea:
-                    # no descriptive text anticipated
-                    self.get_only_votes_from(image,contest_instance,
-                                             (column_bounds[0],
-                                              this_y,
-                                              column_bounds[1],
-                                              next_y))
-                if this_white_is_yesno:
-                    # descriptive text sets current contest,
-                    # votes are in stretches where the middle is white
-                    self.get_contests_and_votes_from(image,
-                    regionlist,
-                                                     (column_bounds[0],
-                                                      this_y,
-                                                      column_bounds[1],
-                                                      next_y))
+                self.get_title_and_votes_from(image,regionlist,
+                                         (column_bounds[0],
+                                          this_y,
+                                          column_bounds[1],
+                                          next_y))
                 self.log.debug( "White zone at %d to %d %s" % (this_y,next_y,next_zone))
+        # filter regionlist to contain only contests with choices
+        regionlist = [x for x in regionlist if len(x.choices)>0]
         return regionlist
 
     def get_dark_zones(self,crop):
@@ -611,10 +543,11 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
                     self.log.debug("Contest string: %s" % (contest_string,))
         return dark_zones
 
-    def get_only_votes_from(self,image,contest_instance,croplist):
-        """ given an area known to contain only votes, return info
+    def get_title_and_votes_from(self,image,regionlist,croplist):
+        """ given an area known to contain a contest title and votes, return info
 
-        The cropped area will contain only voting areas.  Voting areas will
+        The cropped area will contain a title area at the top, 
+        followed by voting areas.  Voting areas will
         contain ovals in the oval column.  Descriptive text to the right of
         the ovals will be assigned to each oval based on being at or below
         the oval.
@@ -632,11 +565,42 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         dark_zones = self.get_dark_zones(crop)
         next_dark_zones = dark_zones[1:]
         next_dark_zones.append([crop.size[1]-2,crop.size[1]-1])
+        # get title from first dark zone exceeding 1/10"
+        contest_instance = None
+        skipcount = 0
+        for dz,ndz in zip(dark_zones,next_dark_zones):
+            skipcount += 1
+            # a valid dark zone will be at least .05" tall and will
+            # and its top will precede the next top by at least 0.1"
+            if ( (ndz[0] - dz[0]) >= adj(0.1)
+                 and (dz[1] - dz[0]) >= adj(0.05) ):
+                titlezone = crop.crop((adj(0.1),
+                                   dz[0],
+                                   crop.size[0]-adj(0.1), 
+                                   ndz[0]))
+                zonetext = ocr.tesseract(titlezone)
+                zonetext = ocr.clean_ocr_text(zonetext)
+                zonetext = zonetext.strip()
+                zonetext = zonetext.replace("\n","//").strip()
+                print "Appending contest",zonetext
+                contest_instance = Ballot.Contest(croplist[0], 
+                                                  croplist[1],
+                                                  croplist[2],
+                                                  croplist[3], 
+                                                  0,
+                                                  zonetext)
+                regionlist.append(contest_instance)
+                break
+                
+            
         skip = False
         for dz,ndz in zip(dark_zones,next_dark_zones):
             # if two dark zones are less than 0.3" apart, merge them and skip
             # this allows two line entries to be handled as single choices
             # !!! check for existence of oval in oval zone instead
+            if skipcount > 0:
+                skipcount -= 1
+                continue
             if skip == True: 
                 skip = False
                 continue
@@ -687,7 +651,7 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
                                                               zonetext))
                 choice = Ballot.Choice(append_x, append_y, zonetext)
                 contest_instance.append(choice)
-        return contest_instance
+        return regionlist
 
     def build_layout(self, page, back=False):
         """ get layout and ocr information from ess ballot
@@ -786,16 +750,11 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
             ref_pt[1] = self.back_upper_right_plus_y + adj(0.36)
             self.log.debug( "Building BACK layout" )
         self.log.debug("Reference point: %s" % ( ref_pt,))
-        # we need to allow column markers to fail due to single sided
-        # duplex ballot instances being valid
-        try:
-            columns = column_markers(page.image,ref_pt)
-        except Ballot.BallotException:
-            columns = []
+        columns = column_markers(page.image,ref_pt)
         try:
             column_width = columns[1][0] - columns[0][0]
         except IndexError:
-            column_width = page.image.size[0] - const.dpi
+            column_width = im.size[0] - const.dpi
         regionlist = []
         for cnum, column in enumerate(columns):
             column_x = column[0] - oval_offset_into_column
