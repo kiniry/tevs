@@ -16,8 +16,10 @@ duplex = True
 [Sizes]
 ballot_width_inches = 8.5
 ballot_height_inches = 17.0
-oval_width_inches = 0.34
-oval_height_inches = 0.2
+target_width_inches = 0.34
+target_height_inches = 0.2
+margin_width_inches = 0.03
+margin_height_inches = 0.03
 candidate_text_height_inches = 0.43
 candidate_text_horiz_offset_inches = 0.43
 vote_target_horiz_offset_inches = 0.07
