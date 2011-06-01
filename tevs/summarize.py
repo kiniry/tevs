@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import sys
-import argparse
-
+#import argparse
+import pdb
 import db
 import config
 import const #XXX tbd
@@ -26,18 +26,9 @@ Election-wide voted results by layout code:
 Election-wide voted results by layout code sorted by contest:
     {election_wide_voted_by_layoutcode_sorted_by_contest}
 
-Election-wide suspicious results:
-    {election_wide_suspicious}
-
-Election-wide suspicious results by layout code:
-    {election_wide_suspicious_by_layoutcode}
-
-Election-wide suspicious results by layout code sorted by contest:
-    {election_wide_suspicious_by_layoutcode_sorted_by_contest}
 
 Total voted boxes:\t{num_voted}
 Total unvoted boxes:\t{num_non_voted}
-Total suspicious votes:\t{num_weird}
 Total bad voted areas:\t{num_bad}
 """[1:] #get rid of \n after the quotes on top, bottom \n needed
 def console_display(data):
@@ -45,48 +36,38 @@ def console_display(data):
         data[key] = "\n\t".join(template.format(*d) for d in data[key])
     #: #, con, cho 
     fmt1("election_wide", 
-        "{1}:{2} appeared {0} times."
+        "{1},{2},{0}"
     )
     #: #, code, con, cho 
     fmt1("election_wide_by_layoutcode", 
-        "{1}:{2}:{3} appears {0} times."
+        "{1},{2},{3},{0}"
     )
     #: #, code, con, cho
     fmt1("election_wide_by_layoutcode_sorted_by_contest",
-        "{1}:{2}:{3} appears {0} times."
+        "{1},{2},{3},{0}"
     )
 
     fmt1("election_wide_voted", 
-        "{1}:{2} voted {0} times."
+        "{1},{2},{0}"
     )
     fmt1("election_wide_voted_by_layoutcode", 
-        "{1}:{2}:{3} voted {0} times."
+        "{1},{2},{3},{0}"
     ) 
     fmt1("election_wide_voted_by_layoutcode_sorted_by_contest",
-        "{1}:{2}:{3} voted {0} times."
+        "{1},{2},{3},{0}"
     )
 
-    fmt1("election_wide_suspicious", 
-        "{1}:{2} marked suspicious {0} times."
-    )
-    fmt1("election_wide_suspicious_by_layoutcode", 
-        "{1}:{2}:{3} suspiciously voted {0} times."
-    ) 
-    fmt1("election_wide_suspicious_by_layoutcode_sorted_by_contest",
-        "{1}:{2}:{3} suspiciously voted {0} times."
-    )
     return console_template.format(**data)
 
 display = {
     "console": console_display,
 }
 
-def query(dbc):
+def query(dbc,out_file):
     q, q1 = dbc.query, dbc.query1
 
     num_vops = q1("select count(was_voted) from voteops")[0]
     num_voted = q1("select count(was_voted) from voteops where was_voted")[0]
-    num_weird = q1("select count(suspicious) from voteops where suspicious")[0]
     num_bad = q1("select count(original_x) from voteops where original_x = -1")[0]
     num_non_voted = num_vops - num_voted
 
@@ -95,9 +76,17 @@ def query(dbc):
     """select count(contest_text), contest_text, choice_text
         from voteops
         group by contest_text, choice_text
-        order by choice_text
+        order by contest_text, choice_text
         ;"""
     )
+    lastrecord1 = ""
+    for record in election_wide:
+        if record[1]<>lastrecord1:
+            print record[1]
+            lastrecord1 = record[1]
+        out_file.write("%05d,%30s,%30s\n" % (record[0],record[2][:30],record[1][:30]))
+    out_file.close()
+    pdb.set_trace()
     election_wide_by_layoutcode = q(
     """select count(code_string), code_string, contest_text, choice_text
         from voteops join ballots on voteops.ballot_id = ballots.ballot_id
@@ -138,43 +127,19 @@ def query(dbc):
         ;"""
     )
 
-    #suspicious
-    election_wide_suspicious = q(
-    """select count(contest_text), contest_text, choice_text
-        from voteops where suspicious
-        group by contest_text, choice_text
-        order by choice_text
-        ;"""
-    )
-    election_wide_suspicious_by_layoutcode = q(
-    """select count(code_string), code_string, contest_text, choice_text
-        from voteops join ballots on voteops.ballot_id = ballots.ballot_id
-        where suspicious
-        group by code_string, contest_text, choice_text
-        order by code_string
-        ;"""
-    )
-    election_wide_suspicious_by_layoutcode_sorted_by_contest = q(
-    """select count(code_string), code_string, contest_text, choice_text
-        from voteops join ballots on voteops.ballot_id = ballots.ballot_id
-        where suspicious
-        group by contest_text, choice_text, code_string
-        order by contest_text, choice_text
-        ;"""
-    )
 
     del q #bad form, but acceptable here, for simplicity's sake
     del q1
     return locals()
 
-flags = argparse.ArgumentParser(
-    description='Summarize ballot counts from database',
-)
-flags.add_argument('-c', '--config', dest="cfg")
+#flags = argparse.ArgumentParser(
+#    description='Summarize ballot counts from database',
+#)
+#flags.add_argument('-c', '--config', dest="cfg")
 
-def main(args):
-    cfg_file = args.cfg or "tevs.cfg"
- 
+def main():
+    cfg_file = "tevs.cfg"
+    out_file = open("summary.csv","w")
     config.get(cfg_file)
 
     log = config.logger(util.root("log.txt"))
@@ -189,13 +154,14 @@ def main(args):
         log.error("Could not connect to database")
         return 2
 
-    qs = query(dbc)
+    qs = query(dbc,out_file)
+    pdb.set_trace()
     printer = display['console']
     print printer(qs)
 
     return 0
     
 if __name__ == '__main__':
-    args = flags.parse_args()
-    rc = main(args)
+    #args = flags.parse_args()
+    rc = main()
     sys.exit(rc)
