@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import sys
 import os
-import pdb
 import shutil
 import errno
 import getopt
@@ -160,7 +159,6 @@ def main():
             )
 
             try:
-                pdb.set_trace()
                 ballot = ballotfrom(unprocs, extensions)
                 results = ballot.ProcessPages()
             except BallotException as e:
@@ -183,10 +181,8 @@ def main():
                 results_to_vop_files(results,resultsfilename)
             except Exception as e:
                 print e
-                pdb.set_trace()
             #write csv and mosaic
             util.genwriteto(resultsfilename + ".txt", csv)
-            pdb.set_trace()
             #write to the database
             try:
                 dbc.insert(ballot)

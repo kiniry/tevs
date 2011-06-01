@@ -319,10 +319,10 @@ AT PAGE
         iround = lambda x: int(round(x))
         adj = lambda a: int(round(const.dpi * a))
         x, y = choice.coords()
-        margin_width = adj(const.margin_width_inches) 
-        margin_height = adj(const.margin_height_inches) 
-        ow = adj(const.target_width_inches)
-        oh = adj(const.target_height_inches)
+        margin_width = page.margin_width 
+        margin_height = page.margin_height 
+        ow = page.target_width
+        oh = page.target_height
         scaled_page_offset_x = page.xoff/scale
         scaled_page_offset_y = page.yoff/scale
         self.log.debug("Incoming coords (%d,%d), \
@@ -1083,6 +1083,20 @@ class Page(_scannedPage):
         self.number = number
         self.blank = False
         self.barcode = ""
+        # the standard size and margin of vote targets, converted to pixels
+        adj = lambda a: int(round(const.dpi * a))
+        try:
+            self.target_width = adj(const.target_width_inches)
+            self.target_height = adj(const.target_height_inches)
+            self.margin_width = adj(const.margin_width_inches)
+            self.margin_height = adj(const.margin_height_inches)
+        except AttributeError as e:
+            self.margin_width = 0
+            self.margin_height = 0
+            self.target_width = 30
+            self.target_height = 30
+            raise AttributeError(e + " and is required in the tevs.cfg file.")
+            print e
 
     def as_template(self, barcode, contests):
         """Given the barcode and contests, convert this page into a Template

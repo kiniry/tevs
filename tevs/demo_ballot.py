@@ -31,12 +31,14 @@ class DemoBallot(Ballot.Ballot):
     """
 
     def __init__(self, images, extensions):
+        super(DemoBallot, self).__init__(images, extensions)
         print "Creating a Ballot object with", images
         #convert all our constants to locally correct values
         # many of these conversions will go to Ballot.py,
         # extenders will need to handle any new const values here, however
         # add these margins to the vote target's bounding box 
         # when cropping and analyzing for votes
+        adj = lambda f: int(round(const.dpi * f))
         self.min_contest_height = adj(const.minimum_contest_height_inches)
         self.vote_target_horiz_offset = adj(const.vote_target_horiz_offset_inches)
         self.writein_xoff = adj(-2.5) #XXX
@@ -151,7 +153,7 @@ such landmark, enter -1:
         page.barcode = barcode
         return barcode
 
-    def extract_VOP(self, page, rotate, scale, choice):
+    def extract_VOP(self, page, rotatefunc, scale, choice):
         """Extract a single oval, or writein box, from the specified ballot.
         We'll tell you the coordinates, you tell us the stats.  The
         information gathered should enable the IsVoted function to 
@@ -164,11 +166,12 @@ such landmark, enter -1:
         iround = lambda x: int(round(x))
         # choice coords should be the upper left hand corner 
         # of the bounding box of the printed vote target
+        adj = lambda f: int(round(const.dpi * f))
         x, y = choice.coords()
         x = int(x)
         y = int(y)
-        margin_width =  = adj(const.margin_width_inches)
-        margin_height =  = adj(const.margin_height_inches)
+        margin_width = page.margin_width
+        margin_height = page.margin_height
 
         scaled_page_offset_x = page.xoff/scale
         scaled_page_offset_y = page.yoff/scale
@@ -184,7 +187,7 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         
         x, y = rotatefunc(x, y, scale)
 
-        ow, oh = adj(const.target_width_inches),adj(const.target_height_inches)
+        ow, oh = page.target_width,page.target_height
 
         print """At %d dpi, on a scale of 0 to 255, 
 tell us the average intensity from (%d, %d) for width %d height %d, 

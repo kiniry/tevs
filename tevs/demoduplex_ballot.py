@@ -36,11 +36,6 @@ class DemoduplexBallot(Ballot.DuplexBallot):
         # many of these conversions will go to Ballot.py,
         # extenders will need to handle any new const values here, however
         adj = lambda f: int(round(const.dpi * f))
-        # this is the size of the printed vote target's bounding box
-            adj(const.target_width_inches),
-            adj(const.target_height_inches)
-        # add these margins to the vote target's bounding box 
-        # when cropping and analyzing for votes
         self.min_contest_height = adj(const.minimum_contest_height_inches)
         self.vote_target_horiz_offset = adj(const.vote_target_horiz_offset_inches)
         self.writein_xoff = adj(-2.5) #XXX
@@ -181,7 +176,7 @@ front's layout code.  """
         page.barcode = barcode
         return barcode
 
-    def extract_VOP(self, page, rotate, scale, choice):
+    def extract_VOP(self, page, rotatefunc, scale, choice):
         print "In extract_VOP"
         print"""Extract a single oval, or writein box, from the specified ballot.
 We'll tell you the coordinates, you tell us the stats.  The
@@ -196,9 +191,7 @@ the raw statistics to make their own decision.  """
         x, y = choice.coords()
         x = int(x)
         y = int(y)
-        margin = iround(const.margin_width_inches * const.dpi)
 
-        #BEGIN SHARABLE
         scaled_page_offset_x = page.xoff/scale
         scaled_page_offset_y = page.yoff/scale
         self.log.debug("Incoming coords (%d,%d), \
@@ -212,12 +205,8 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         self.log.debug("Result of transform: (%d,%d)" % (x,y))
         
         x, y = rotatefunc(x, y, scale)
-        #END SHARABLE
-
 
         # this is the size of the printed vote target's bounding box
-        ow = adj(const.target_width_inches)
-        oh = adj(const.target_height_inches)
 
         print """At %d dpi, on a scale of 0 to 255, 
 tell us the average intensity from (%d, %d) for width %d height %d, 
@@ -244,10 +233,10 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
         cropx = stats.adjusted.x
         cropy = stats.adjusted.y
         crop = page.image.crop((
-            cropx - margin,
-            cropy - margin,
-            cropx + margin + ow, 
-            cropy + margin + oh
+            cropx - page.margin_width,
+            cropy - page.margin_height,
+            cropx + page.margin_width + page.target_width, 
+            cropy + page.margin_height + page.target_height
         ))
 
         #can be in separate func?
@@ -258,9 +247,9 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
            writein = self.extensions.IsWriteIn(crop, stats, choice)
         if writein:
             print "Gather information about the write-in at",
-            print cropx - margin, cropy - margin,
-            print cropx + self.writein_xoff + margin,
-            print cropy + self.writein_yoff + margin
+            print cropx - page.margin_width, cropy - page.margin_height,
+            print cropx + self.writein_xoff + page.margin_width,
+            print cropy + self.writein_yoff + page.margin_height
 
         return cropx, cropy, stats, crop, voted, writein, ambiguous
 

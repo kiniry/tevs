@@ -91,8 +91,8 @@ class EssBallot(Ballot.DuplexBallot):
         iround = lambda x: int(round(x))
         adj = lambda a: int(round(const.dpi * a))
         x, y = choice.coords()
-        margin_width = adj(const.margin_width_inches)
-        margin_height = adj(const.margin_height_inches)
+        margin_width = page.margin_width
+        margin_height = page.margin_height
         printed_oval_height = adj(0.097)
 
         #BEGIN SHARABLE
@@ -110,16 +110,14 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         
         x, y = rotatefunc(x, y, scale)
         #END SHARABLE
-
-        ow = adj(const.target_width_inches)
-        oh = adj(const.target_height_inches)
-        # Below is using the pure python cropstats:
         cropx, cropy = x, y #not adjusted like in PILB cropstats
         crop = page.image.crop((
-            cropx - margin_width,
-            cropy - margin_height,
-            min(cropx + margin_width + ow,page.image.size[0]-1),
-            min(cropy + margin_height + oh,page.image.size[1]-1)
+            cropx - page.margin_width,
+            cropy - page.margin_height,
+            min(cropx + page.margin_width + page.target_width,
+                page.image.size[0]-1),
+            min(cropy + page.margin_height + page.target_height,
+                page.image.size[1]-1)
         ))
 
         # check strip at center to look for either filled or empty oval;
@@ -151,10 +149,12 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
             cropy -= afterlessbefore
             #print "Adjusted",cropy
             crop = page.image.crop((
-                cropx - margin_width,
-                cropy - margin_height,
-                min(cropx + margin_width + ow,page.image.size[0]-1),
-                min(cropy + margin_height + oh,page.image.size[1]-1)
+                cropx - page.margin_width,
+                cropy - page.margin_height,
+                min(cropx + page.margin_width + page.target_width,
+                    page.image.size[0]-1),
+                min(cropy + page.margin_height + page.target_height,
+                    page.image.size[1]-1)
                 ))
         stats = Ballot.IStats(cropstats(crop, x, y))
 
@@ -162,11 +162,11 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         writein = self.extensions.IsWriteIn(crop, stats, choice)
         if writein:
             crop = page.image.crop((
-                 cropx - margin_width,
-                 cropy - margin_height,
-                 min(cropx + margin_width + self.writein_xoff,
+                 cropx - page.margin_width,
+                 cropy - page.margin_height,
+                 min(cropx + page.margin_width + self.writein_xoff,
                      page.image.size[0]-1),
-                 min(cropy + margin_height + self.writein_yoff,
+                 min(cropy + page.margin_height + self.writein_yoff,
                      page.image.size[1]-1)
             ))
 
