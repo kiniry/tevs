@@ -34,10 +34,10 @@ class SaguacheBallot(Ballot.Ballot):
         # extenders will need to handle any new const values here, however
         adj = lambda f: int(round(const.dpi * f))
         self.oval_size = (
-            adj(const.target_width_inches),
-            adj(const.target_height_inches)
+            page.target_width,
+            page.target_height
         )
-        self.oval_margin = adj(const.margin_width_inches #XXX length should be in config or metadata
+        self.oval_margin = page.margin_width#XXX length should be in config or metadata
         self.min_contest_height = adj(const.minimum_contest_height_inches)
         self.vote_target_horiz_offset = adj(const.vote_target_horiz_offset_inches)
         self.writein_xoff = adj(2.5) #XXX
@@ -160,7 +160,7 @@ class SaguacheBallot(Ballot.Ballot):
         page.barcode = barcode
         return barcode
 
-    def extract_VOP(self, page, rotate, scale, choice):
+    def extract_VOP(self, page, rotatefunc, scale, choice):
         """Extract a single oval, or writein box, from the specified ballot.
         
         Note that cropstats is C code in Imaging-1.1.7, most of which 
@@ -184,8 +184,8 @@ class SaguacheBallot(Ballot.Ballot):
         x, y = choice.coords()
         x = int(x)
         y = int(y)
-        margin_width = adj(const.margin_width_inches)
-        margin_height = adj(const.margin_height_inches)
+        margin_width = page.margin_width
+        margin_height = page.margin_height
 
         #BEGIN SHARABLE
         scaled_page_offset_x = page.xoff/scale
@@ -202,8 +202,8 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         
         x, y = rotatefunc(x, y, scale)
         #END SHARABLE
-        ow = adj(const.target_width_inches)
-        oh = adj(const.target_height_inches)
+        ow = page.target_width
+        oh = page.target_height
 
         stats = Ballot.IStats(page.image.cropstats(
             const.dpi,

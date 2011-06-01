@@ -494,7 +494,7 @@ class SequoiaBallot(Ballot.Ballot):
         page.barcode = barcode
         return barcode
 
-    def extract_VOP(self, page, rotate, scale, choice):
+    def extract_VOP(self, page, rotatefunc, scale, choice):
         """Extract statistics for a single oval or writein from the ballot.
 
         """
@@ -507,9 +507,6 @@ class SequoiaBallot(Ballot.Ballot):
         # NO horizontal margins in crop - grabbing region between marks!
         # const.margin_width_inches not used
         # hotspot_x_offset_inches IS used
-        margin_height = adj(const.margin_height_inches)
-
-        #BEGIN SHARABLE
         scaled_page_offset_x = page.xoff/scale
         scaled_page_offset_y = page.yoff/scale
         self.log.debug("Incoming coords (%d,%d), \
@@ -523,11 +520,6 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         self.log.debug("Result of transform: (%d,%d)" % (x,y))
         
         x, y = rotatefunc(x, y, scale)
-        #END SHARABLE
-
-        ow = adj(const.target_width_inches)
-        oh = adj(const.target_height_inches)
-        #can be in separate func?
         cropx = x
         cropy = y
         cropy -= adj(.1)
@@ -536,9 +528,11 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         # NO horizontal margins in crop - grabbing region between marks!
         croplist = (
             cropx + self.hotspot_x_offset_inches ,
-            cropy - margin_height,
-            cropx + self.hotspot_x_offset_inches + ow, 
-            cropy + margin_height + oh
+            cropy - page.margin_height,
+            min(cropx + self.hotspot_x_offset_inches + page.target_width,
+                page.image.size[0]-1), 
+            min(cropy + page.margin_height + page.target_height,
+                page.image.size[1]-1)
         )
         crop = page.image.crop(croplist)
         cropstat = ImageStat.Stat(crop)
@@ -557,9 +551,9 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
                y2 = max(self.writein_yoff+cropy,cropy + adj(.2))
                crop = page.image.crop((
                        x1,
-                       y1 - margin_height,
-                       x2,
-                       y2 + margin_height
+                       y1 - page.margin_height,
+                       min(x2,page.image.size[0]-1),
+                       min(y2 + page.margin_height,page.image.size[1]-1)
                        ))
         return cropx, cropy, stats, crop, voted, writein, ambiguous
 
