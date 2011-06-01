@@ -37,13 +37,10 @@ class DemoduplexBallot(Ballot.DuplexBallot):
         # extenders will need to handle any new const values here, however
         adj = lambda f: int(round(const.dpi * f))
         # this is the size of the printed vote target's bounding box
-        self.oval_size = (
             adj(const.target_width_inches),
             adj(const.target_height_inches)
-        )
         # add these margins to the vote target's bounding box 
         # when cropping and analyzing for votes
-        self.oval_margin = adj(const.margin_width_inches #XXX length should be in config or metadata
         self.min_contest_height = adj(const.minimum_contest_height_inches)
         self.vote_target_horiz_offset = adj(const.vote_target_horiz_offset_inches)
         self.writein_xoff = adj(-2.5) #XXX
@@ -194,10 +191,11 @@ but the data is also available to anyone else wanting to see
 the raw statistics to make their own decision.  """
         # choice coords should be the upper left hand corner 
         # of the bounding box of the printed vote target
+        adj = lambda f: int(round(const.dpi * f))
+        iround = lambda x: int(round(x))
         x, y = choice.coords()
         x = int(x)
         y = int(y)
-        iround = lambda x: int(round(x))
         margin = iround(const.margin_width_inches * const.dpi)
 
         #BEGIN SHARABLE
@@ -217,7 +215,10 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         #END SHARABLE
 
 
-        ow, oh = self.oval_size
+        # this is the size of the printed vote target's bounding box
+        ow = adj(const.target_width_inches)
+        oh = adj(const.target_height_inches)
+
         print """At %d dpi, on a scale of 0 to 255, 
 tell us the average intensity from (%d, %d) for width %d height %d, 
 given an offset from the specified x of %d

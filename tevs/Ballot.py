@@ -316,28 +316,32 @@ AT PAGE
 
     def extract_VOP(self, page, rotatefunc, scale, choice): 
         """Extract a single oval, or writein box, from the specified ballot"""
-        x, y = choice.coords()
         iround = lambda x: int(round(x))
-        margin = iround(const.margin_width_inches * const.dpi) #XXX should be in config file? class attr?
+        adj = lambda a: int(round(const.dpi * a))
+        x, y = choice.coords()
+        margin_width = adj(const.margin_width_inches) 
+        margin_height = adj(const.margin_height_inches) 
+        ow = adj(const.target_width_inches)
+        oh = adj(const.target_height_inches)
         scaled_page_offset_x = page.xoff/scale
         scaled_page_offset_y = page.yoff/scale
         self.log.debug("Incoming coords (%d,%d), \
-page offsets (%d,%d) template offsets (%d,%d)" % (
+page offsets (%d,%d) template offsets (%d,%d) margins(%d,%d)" % (
                 x,y,
                 page.xoff,page.yoff,
-                scaled_page_offset_x,scaled_page_offset_y))
+                scaled_page_offset_x,scaled_page_offset_y,
+                margin_width,margin_height))
         # adjust x and y for the shift of landmark between template and ballot
         x = iround(x + scaled_page_offset_x - page.template.xoff)
         y = iround(y + scaled_page_offset_y - page.template.yoff)
         self.log.debug("Result of transform: (%d,%d)" % (x,y))
         x, y = rotatefunc(x, y, scale)
-        ow, oh = self.oval_size
         cropx, cropy = x, y 
         crop = page.image.crop((
-            cropx - margin,
-            cropy - margin,
-            cropx + margin + ow,
-            cropy + margin + oh
+            cropx - margin_width,
+            cropy - margin_height,
+            cropx + margin_width + ow,
+            cropy + margin_height + oh
         ))
         stats = IStats(cropstats(crop, x, y))
         voted, ambiguous = self.extensions.IsVoted(crop, stats, choice)

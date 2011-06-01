@@ -179,11 +179,13 @@ class SaguacheBallot(Ballot.Ballot):
         performed by the default functions set into the Ballot Extensions
         object.  These functions may be overriden. XXX Example!
         """
+        adj = lambda f: int(round(const.dpi * f))
+        iround = lambda x: int(round(x))
         x, y = choice.coords()
         x = int(x)
         y = int(y)
-        iround = lambda x: int(round(x))
-        margin = iround(const.margin_width_inches * const.dpi)
+        margin_width = adj(const.margin_width_inches)
+        margin_height = adj(const.margin_height_inches)
 
         #BEGIN SHARABLE
         scaled_page_offset_x = page.xoff/scale
@@ -200,7 +202,9 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         
         x, y = rotatefunc(x, y, scale)
         #END SHARABLE
-        ow, oh = self.oval_size
+        ow = adj(const.target_width_inches)
+        oh = adj(const.target_height_inches)
+
         stats = Ballot.IStats(page.image.cropstats(
             const.dpi,
             self.vote_target_horiz_offset, 
@@ -213,10 +217,10 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         cropx = stats.adjusted.x
         cropy = stats.adjusted.y
         crop = page.image.crop((
-            cropx - margin,
-            cropy - margin,
-            cropx + margin + ow, 
-            cropy + margin + oh
+            cropx - margin_width,
+            cropy - margin_height,
+            cropx + margin_width + ow, 
+            cropy + margin_height + oh
         ))
 
         #can be in separate func?
@@ -226,10 +230,12 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
            writein = self.extensions.IsWriteIn(crop, stats, choice)
         if writein:
             crop = page.image.crop((
-                 cropx - margin,
-                 cropy - margin,
-                 cropx + self.writein_xoff + margin,
-                 cropy + self.writein_yoff + margin
+                 cropx - margin_width,
+                 cropy - margin_height,
+                 min(cropx + self.writein_xoff + margin_width,
+                     page.image.size[0]-1),
+                 min(cropy + self.writein_yoff + margin_height,
+                     page.image.size[1]-1)
             ))
 
         return cropx, cropy, stats, crop, voted, writein, ambiguous

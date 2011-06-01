@@ -35,15 +35,8 @@ class DemoBallot(Ballot.Ballot):
         #convert all our constants to locally correct values
         # many of these conversions will go to Ballot.py,
         # extenders will need to handle any new const values here, however
-        adj = lambda f: int(round(const.dpi * f))
-        # this is the size of the printed vote target's bounding box
-        self.oval_size = (
-            adj(const.target_width_inches),
-            adj(const.target_height_inches)
-        )
         # add these margins to the vote target's bounding box 
         # when cropping and analyzing for votes
-        self.oval_margin = adj(const.margin_width_inches #XXX length should be in config or metadata
         self.min_contest_height = adj(const.minimum_contest_height_inches)
         self.vote_target_horiz_offset = adj(const.vote_target_horiz_offset_inches)
         self.writein_xoff = adj(-2.5) #XXX
@@ -167,15 +160,16 @@ such landmark, enter -1:
         the raw statistics to make their own decision.
         """
         print "In extract_VOP"
+        adj = lambda f: int(round(const.dpi * f))
+        iround = lambda x: int(round(x))
         # choice coords should be the upper left hand corner 
         # of the bounding box of the printed vote target
         x, y = choice.coords()
         x = int(x)
         y = int(y)
-        iround = lambda x: int(round(x))
-        margin = iround(const.margin_width_inches * const.dpi)
+        margin_width =  = adj(const.margin_width_inches)
+        margin_height =  = adj(const.margin_height_inches)
 
-        #BEGIN SHARABLE
         scaled_page_offset_x = page.xoff/scale
         scaled_page_offset_y = page.yoff/scale
         self.log.debug("Incoming coords (%d,%d), \
@@ -189,9 +183,9 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         self.log.debug("Result of transform: (%d,%d)" % (x,y))
         
         x, y = rotatefunc(x, y, scale)
-        #END SHARABLE
 
-        ow, oh = self.oval_size
+        ow, oh = adj(const.target_width_inches),adj(const.target_height_inches)
+
         print """At %d dpi, on a scale of 0 to 255, 
 tell us the average intensity from (%d, %d) for width %d height %d, 
 given an offset from the specified x of %d
@@ -217,10 +211,10 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
         cropx = stats.adjusted.x
         cropy = stats.adjusted.y
         crop = page.image.crop((
-            cropx - margin,
-            cropy - margin,
-            cropx + margin + ow, 
-            cropy + margin + oh
+            cropx - margin_width,
+            cropy - margin_height,
+            cropx + margin_width + ow, 
+            cropy + margin_height + oh
         ))
 
         #can be in separate func?
@@ -231,9 +225,9 @@ abi, lowestb, lowb, highb, highestb, x, y, 0)
            writein = self.extensions.IsWriteIn(crop, stats, choice)
         if writein:
             print "Gather information about the write-in at",
-            print cropx - margin, cropy - margin,
-            print cropx + self.writein_xoff + margin,
-            print cropy + self.writein_yoff + margin
+            print cropx - margin_width, cropy - margin_height,
+            print cropx + self.writein_xoff + margin_width,
+            print cropy + self.writein_yoff + margin_height
 
         return cropx, cropy, stats, crop, voted, writein, ambiguous
 
