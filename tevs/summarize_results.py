@@ -320,9 +320,13 @@ def build_totals_from_results_files():
         print len(vklist), "variants of voted contest/choice encountered."
         print len(lklist), "variants of voted layout/contest/choice encountered."
 
-def to_open_office(output_name):
-    pid = subprocess.Popen(["/usr/bin/ooffice",output_name,output_name]).pid
-    print "Opening open office on results file %s (%d)" % (output_name,pid)
+def to_spreadsheet(output_name,spread="/usr/bin/gnumeric"):
+    try:
+        pid = subprocess.Popen([spread,output_name,output_name]).pid
+        print "Opening gnumeric on results file %s (%d)" % (output_name,pid)
+    except OSError, e:
+        print e
+        print "Could not open %s. Is it installed?" % (spread,)
 
 def output_totals_from_results_files():
     """ Output the various generated totals."""
@@ -350,7 +354,7 @@ def output_totals_from_results_files():
     for k in vklist:
         if voted_dict[k]<25: write_count(out_file, k)
     out_file.close()
-    to_open_office(output_name)
+    to_spreadsheet(output_name)
 
     # output to byprecinct.csv
     #first all entries with 5 or more votes, then the stragglers
@@ -361,7 +365,7 @@ def output_totals_from_results_files():
     for k in lklist:
         if layout_dict[k]<5: write_layout_count(out_file,k)
     out_file.close()
-    to_open_office(output_name)
+    to_spreadsheet(output_name)
 
     # output to contest_votecount_counts.csv
     # Capture number of ballots with a particular vote count for each contest,
@@ -379,7 +383,7 @@ def output_totals_from_results_files():
                            )
         except:
             pdb.set_trace()
-    to_open_office(output_name)
+    to_spreadsheet(output_name)
         
 
 def query_database(dbc):
@@ -414,8 +418,7 @@ def query_database(dbc):
                 out_file.write(",")
             out_file.write("\n")
         out_file.close()
-        pid = subprocess.Popen(["/usr/bin/ooffice",query[1],query[1]]).pid
-        print "Opening open office on results file %s (%d)" % (query[1],pid)
+        to_spreadsheet(query[1])
 
     del q #bad form, but acceptable here, for simplicity's sake
     del q1
