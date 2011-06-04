@@ -14,11 +14,13 @@ import math
 
 import site; site.addsitedir(os.path.expanduser("~/tevs")) #XXX
 from PILB import Image, ImageStat
+from line_util import *
 import Ballot
 import const
-from ocr import ocr
+#from ocr import ocr
 
 from cropstats import cropstats
+
 
 class HartBallot(Ballot.Ballot):
     """Class representing ballots from Hart Intersystems.
@@ -76,11 +78,48 @@ class HartBallot(Ballot.Ballot):
 
         Landmarks for the Hart Ballot will be the ulc, urc, lrc, llc 
         (x,y) pairs marking the four corners of the main surrounding box."""
-
+        TOP=True
+        BOT=False
+        LEFT=True
+        RIGHT=False
         #tiltinfo, from upperleft clockwise:
         #[(x,y),(x,y),(x,y),(x,y)] or None
-        tiltinfo = page.image.gethartlandmarks(const.dpi, 0)
-        if tiltinfo is None:
+        tiltinfo = []
+        hline = scan_strips_for_horiz_line_y(page.image, 
+                                             const.dpi, 
+                                             2*const.dpi, 
+                                             const.dpi/2, TOP)
+        tiltinfo.append(follow_hline_to_corner(page.image, 
+                                               const.dpi, 
+                                               2*const.dpi, 
+                                               hline, LEFT))
+        hline = scan_strips_for_horiz_line_y(page.image, 
+                                             const.dpi, 
+                                             6*const.dpi, 
+                                             const.dpi/2, TOP)
+        tiltinfo.append(follow_hline_to_corner(page.image, 
+                                               const.dpi, 
+                                               6*const.dpi,
+                                               hline, RIGHT))
+        hline=scan_strips_for_horiz_line_y(page.image, 
+                                           const.dpi, 
+                                           6*const.dpi, 
+                                           const.dpi/2, BOT)
+        tiltinfo.append(follow_hline_to_corner(page.image, 
+                                               const.dpi, 
+                                               6*const.dpi,
+                                               hline, RIGHT))
+        hline=scan_strips_for_horiz_line_y(page.image, 
+                                           const.dpi, 
+                                           2*const.dpi, 
+                                           const.dpi/2, BOT)
+        tiltinfo.append(follow_hline_to_corner(page.image, 
+                                               const.dpi, 
+                                               2*const.dpi,
+                                               hline, LEFT))
+        # removing PILB call
+        #tiltinfo = page.image.gethartlandmarks(const.dpi, 0)
+        if tiltinfo is None or tiltinfo[0][0] == 0 or tiltinfo[1][0] == 0:
             page.blank = True #needs to ensure it is a page somehow
             return 0.0, 0, 0, 0
         
@@ -116,14 +155,17 @@ class HartBallot(Ballot.Ballot):
         yoff = tiltinfo[0][1]
 
         shortdiff = tiltinfo[3][0] - tiltinfo[0][0]
-        longdiff  = tiltinfo[3][1] - tiltinfo[1][1]
+        longdiff  = tiltinfo[3][1] - tiltinfo[0][1]
         hypot = math.sqrt(shortdiff*shortdiff + longdiff*longdiff)
-        rot = shortdiff/float(longdiff)
+        if longdiff != 0:
+            rot = shortdiff/float(longdiff)
+        else:
+            rot = 0
         if abs(rot) > const.allowed_tangent:
             raise Ballot.BallotException(
                 "Tilt %f of %s exceeds %f" % (rot, page.filename, const.allowed_tangent)
             )
-
+        page.tiltinfo = tiltinfo
         return rot, xoff, yoff, hypot
 
     def get_layout_code(self, page):
@@ -186,8 +228,17 @@ class HartBallot(Ballot.Ballot):
         dpi = const.dpi
         dpi2, dpi4, dpi16 = dpi/2, dpi/4, dpi/16
         xend, yend = page.image.size[0], page.image.size[1]
-        vlines = page.image.getcolumnvlines(0, yend/4, xend-20)
-
+        # !!! removing PILB call
+        # vlines = page.image.getcolumnvlines(0, yend/3, xend-20)
+        # let's count on vlines being either at half or at thirds
+        first_line = page.tiltinfo[0][0]
+        last_line =  page.tiltinfo[1][0]
+        width = last_line - first_line
+        first_third = first_line + width/3
+        second_third = first_line + (2*width)/3
+        print "Warning: assuming three columns"
+        print first_line,first_third,second_third,last_line
+        vlines = [first_line,first_third,second_third,last_line]
         #For each hlinelist that is separated from the previous by 
         #a reasonable amount (more than dpi/4 pixels), we want to line up
         #the negative values from the new hlinelist with the positive values
@@ -201,7 +252,7 @@ class HartBallot(Ballot.Ballot):
                 pot_hlines = page.image.getpotentialhlines(vline, 1, dpi)
                 hlinelists.append(pot_hlines)
             lastx = vline
-
+        #print columnstarts
         # an hline is confirmed by matching a positive hline in sublist n
         # against a negative hline in sublist n+1; if no sublist n+1, no hlines
         hlines = [] #confirmed hll
@@ -250,7 +301,6 @@ def ocr(im, contests, dpi, x1, x2, splits, xtnz):
     dpi40 = dpi/40
     dpi_02 = int(round(dpi*0.02))
     invalid = lambda region: region[3] <= region[1]
-
     for n, split in enumerate(splits[:-1]):
         # for votes, we need to step past the vote area
         oval = False
@@ -267,7 +317,7 @@ def ocr(im, contests, dpi, x1, x2, splits, xtnz):
 
         croplist = (startx+1, split[0]+1, x2-2, splits[n+1][0]-2)
         if invalid(croplist):
-            continue #XXX is this an error from somewhere?
+            continue 
         crop = im.crop(croplist)
         gaps = crop.gethgaps((128, 1))
 
@@ -314,7 +364,10 @@ def ocr(im, contests, dpi, x1, x2, splits, xtnz):
                 #TODO add lower right point, remove text
                 text
             )
-            contests[-1].append(C)
+            try:
+                contests[-1].append(C)
+            except IndexError:
+                pass
         else:
             contests.append(Ballot.Contest(x, y, w, nexty, None, text))
 

@@ -4,4 +4,4 @@ echo Launching TEVS main.py
 ./main.py $*
 echo Launching TEVS summarize.py
 sleep .6s
-./summarize.py $* | less
+./summarize_results.py $* 
