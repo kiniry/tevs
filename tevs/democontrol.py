@@ -63,7 +63,6 @@ class App(object):
         con.pack_start(self.info.frame, expand=True)
         self.root.add(con)
 
-        #we've built all our widgets, show the world their glory
         self.root.set_geometry_hints(
             min_width=400, 
             min_height=500,
