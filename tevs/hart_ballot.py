@@ -13,14 +13,15 @@ import time
 import math
 
 import site; site.addsitedir(os.path.expanduser("~/tevs")) #XXX
-from PILB import Image, ImageStat
+import Image, ImageStat
 from line_util import *
+from hart_util import *
+from hart_build_contests import *
+from hart_barcode import *
 import Ballot
 import const
-#from ocr import ocr
 
 from cropstats import cropstats
-
 
 class HartBallot(Ballot.Ballot):
     """Class representing ballots from Hart Intersystems.
@@ -88,7 +89,8 @@ class HartBallot(Ballot.Ballot):
         hline = scan_strips_for_horiz_line_y(page.image, 
                                              const.dpi, 
                                              2*const.dpi, 
-                                             const.dpi/2, TOP)
+                                             const.dpi/2, const.dpi/2,
+                                             TOP)
         tiltinfo.append(follow_hline_to_corner(page.image, 
                                                const.dpi, 
                                                2*const.dpi, 
@@ -96,7 +98,8 @@ class HartBallot(Ballot.Ballot):
         hline = scan_strips_for_horiz_line_y(page.image, 
                                              const.dpi, 
                                              6*const.dpi, 
-                                             const.dpi/2, TOP)
+                                             const.dpi/2, const.dpi/2, 
+                                             TOP)
         tiltinfo.append(follow_hline_to_corner(page.image, 
                                                const.dpi, 
                                                6*const.dpi,
@@ -104,7 +107,8 @@ class HartBallot(Ballot.Ballot):
         hline=scan_strips_for_horiz_line_y(page.image, 
                                            const.dpi, 
                                            6*const.dpi, 
-                                           const.dpi/2, BOT)
+                                           const.dpi/2, const.dpi/2, 
+                                           BOT)
         tiltinfo.append(follow_hline_to_corner(page.image, 
                                                const.dpi, 
                                                6*const.dpi,
@@ -112,7 +116,8 @@ class HartBallot(Ballot.Ballot):
         hline=scan_strips_for_horiz_line_y(page.image, 
                                            const.dpi, 
                                            2*const.dpi, 
-                                           const.dpi/2, BOT)
+                                           const.dpi/2, const.dpi/2, 
+                                           BOT)
         tiltinfo.append(follow_hline_to_corner(page.image, 
                                                const.dpi, 
                                                2*const.dpi,
@@ -173,33 +178,29 @@ class HartBallot(Ballot.Ballot):
         # barcode zones to search are from 1/3" to 1/6" to left of ulc
         # and from 1/8" above ulc down to 2 5/8" below ulc.
 
-        adj = lambda x: int(round(const.dpi/x))
-        dpi3, dpi6, dpi8 = adj(3.), adj(6.), adj(8.)
+        adj = lambda x: int(round(const.dpi*x))
+        third_inch, sixth_inch, eighth_inch = adj(.3333), adj(.1667), adj(.125)
 
         # don't pass negative x,y into getbarcode
-        if page.xoff < dpi3:
+        if page.xoff < third_inch:
             raise Ballot.BallotException("bad xref")
-        if page.yoff < dpi8:
+        if page.yoff < eighth_inch:
             raise Ballot.BallotException("bad yref")
-
-        codestr = page.image.getbarcode(
-            page.xoff - dpi3,
-            page.yoff - dpi8,
-            dpi6,
-            3*const.dpi - int(round((3*const.dpi)/8.))
+        # pass image, x,y,w,h
+        barcode = hart_barcode(page.image,
+            page.xoff - third_inch,
+            page.yoff - eighth_inch,
+            sixth_inch,
+            eighth_inch + int(round((7.*const.dpi)/3.)) # bar code 2 1/3"
         )
-        barcode = None
-        if codestr is not None:
-            barcode = "".join(("%07d" % el) for el in codestr if el > 0)
 
         if not good_barcode(barcode):
              # try getting bar code from ocr of region beneath
-             madj = lambda x: int(round(x*const.dpi))
              zone = page.image.crop((
-                       page.xoff - dpi3 - madj(.05),
-                       page.yoff + madj(2.5),
-                       page.xoff - adj(24),
-                       page.yoff + madj(4.5)
+                       page.xoff - third_inch - adj(.05),
+                       page.yoff + adj(2.5),
+                       page.xoff - adj(.04),
+                       page.yoff + adj(4.5)
              ))
              zone = zone.rotate(-90) #make it left to right
              barcode = self.extensions.ocr_engine(zone)
@@ -215,22 +216,10 @@ class HartBallot(Ballot.Ballot):
 
         return barcode
 
-    # gethartdetails remains ugly and is the candidate for DO OVER.
-    # it gets the column dividers, then finds
-    # presumed horizontal lines across each column,
-    # confirms them, calls gethartvoteboxes to determine
-    # how the contests should be divided into bands for
-    # contest description and vote boxes,
-    # and calls ocr to analyze the bands. 
-    # vop is short for vote op. hlines is confirmed horizontal line list
     def build_layout(self, page):
         """ get layout and ocr information """
+        image = page.image
         dpi = const.dpi
-        dpi2, dpi4, dpi16 = dpi/2, dpi/4, dpi/16
-        xend, yend = page.image.size[0], page.image.size[1]
-        # !!! removing PILB call
-        # vlines = page.image.getcolumnvlines(0, yend/3, xend-20)
-        # let's count on vlines being either at half or at thirds
         first_line = page.tiltinfo[0][0]
         last_line =  page.tiltinfo[1][0]
         width = last_line - first_line
@@ -239,137 +228,32 @@ class HartBallot(Ballot.Ballot):
         print "Warning: assuming three columns"
         print first_line,first_third,second_third,last_line
         vlines = [first_line,first_third,second_third,last_line]
-        #For each hlinelist that is separated from the previous by 
-        #a reasonable amount (more than dpi/4 pixels), we want to line up
-        #the negative values from the new hlinelist with the positive values
-        #from the old one
-        hlinelists = []
-        columnstarts = []
-        lastx = 0
+        column_width = width/3
+        vthop = int(round(const.vote_target_horiz_offset_inches * const.dpi))
+        contests = []
         for vline in vlines:
-            if vline - lastx > dpi4:
-                columnstarts.append(vline)
-                pot_hlines = page.image.getpotentialhlines(vline, 1, dpi)
-                hlinelists.append(pot_hlines)
-            lastx = vline
-        #print columnstarts
-        # an hline is confirmed by matching a positive hline in sublist n
-        # against a negative hline in sublist n+1; if no sublist n+1, no hlines
-        hlines = [] #confirmed hll
-        for col in range(len(hlinelists)-1): #XXX simplify
-            hlines.append([])
-            for entrynum in range(len(hlinelists[col])):
-                yval1 = hlinelists[col][entrynum]
-                for entrynum2 in range(len(hlinelists[col+1])):
-                    yval2 = hlinelists[col+1][entrynum2]
-                    if yval1 > 0 and abs(yval1 + yval2) < dpi16:
-                        hlines[col].append(yval1)
-                        break
+            croplist = (vline,0,vline+column_width,image.size[1])
+            crop = image.crop(croplist)
+            pot_hlines = find_all_horiz_lines(crop,dpi)
+            # normally, pull the .07 from config.vote_box_horiz_offset_inches
+            vboxes = gethartvoteboxes(image,vline+vthop,dpi/2,dpi)
+            column_contests = hart_build_contests(page.image,
+                                                  pot_hlines,
+                                                  vboxes,
+                                                  vline,
+                                                  column_width,
+                                                  dpi)
+            contests.extend(column_contests)
+        for contest in contests:
+            self.log.debug("%d,%d, %s" % (contest.x,contest.y,contest.description))
+            #print contest.x, contest.y, contest.description
+            for choice in contest.choices:
+                self.log.debug(" %d,%d, %s" % (choice.x,choice.y,choice.description))
+                #print " ", choice.x, choice.y, choice.description
 
-        for i, el in enumerate(hlines):
-            hlines[i] = [ [e, "h"] for e in el ]
 
-        vboxes = []
-        for startx in columnstarts:
-            if startx <= 0:
-                  self.log.info("Negative startx passed to gethartvoteboxes")
-            xss = page.image.gethartvoteboxes(startx, dpi2, dpi) #column_start, half inch down, dpi
-            vboxes.append([ [xs[1], "v"] for xs in xss])
+        return contests
 
-        br = []
-        for x, hll in enumerate(hlines):
-            hll.extend(vboxes[x])
-            hll.sort()
-            try:
-                endx = columnstarts[x+1]
-            except IndexError:
-                endx = xend - dpi2
-            ocr(page.image, br, dpi, columnstarts[x], endx, hll, self.extensions)
-        return br
-
-def ocr(im, contests, dpi, x1, x2, splits, xtnz):
-    """ ocr runs ocr and assembles appends to the list of BtRegions"""
-    box_type = ""
-    nexty = None
-    cand_horiz_off = int(round(
-        const.candidate_text_horiz_offset_inches*dpi
-    ))
-    vote_target_off = int(round(
-        const.vote_target_horiz_offset_inches*dpi
-    ))
-    dpi16 = dpi/16
-    dpi40 = dpi/40
-    dpi_02 = int(round(dpi*0.02))
-    invalid = lambda region: region[3] <= region[1]
-    for n, split in enumerate(splits[:-1]):
-        # for votes, we need to step past the vote area
-        oval = False
-        if split[1] == "v":
-            startx = x1 + cand_horiz_off
-            oval = True
-        else:
-            # while for other text, we just step past the border line
-            startx = x1 + dpi40
-            for y, dir in splits[n+1:]:
-                if dir == 'h':
-                    nexty = y
-                    break
-
-        croplist = (startx+1, split[0]+1, x2-2, splits[n+1][0]-2)
-        if invalid(croplist):
-            continue 
-        crop = im.crop(croplist)
-        gaps = crop.gethgaps((128, 1))
-
-        # we now need to split line by line at the gaps:
-        # first, discard the first gap if it starts from 0
-        if len(gaps) > 0 and gaps[0][1] == 0:
-            gaps = gaps[1:]
-
-        zone = crop
-
-        # then, take from the start to the first gap start
-        if len(gaps) != 0:
-            zcroplist = (0, 0, crop.size[0]-1, gaps[0][1])
-            if invalid(zcroplist):
-                continue
-            zone = crop.crop(zcroplist)
-
-        text = xtnz.ocr_engine(zone)
-
-        # then, take from the first gap end to the next gap start
-        for m, gap in enumerate(gaps):
-            end_of_this_gap = gap[3] - 2
-            try:
-                start_of_next_gap = gaps[m+1][1]
-            except IndexError:
-                start_of_next_gap = crop.size[1] - 2
-            zone_croplist = (0,
-                             end_of_this_gap,
-                             crop.size[0]-1,
-                             start_of_next_gap)
-            if start_of_next_gap - end_of_this_gap < dpi16:
-                continue #XXX is this not an error?
-            zone = crop.crop(zone_croplist)
-            text += xtnz.ocr_engine(zone)
-
-        text = xtnz.ocr_cleaner(text)
-
-        x, y, w = croplist[:3]
-        if oval:
-            # vote boxes begin 1/10" in from edge of contest box
-            C = Ballot.Choice(
-                x1 + vote_target_off,
-                croplist[1] - dpi_02,
-                #TODO add lower right point, remove text
-                text
-            )
-            try:
-                contests[-1].append(C)
-            except IndexError:
-                pass
-        else:
-            contests.append(Ballot.Contest(x, y, w, nexty, None, text))
 
 def good_barcode(code_string):
     """check code for obvious flaws"""
