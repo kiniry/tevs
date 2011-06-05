@@ -142,15 +142,16 @@ def lines_connect(image,a,b,allowed_misses=1):
         p = image.getpixel((x,y))
         if p[0] > 128:
             problem_count += 1
-            if problem_count > allowed_misses: break
+            if problem_count > allowed_misses: 
+                break
     return (problem_count <= allowed_misses)
 
-def scan_strips_for_horiz_line_y(image,dpi,starting_x_offset, starting_y_offset=150,top=True):
+def scan_strips_for_horiz_line_y(image,dpi,starting_x_offset, starting_y_offset=150,height_to_scan=300,top=True):
     """ Scan inboard for a sharp drop in avg intensity of center 1/3 inch.
 
     Line detection is a search for a sharp drop in the average intensity
     of two near-center 1/6" regions, within 1/60" of one another vertically,
-    between offset pixels inboard and one inch inboard.
+    between starting_y_offset pixels inboard and one inch inboard.
     The result of the sharp intensity drop must be below half intensity.
     """
     potential_lines = [[],[]]
@@ -161,11 +162,11 @@ def scan_strips_for_horiz_line_y(image,dpi,starting_x_offset, starting_y_offset=
     onesixtieth = dpi/60
     if top:
         starty = starting_y_offset
-        endy = dpi
+        endy = starty+dpi
         incr = 1
     else:
         starty = image.size[1] - starting_y_offset
-        endy = image.size[1] - dpi
+        endy = image.size[1] - starting_y_offset - dpi
         incr = -1
 
     #pretest for one pixel (confirm this gives speedup or remove)
@@ -202,7 +203,7 @@ def scan_strips_for_horiz_line_y(image,dpi,starting_x_offset, starting_y_offset=
         if abs(thisred2-lastred2)>32 and thisred2 < 128:
             potential_lines[1].append(y)
         lastred2 = thisred2
-    #print potential_lines
+    found = False
     for a in potential_lines[0]:
         for b in potential_lines[1]:
             if abs(a-b) <= onesixtieth:
@@ -211,8 +212,35 @@ def scan_strips_for_horiz_line_y(image,dpi,starting_x_offset, starting_y_offset=
                                   (starting_x_offset + onesixth,b)
                                   )):
                     retval = (a+b)/2
+                    found = True
                     break
+        if found: break
     return retval
+
+def find_all_horiz_lines(image,dpi):
+    """ Find all horizontal lines spanning image from 1" down to 1/2" from bot 
+
+    with assumption that an hline is very horizontal, with a sharp light/dark
+    intensity boundary spanning an inch on the right
+    """
+    pot_hlines = []
+    center = image.size[0]/2
+    half_inch = dpi/2
+    lastred = 255
+    skip = 0
+    for y in range((dpi/2),image.size[1]-(dpi/2),1):
+        if skip > 0: 
+            skip -= 1
+            continue
+        crop = image.crop((image.size[0]-dpi, y, image.size[0], y+1))
+        stat = ImageStat.Stat(crop)
+        red = stat.mean[0]
+        if red < 128 and lastred > 128 and (lastred-red)>32:
+            pot_hlines.append(y)
+            # count on lines being separated by at least 1/36"
+            skip = dpi/36
+        lastred = red
+    return pot_hlines
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
@@ -223,13 +251,13 @@ if __name__ == "__main__":
     print "Starting 5 x hline_split"
     for x in range(5):
         tiltinfo = []
-        hline = scan_strips_for_horiz_line_y(image, dpi, 2*dpi, dpi/2, True)
+        hline = scan_strips_for_horiz_line_y(image, dpi, 2*dpi, dpi/2, dpi/2,True)
         tiltinfo.append(follow_hline_to_corner(image, dpi, 2*dpi, hline, True))
-        hline = scan_strips_for_horiz_line_y(image, dpi, 6*dpi, dpi/2, True)
+        hline = scan_strips_for_horiz_line_y(image, dpi, 6*dpi, dpi/2, dpi/2, True)
         tiltinfo.append(follow_hline_to_corner(image, dpi, 6*dpi, hline, False))
-        hline=scan_strips_for_horiz_line_y(image, dpi, 6*dpi, dpi/2, False)
+        hline=scan_strips_for_horiz_line_y(image, dpi, 6*dpi, dpi/2, dpi/2, False)
         tiltinfo.append(follow_hline_to_corner(image, dpi, 6*dpi, hline, False))
-        hline=scan_strips_for_horiz_line_y(image, dpi, 2*dpi, dpi/2, False)
+        hline=scan_strips_for_horiz_line_y(image, dpi, 2*dpi, dpi/2, dpi/2, False)
         tiltinfo.append(follow_hline_to_corner(image, dpi, 2*dpi, hline, True))
     print tiltinfo
     print "Starting 5 x hline"
@@ -244,4 +272,6 @@ if __name__ == "__main__":
         hline=find_hline(image, dpi, 6*dpi, dpi/2, False)
         tiltinfo.append(follow_hline_to_corner(image, dpi, hline, True))
     print tiltinfo
+    pot_hlines = find_all_horiz_lines(image,dpi)
+    print pot_hlines
     sys.exit(0)
