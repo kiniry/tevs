@@ -215,6 +215,8 @@ def scan_strips_for_horiz_line_y(image,dpi,starting_x_offset, starting_y_offset=
                     found = True
                     break
         if found: break
+    if not found:
+        return 0
     return retval
 
 def find_all_horiz_lines(image,dpi):
