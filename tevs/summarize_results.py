@@ -119,7 +119,11 @@ def is_this_like_them(this,them):
     # since they may differ by only one letter
     if this.find("PROP")>=0 or this.find("MEAS")>=0:
         return retlist
-
+    # don't merge text with numbers, since they may refer to 
+    # different propositions, measures, districts, etc...
+    for number in "0123456789":
+        if this.find(number):
+            return retlist
     # don't merge small strings; they may create false matches
     if len(this) < min_chars:
         return retlist
