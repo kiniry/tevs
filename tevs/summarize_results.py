@@ -74,10 +74,10 @@ order by code_string""",
 contest_name_dict = {}
 choice_name_dict = {}
 
-# choice dict is keyed off (contest name, choice name) and holds voteop count
 # voted_dict is keyed off (contest name, choice name) and holds vote count 
 # layout_dict is keyed off (layout, contest name, choice name) 
 # and holds vote counts per layout
+layout_voteop_dict = {}
 voteop_dict = {}
 voted_dict = {}
 layout_dict = {}
@@ -112,6 +112,7 @@ def is_this_like_them(this,them):
     olist = ("o","0","O","Q","C","a","e")
     rlist = ("r","n")
     llist = ("l","i","1","I","J","f","t")
+    vlist = ("v","y")
 
     retlist = []
 
@@ -155,6 +156,8 @@ def is_this_like_them(this,them):
                 elif c1 in olist and c2 in olist:
                     ok = True
                 elif c1 in llist and c2 in llist:
+                    ok = True
+                elif c1 in vlist and c2 in vlist:
                     ok = True
             if not ok:
                     miss_count += 1
@@ -241,6 +244,10 @@ def process_fields(line,contest_votes_dict):
         voteop_dict[(fa[CONTEST], fa[CHOICE])] += 1
     except:
         voteop_dict[(fa[CONTEST], fa[CHOICE])] = 1
+    try:
+        layout_voteop_dict[(fa[LAYOUT], fa[CONTEST], fa[CHOICE])] += 1
+    except:
+        layout_voteop_dict[(fa[LAYOUT], fa[CONTEST], fa[CHOICE])] = 1
     was_voted = (fa[VOTEDTF] == 'True')
 
     #red_intensity = fa[RED]
@@ -267,8 +274,13 @@ def process_fields(line,contest_votes_dict):
     
 
 def write_layout_count(out_file,k):
-    out_file.write("%06d,%15s,%35s,%15s\n" % 
+    try:
+        choicecount = layout_voteop_dict[k]
+    except KeyError:
+        choicecount = 0
+    out_file.write("%06d,votes of,%06d,targets for layout,'%15s',%35s,%15s\n" % 
                    (layout_dict[k],
+                    choicecount,
                     k[0],
                     k[1][:35],
                     k[2][:15])
@@ -279,7 +291,7 @@ def write_count(out_file,k):
         choicecount = voteop_dict[k]
     except KeyError:
         choicecount = 0
-    out_file.write("%06d,%06d,%35s,%15s\n" % 
+    out_file.write("%06d,votes of,%06d,targets for,%35s,%15s\n" % 
                        (voted_dict[k],
                         choicecount,
                         k[0][:35],
@@ -326,7 +338,7 @@ def build_totals_from_results_files():
 
 def to_spreadsheet(output_name,spread="/usr/bin/gnumeric"):
     try:
-        pid = subprocess.Popen([spread,output_name,output_name]).pid
+        pid = subprocess.Popen([spread,output_name]).pid
         print "Opening gnumeric on results file %s (%d)" % (output_name,pid)
     except OSError, e:
         print e
