@@ -9,7 +9,7 @@
 import Ballot
 import const
 from adjust import rotator
-from PILB import Image,ImageStat
+import Image,ImageStat
 from demo_utils import *
 import ocr
 from cropstats import cropstats
