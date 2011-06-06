@@ -8,7 +8,7 @@ from xml.parsers.expat import ExpatError
 import logging
 import site; site.addsitedir(os.path.expanduser("~/tevs")) #XXX
 from cropstats import cropstats
-from PILB import Image, ImageDraw, ImageFont, ImageChops
+import Image, ImageDraw, ImageFont, ImageChops
 import const
 import util
 import ocr
