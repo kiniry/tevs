@@ -46,7 +46,7 @@ def hart_build_contests(image, pot_hlines, vboxes, column_start, column_width, d
         for contest in contest_description_zones:
             # first contest above vbox gets vbox as choice
             if contest[0] < vbox[1]:
-                print "Vbox at",vbox[1],"in contest at",contest
+                #print "Vbox at",vbox[1],"in contest at",contest
                 # crop area to right of vbox
                 # get and clean text
                 crop = image.crop((vbox[0] + dpi/3 + dpi/30, #!!!
@@ -68,6 +68,12 @@ def hart_build_contests(image, pot_hlines, vboxes, column_start, column_width, d
                                         )
                         break
                 break
+    logger = logging.getLogger('')
+    for contest in regionlist:
+        logger.info("%d %d %s" % (contest.x, contest.y, contest.description))
+        for choice in contest.choices:
+            logger.info(" %d %d %s" % (choice.x, choice.y, choice.description))
+
     return regionlist
 
 if __name__ == "__main__":

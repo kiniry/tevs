@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 import sys
 import os
+import pdb
 import shutil
 import errno
 import getopt
 import logging
 
 import site; site.addsitedir(os.path.expanduser("~/tevs")) 
-from PILB import Image, ImageStat, ImageDraw 
+import Image, ImageStat, ImageDraw 
 
 import const #To be deprecated
 import config

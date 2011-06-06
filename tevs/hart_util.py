@@ -50,7 +50,7 @@ def check_for_votebox_at(image,dpi,x,y):
         new_y1 = test_y
     y1 = new_y1
     
-    # else check for 1/10" vertical connecting lines
+    # check for 1/10" vertical connecting lines
     dark = 0
     init_y = 0
     for test_y in range(y1,y2,1):
@@ -65,6 +65,18 @@ def check_for_votebox_at(image,dpi,x,y):
     # fail if you haven't found 1/10" dark within 1/7"
     if dark <= tenth_inch:
         return (0,0)
+
+    # check for 1/10" white before vertical connecting lines
+    light = 0
+    for test_y in range(y1,y2,1):
+        p0 = image.getpixel((init_x-(2*hundredth_inch),test_y))
+        if p0[0]>128:
+            light += 1
+            if light > tenth_inch:
+                break
+    if light <= tenth_inch:
+        return(0,0)
+
     return (init_x,init_y)
 
 def gethartvoteboxes(image,startx,starty,dpi):
