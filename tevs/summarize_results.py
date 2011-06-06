@@ -75,12 +75,12 @@ contest_name_dict = {}
 choice_name_dict = {}
 
 # voted_dict is keyed off (contest name, choice name) and holds vote count 
-# layout_dict is keyed off (layout, contest name, choice name) 
+# layout_voted_dict is keyed off (layout, contest name, choice name) 
 # and holds vote counts per layout
 layout_voteop_dict = {}
 voteop_dict = {}
 voted_dict = {}
-layout_dict = {}
+layout_voted_dict = {}
 
 # votecount_counts_dict is useful for overvote counts;
 # it holds the number of times each contest was voted for once per ballot,
@@ -123,7 +123,7 @@ def is_this_like_them(this,them):
     # don't merge text with numbers, since they may refer to 
     # different propositions, measures, districts, etc...
     for number in "0123456789":
-        if this.find(number):
+        if this.find(number)>=0:
             return retlist
     # don't merge small strings; they may create false matches
     if len(this) < min_chars:
@@ -207,47 +207,35 @@ def process_fields(line,contest_votes_dict):
     RED = 7
     #for num,field in enumerate(fa): print num,field
 
-    # replace reliably identical variants with the first encountered
-    if fa[CONTEST] in contest_merge_dict:
-        fa[CONTEST] = contest_merge_dict[fa[CONTEST]]
-
-    if fa[CHOICE] in choice_merge_dict:
-        fa[CHOICE] = choice_merge_dict[fa[CHOICE]]
-
+    # if variant is close to any merge dict keys, replace with merge dict value
+    # otherwise, enter it into merge dict as its own value
     # increment count for variant if key exists, 
     # otherwise, see if this is a new entry for the merge dict;
     # if so, increment the resulting merged variant,
     # if not, enter the unmerged variant as a new key
-    try:
-        contest_name_dict[fa[CONTEST]] += 1
-    except:
-        matches = is_this_like_them(fa[CONTEST],
-                                    contest_name_dict) 
-        if len(matches)>0:
-            enter_merge_src_and_dest(fa[CONTEST], matches, contest_merge_dict)
-            contest_name_dict[matches[0]] += 1
-        else:
-            contest_name_dict[fa[CONTEST]] = 1
-
+    this_contest = fa[CONTEST]
+    matches = is_this_like_them(this_contest,contest_merge_dict)
+    if len(matches)>0:
+        this_contest = contest_merge_dict[matches[0]]
+    else:
+        contest_merge_dict[this_contest] = this_contest
     # repeat process for choice
-    try:
-        choice_name_dict[fa[CHOICE]] += 1
-    except:
-        matches = is_this_like_them(fa[CHOICE], choice_name_dict)
-        if len(matches)>0:
-            enter_merge_src_and_dest(fa[CHOICE], matches, choice_merge_dict)
-            choice_name_dict[matches[0]] += 1
-        else:
-            choice_name_dict[fa[CHOICE]] = 1
+    this_choice = fa[CHOICE]
+    matches = is_this_like_them(this_choice,choice_merge_dict)
+    if len(matches)>0:
+        this_choice = choice_merge_dict[matches[0]]
+    else:
+        choice_merge_dict[this_choice] = this_choice
 
     try:
-        voteop_dict[(fa[CONTEST], fa[CHOICE])] += 1
+        voteop_dict[(this_contest, this_choice)] += 1
     except:
-        voteop_dict[(fa[CONTEST], fa[CHOICE])] = 1
+        voteop_dict[(this_contest, this_choice)] = 1
     try:
-        layout_voteop_dict[(fa[LAYOUT], fa[CONTEST], fa[CHOICE])] += 1
+        layout_voteop_dict[(fa[LAYOUT], this_contest, this_choice)] += 1
     except:
-        layout_voteop_dict[(fa[LAYOUT], fa[CONTEST], fa[CHOICE])] = 1
+        layout_voteop_dict[(fa[LAYOUT], this_contest, this_choice)] = 1
+
     was_voted = (fa[VOTEDTF] == 'True')
 
     #red_intensity = fa[RED]
@@ -258,28 +246,31 @@ def process_fields(line,contest_votes_dict):
     # update vote dictionaries, 
     # note that contest_votes_dict is per ballot 
     try:
-        contest_votes_dict[fa[CONTEST]] += 1
+        contest_votes_dict[this_contest] += 1
     except:
-        contest_votes_dict[fa[CONTEST]] = 1
+        contest_votes_dict[this_contest] = 1
 
     try:
-        voted_dict[(fa[CONTEST], fa[CHOICE])] += 1
+        voted_dict[(this_contest, this_choice)] += 1
     except:
-        voted_dict[(fa[CONTEST], fa[CHOICE])] = 1
+        voted_dict[(this_contest, this_choice)] = 1
 
     try:
-        layout_dict[(fa[LAYOUT], fa[CONTEST], fa[CHOICE])] += 1
+        layout_voted_dict[(fa[LAYOUT], this_contest, this_choice)] += 1
     except:
-        layout_dict[(fa[LAYOUT], fa[CONTEST], fa[CHOICE])] = 1
+        layout_voted_dict[(fa[LAYOUT], this_contest, this_choice)] = 1
     
-
 def write_layout_count(out_file,k):
     try:
         choicecount = layout_voteop_dict[k]
     except KeyError:
         choicecount = 0
+    try:
+        votes = layout_voted_dict[k]
+    except KeyError:
+        votes = 0
     out_file.write("%06d,votes of,%06d,targets for layout,'%15s',%35s,%15s\n" % 
-                   (layout_dict[k],
+                   (votes,
                     choicecount,
                     k[0],
                     k[1][:35],
@@ -291,8 +282,12 @@ def write_count(out_file,k):
         choicecount = voteop_dict[k]
     except KeyError:
         choicecount = 0
+    try:
+        votes = voted_dict[k]
+    except KeyError:
+        votes = 0
     out_file.write("%06d,votes of,%06d,targets for,%35s,%15s\n" % 
-                       (voted_dict[k],
+                       (votes,
                         choicecount,
                         k[0][:35],
                         k[1][:15]))
@@ -330,7 +325,7 @@ def build_totals_from_results_files():
         vklist.sort()
         cklist = voteop_dict.keys()
         cklist.sort()
-        lklist = layout_dict.keys()
+        lklist = layout_voted_dict.keys()
         lklist.sort()
         print len(cklist), "variants of offered contest/choice encountered."
         print len(vklist), "variants of voted contest/choice encountered."
@@ -347,28 +342,28 @@ def to_spreadsheet(output_name,spread="/usr/bin/gnumeric"):
 def output_totals_from_results_files():
     """ Output the various generated totals."""
     # output contest/choice name variants to contest/choice_names.csv
-    for name,dict in (("contest_names.csv",contest_name_dict),
-                      ("choice_names.csv",choice_name_dict)):
+    for name,dict in (("contest_names.csv",contest_merge_dict),
+                      ("choice_names.csv",choice_merge_dict)):
         out_file = open(name,"w")
         k = dict.keys()
         k.sort()
         for key in k:
-            out_file.write("%s\n" % (key,))
+            out_file.write("%s-->%s\n" % (key,dict[key]))
 
     vklist = voted_dict.keys()
     vklist.sort()
     cklist = voteop_dict.keys()
     cklist.sort()
-    lklist = layout_dict.keys()
+    lklist = layout_voteop_dict.keys()
     lklist.sort()
     # output to summary.csv 
     #first all entries with 25 or more votes, then the stragglers
     output_name = "summary.csv"
     out_file = open(output_name,"w")
-    for k in vklist:
-        if voted_dict[k]>=25: write_count(out_file, k)
-    for k in vklist:
-        if voted_dict[k]<25: write_count(out_file, k)
+    for k in cklist:
+        if voteop_dict[k]>=25: write_count(out_file, k)
+    for k in cklist:
+        if voteop_dict[k]<25: write_count(out_file, k)
     out_file.close()
     to_spreadsheet(output_name)
 
@@ -377,9 +372,9 @@ def output_totals_from_results_files():
     output_name = "byprecinct.csv"
     out_file = open(output_name,"w")
     for k in lklist:
-        if layout_dict[k]>=5: write_layout_count(out_file,k)
+        if layout_voteop_dict[k]>=5: write_layout_count(out_file,k)
     for k in lklist:
-        if layout_dict[k]<5: write_layout_count(out_file,k)
+        if layout_voteop_dict[k]<5: write_layout_count(out_file,k)
     out_file.close()
     to_spreadsheet(output_name)
 
@@ -446,6 +441,9 @@ def main():
     out_file = open("summary.csv","w")
     config.get(cfg_file)
     log = config.logger(util.root("log.txt"))
+
+    #pdb.set_trace()
+    #matches = is_this_like_them("hello there",{"hellc there":"bonjour","yabba":"dabba"})
 
     if not const.use_db:
         print "The configuration file indicates no database is in use."
