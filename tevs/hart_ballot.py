@@ -126,6 +126,7 @@ class HartBallot(Ballot.Ballot):
         #tiltinfo = page.image.gethartlandmarks(const.dpi, 0)
         if tiltinfo is None or tiltinfo[0][0] == 0 or tiltinfo[1][0] == 0:
             page.blank = True #needs to ensure it is a page somehow
+            self.log.info("Blank page at %s " % (page,))
             return 0.0, 0, 0, 0
         
         # flunk ballots with more than 
@@ -231,7 +232,7 @@ class HartBallot(Ballot.Ballot):
         column_width = width/3
         vthop = int(round(const.vote_target_horiz_offset_inches * const.dpi))
         contests = []
-        for vline in vlines:
+        for vline in vlines[:-1]:
             croplist = (vline,0,vline+column_width,image.size[1])
             crop = image.crop(croplist)
             pot_hlines = find_all_horiz_lines(crop,dpi)
