@@ -16,7 +16,7 @@ _devnull = open("/dev/null", "w")
 def tesseract(zone):
     "run the tesseract ocr engine on Image zone"
     #So we can run this function simultaneously from
-    #multiple processes without fear of collissions
+    #multiple processes without fear of collisions
     badge = uuid.uuid4().hex
     ft = "/tmp/region-" + badge
     try:

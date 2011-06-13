@@ -53,6 +53,9 @@ import pdb
 import sys
 from demo_utils import *
 
+def adj(a):
+    return int(round(float(const.dpi) * a))
+
 def elim_halftone(x):
     if x>64:
         retval = 255
@@ -75,7 +78,6 @@ class Ess1Ballot(Ballot.Ballot):
         #convert all our constants to locally correct values
         # many of these conversions will go to Ballot.py,
         # extenders will need to handle any new const values here, however
-        adj = lambda f: int(round(const.dpi * f))
         # this is the size of the printed vote target's bounding box
         # add these margins to the vote target's bounding box 
         # when cropping and analyzing for votes
@@ -91,7 +93,6 @@ class Ess1Ballot(Ballot.Ballot):
     def extract_VOP(self, page, rotatefunc, scale, choice):
         """Extract a single oval, or writein box, from the specified ballot"""
         iround = lambda x: int(round(x))
-        adj = lambda a: int(round(const.dpi * a))
         x, y = choice.coords()
         printed_oval_height = adj(0.097)
 
@@ -197,8 +198,7 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         + target at 2398,4114 (8" x 13 2/3" (1/3" from bottom)
         + target at 154,4116 (1/2" x 13 2/3" (1/3" from bottom)
         """
-        iround = lambda a: int(round(a))
-        adj = lambda a: int(round(const.dpi * a))
+        iround = lambda a: int(round(float(a)))
         width = adj(0.75)
         height = adj(0.75)
         # for testing, fall back to image argument if can't get from page
@@ -239,8 +239,7 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
 
     def find_landmark_in_region(self, image, croplist, darkthresh=192):
         """ given an image and a cropbox, find the circled plus """
-        iround = lambda x: int(round(x))
-        adj = lambda f: int(round(const.dpi * f))
+        iround = lambda x: int(round(float(x)))
         dpi = const.dpi
         full_span_inches = 0.16
         line_span_inches = 0.01
@@ -304,7 +303,6 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         """
         # if front, starting point is 1/4" before plus horizontal offset,
         # and .36" below plus vertical offset
-        adj = lambda a: int(round(const.dpi * a))
         front_adj_x = adj(-0.25)
         front_adj_y = adj(0.36)
         barcode,tm = timing_marks(page.image,
@@ -324,7 +322,6 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
 
     def get_left_edge_zones(self, page, column_x):
         """ return a set of pairs, (y_value, letter) for zone starts"""
-        adj = lambda f: int(round(const.dpi * f)) 
         letters = []
         left = column_x + adj(0.03)
         right = left + adj(0.03)
@@ -361,7 +358,6 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
 
     def get_middle_zones(self, page, column_x):
         """ return a set of pairs, (y_value, letter) for zone starts"""
-        adj = lambda f: int(round(const.dpi * f))
         letters = []
         left = column_x
         right = left + adj(0.5)
@@ -465,7 +461,6 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         line, depending on whether we find a pattern of white indicating
         the line contains only an oval and a single word, YES or NO.
         """
-        adj = lambda f: int(round(const.dpi * f))
         oval_offset_into_column = adj(0.14)
         oval_end_offset_into_column = adj(0.39)
 
@@ -553,7 +548,6 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         the oval.
 
         """
-        adj = lambda f: int(round(const.dpi * f))
         oval_offset_into_column = adj(0.14)
         oval_end_offset_into_column = adj(0.39)
 
@@ -735,7 +729,6 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
     will be presumed to represent either blank areas or voting locations.
 
         """
-        adj = lambda f: int(round(const.dpi * f))
         oval_offset_into_column = adj(0.14)
         self.log.debug( "Entering build_layout.")
 
@@ -820,7 +813,6 @@ def timing_marks(image,x,y,dpi=300):
     # down from + target to first dark, then left to first white
     # and right to last white, allowing a pixel of "tilt"
 
-    adj = lambda f: int(round(const.dpi * f))
 
     retlist = []
     half = adj(0.5)
@@ -901,7 +893,6 @@ def column_markers(image,ref_pt,min_runlength_inches=.2,zonelength_inches=.25):
     If the timing mark is in the left ballot half, we search rightwards;
     else, we search leftwards.
     """
-    adj = lambda f: int(round(const.dpi * f))
     columns = []
     top_y = ref_pt[1]
     first_x = ref_pt[0]

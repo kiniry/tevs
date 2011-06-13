@@ -48,7 +48,6 @@ import const
 from adjust import rotator
 from cropstats import cropstats
 import Image, ImageStat
-import ocr
 import pdb
 import sys
 from demo_utils import *
@@ -448,9 +447,9 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
                                        this_y,
                                        column_bounds[1],
                                        next_y))
-                    cjurisdiction = ocr.tesseract(crop)
+                    cjurisdiction = self.extensions.ocr_engine(crop)
                     self.log.debug( "Jurisdiction %s" % (cjurisdiction,))
-                    cjurisdiction = ocr.clean_ocr_text(cjurisdiction)
+                    cjurisdiction = self.extensions.ocr_cleaner(cjurisdiction)
                     cjurisdiction = cjurisdiction.replace("\n","//").strip()
                     self.log.debug( "Cleaned Jurisdiction %s" % (cjurisdiction,))
                     # and the current contest is set 
@@ -469,10 +468,10 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
                                        column_bounds[1],
                                        next_y))
                     crop = Image.eval(crop,elim_halftone)
-                    ccontest = ocr.tesseract(crop)
+                    ccontest = self.extensions.ocr_engine(crop)
                     ccontest = ccontest.replace("\n","//").strip()
                     self.log.debug( "Contest %s" % (ccontest,))
-                    ccontest = ocr.clean_ocr_text(ccontest)
+                    ccontest = self.extensions.ocr_cleaner(ccontest)
                     self.log.debug( "Cleaned Contest %s" % (ccontest,))
                     contest_instance = Ballot.Contest(column_bounds[0],
                                                       this_y,
@@ -567,10 +566,10 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
                                     dz[0],
                                     votetext_offset_into_column + const.dpi,
                                     dz[1]))
-            zone1text = ocr.tesseract(zonecrop1)
-            zone1text = ocr.clean_ocr_text(zone1text)
-            zone3text = ocr.tesseract(zonecrop3)
-            zone3text = ocr.clean_ocr_text(zone3text)
+            zone1text = self.extensions.ocr_engine(zonecrop1)
+            zone1text = self.extensions.ocr_cleaner(zone1text)
+            zone3text = self.extensions.ocr_engine(zonecrop3)
+            zone3text = self.extensions.ocr_cleaner(zone3text)
             intensity_suggests_voteop = False
             length_suggests_voteop = False
             if zone2stat.mean[0]>244: intensity_suggests_voteop = True
@@ -655,8 +654,8 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
                                   dz[0],
                                   crop.size[0]-(const.dpi/10),
                                   ndz[end]))
-            zonetext = ocr.tesseract(zonecrop)
-            zonetext = ocr.clean_ocr_text(zonetext)
+            zonetext = self.extensions.ocr_engine(zonecrop)
+            zonetext = self.extensions.ocr_cleaner(zonetext)
             zonetext = zonetext.strip()
             zonetext = zonetext.replace("\n","//").strip()
             if blankzonestat.mean[0]>244: 
