@@ -49,12 +49,12 @@ def hart_barcode(image,x,y,w,h):
     blacks_list = map(lambda el: el >= avg, blacks_list)    
     wsum = 0
     avg = 0
+    whites_list = whites_list[1:]
     for w in whites_list:
         wsum += w
     avg = wsum/len(whites_list)
     # after trimming initial white (not part of bar code)
     # first two whites, first two blacks must be narrow 
-    whites_list = whites_list[1:]
     # convert wide -->True, narrow-->False
     whites_list = map(lambda el: el >= avg, whites_list)
     # first two whites, first two blacks should be narrow (False)
@@ -66,33 +66,39 @@ def hart_barcode(image,x,y,w,h):
     # process seven groups of five blacks, five whites
     # expect exactly two wides
     values = [0,0,0,0,0,0,0, 0,0,0,0,0,0,0]
-    for group in range(7):
-        bvalue = 0
-        wvalue = 0
-        if blacks_list[2+(group*5)+0]:
-            bvalue += 1
-        if blacks_list[2+(group*5)+1]:
-            bvalue += 2
-        if blacks_list[2+(group*5)+2]:
-            bvalue += 4
-        if blacks_list[2+(group*5)+3]:
-            bvalue += 7
-        if bvalue == 11: bvalue = 0
+    try:
+        for group in range(7):
+            bvalue = 0
+            wvalue = 0
+            if blacks_list[2+(group*5)+0]:
+                bvalue += 1
+            if blacks_list[2+(group*5)+1]:
+                bvalue += 2
+            if blacks_list[2+(group*5)+2]:
+                bvalue += 4
+            if blacks_list[2+(group*5)+3]:
+                bvalue += 7
+            if bvalue == 11: bvalue = 0
 
-        if whites_list[2+(group*5)+0]:
-            wvalue += 1
-        if whites_list[2+(group*5)+1]:
-            wvalue += 2
-        if whites_list[2+(group*5)+2]:
-            wvalue += 4
-        if whites_list[2+(group*5)+3]:
-            wvalue += 7
-        if wvalue == 11: wvalue = 0
-        values[group*2] = bvalue
-        values[1+(group*2)] = wvalue
-    retval = "%d%d%d%d%d%d%d%d%d%d%d%d%d%d" % (
-        values[0],values[1],values[2],values[3],values[4],values[5],values[6],
-values[7],values[8],values[9],values[10],values[11],values[12],values[13])
+            if whites_list[2+(group*5)+0]:
+                wvalue += 1
+            if whites_list[2+(group*5)+1]:
+                wvalue += 2
+            if whites_list[2+(group*5)+2]:
+                wvalue += 4
+            if whites_list[2+(group*5)+3]:
+                wvalue += 7
+            if wvalue == 11: wvalue = 0
+            values[group*2] = bvalue
+            values[1+(group*2)] = wvalue
+    
+        retval = "%d%d%d%d%d%d%d%d%d%d%d%d%d%d" % (
+            values[0],values[1],values[2],values[3],
+            values[4],values[5],values[6],values[7],
+            values[8],values[9],values[10],values[11],values[12],values[13]
+            )
+    except IndexError:
+        retval = "FLIP?"
     return (retval)
 
 if __name__ == "__main__":
@@ -103,5 +109,8 @@ if __name__ == "__main__":
     x,y,w,h = int(sys.argv[2]),int(sys.argv[3]),int(sys.argv[4]),int(sys.argv[5])
     print x,y,w,h
     barcode = hart_barcode(image,x,y,w,h)
-    print barcode
+    print "Barcode",barcode
+    if barcode == "FLIP?":
+        barcode = hart_barcode(image.rotate(180),x,y,w,h)
+        print "Barcode of flip",barcode
     sys.exit(0)
