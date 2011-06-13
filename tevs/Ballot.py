@@ -345,7 +345,7 @@ AT PAGE
     def extract_VOP(self, page, rotatefunc, scale, choice): 
         """Extract a single oval, or writein box, from the specified ballot"""
         iround = lambda x: int(round(x))
-        adj = lambda a: int(round(const.dpi * a))
+        adj = lambda a: int(round(float(const.dpi) * a))
         x, y = choice.coords()
         margin_width = page.margin_width 
         margin_height = page.margin_height 
@@ -597,9 +597,10 @@ class DuplexBallot(Ballot):
         back.rot, back.xoff, back.yoff, back.y2y = r2, x2, y2, y2y2
         return (r, x, y, y2y), (r2, x2, y2, y2y2)
 
-    def _BuildLayout1(self, page, lc, tree):
-        if len(tree) == 0:
-            raise BallotException('No layout was built')
+    def _BuildLayout1(self, page, lc, tree, blank_is_legal = True):
+        if not blank_is_legal:
+            if len(tree) == 0:
+                raise BallotException('No layout was built')
         tree = self.OCRDescriptions(page, tree)
         tmpl = page.as_template(lc, tree)
         self.extensions.template_cache[lc] = tmpl
@@ -616,7 +617,7 @@ class DuplexBallot(Ballot):
             front.template = ft
         else:
             tree = self.build_front_layout(front)
-            ft = self._BuildLayout1(front, lc, tree)
+            ft = self._BuildLayout1(front, lc, tree, blank_is_legal=False)
         if bt is not None:
             back.template = bt
         else:
@@ -1127,8 +1128,9 @@ class Page(_scannedPage):
         self.number = number
         self.blank = False
         self.barcode = ""
+        self.landmarks = []
         # the standard size and margin of vote targets, converted to pixels
-        adj = lambda a: int(round(const.dpi * a))
+        adj = lambda a: int(round(float(const.dpi) * a))
         try:
             self.target_width = adj(const.target_width_inches)
             self.target_height = adj(const.target_height_inches)

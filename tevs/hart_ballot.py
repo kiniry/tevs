@@ -23,6 +23,10 @@ import const
 
 from cropstats import cropstats
 
+def adj(a):
+    return int(round(float(const.dpi) * a))
+    
+
 class HartBallot(Ballot.Ballot):
     """Class representing ballots from Hart Intersystems.
 
@@ -34,7 +38,6 @@ class HartBallot(Ballot.Ballot):
 
     def __init__(self, images, extensions):
         #convert all our constants to locally correct values
-        adj = lambda f: int(round(const.dpi * f))
         self.min_contest_height = adj(const.minimum_contest_height_inches)
         self.vote_target_horiz_offset = adj(const.vote_target_horiz_offset_inches)
         self.writein_xoff = adj(2.5) #XXX
@@ -56,7 +59,6 @@ class HartBallot(Ballot.Ballot):
 
         # Not added: ambiguous results could be tested with OCR
 
-        adj = lambda x: int(round(x * const.ballot_dpi))
         mean = lambda i: ImageStat.Stat(i).mean[0]
         box = lambda a, b, c, d: \
             mean(im.crop((adj(a), adj(b), adj(c), adj(d))))
@@ -179,7 +181,6 @@ class HartBallot(Ballot.Ballot):
         # barcode zones to search are from 1/3" to 1/6" to left of ulc
         # and from 1/8" above ulc down to 2 5/8" below ulc.
 
-        adj = lambda x: int(round(const.dpi*x))
         third_inch, sixth_inch, eighth_inch = adj(.3333), adj(.1667), adj(.125)
 
         # don't pass negative x,y into getbarcode

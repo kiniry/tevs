@@ -21,8 +21,11 @@ def yesno(cfg, grp, itm):
 def logger(file):
     "configure the default logger to use file"
     level = logging.INFO
-    if hasattr(const, 'debug') and const.debug:
-        level = logging.DEBUG
+    if hasattr(const, 'debug'):
+        try:
+            level = const.debug
+        except:
+            level = logging.DEBUG
 
     logging.basicConfig(
         filename=file,
@@ -53,7 +56,6 @@ def get(cfg_file="tevs.cfg"):
 
     # first, get log file name so log can be opened
     const.logfilename = os.path.join(const.root, "log.txt") #XXX only needed for scancontrol, view
-
     # then both log and print other config info for this run
     bwi = config.get("Sizes", "ballot_width_inches")
     bhi = config.get("Sizes", "ballot_height_inches")
@@ -69,6 +71,22 @@ def get(cfg_file="tevs.cfg"):
     acbi = config.get("Sizes", "allowed_corner_black_inches")
     allowed_tangent = config.get("Sizes", "allowed_tangent")
     try:
+        debug = config.get("Mode", "debug")
+    except ConfigParser.NoOptionError:
+        const.debug = logging.INFO
+    try:
+        if debug == "True" or debug == "TRUE":
+            const.debug = logging.DEBUG
+        elif debug == "Warning" or debug == "WARNING":
+            const.debug = logging.WARNING
+        elif debug == "Error" or debug == "ERROR":
+            const.debug = logging.ERROR
+        elif debug == "Info" or debug == "INFO" or debug == "Off" or debug == "OFF" or debug == "False" or debug == "FALSE":
+            const.debug = logging.INFO
+    except:
+        const.debug = logging.INFO
+
+    try:
         hsxoi = config.get("Sizes", "hotspot_x_offset_inches")
         const.hotspot_x_offset_inches = float(hsxoi)
     except ConfigParser.NoOptionError:
@@ -78,6 +96,18 @@ def get(cfg_file="tevs.cfg"):
         const.hotspot_y_offset_inches = float(hsyoi)
     except ConfigParser.NoOptionError:
         const.hotspot_y_offset_inches = 0.0
+    try:
+        linedarkthresh = config.get("Intensities","line_darkness_threshold")
+        const.line_darkness_threshold = int(linedarkthresh)
+    except ConfigParser.NoOptionError:
+        const.line_darkness_threshold = 128
+
+    try:
+        linelightthresh = config.get("Intensities","line_exit_threshold")
+        const.line_exit_threshold = int(linelightthresh)
+    except ConfigParser.NoOptionError:
+        const.line_exit_threshold = 128
+
     vit = config.get("Votes", "vote_intensity_threshold")
     dpt = config.get("Votes", "dark_pixel_threshold")
     pit = config.get("Votes", "problem_intensity_threshold")

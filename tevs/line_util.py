@@ -1,5 +1,6 @@
 import sys
 import pdb
+import const
 import Image
 import ImageStat
 
@@ -70,9 +71,9 @@ def follow_hline_to_corner(image,dpi,startx,hline,left=True):
         elif (line_top_brightness+5) < line_bottom_brightness: 
             hline -= 1
         # if you find a big change in intensity
-        # and the darkest red in your crop is above half intensity,
+        # and the darkest red in your crop is above a threshold,
         # you may have reached the end; test next time
-        if abs(lastred - thisred)>32 and thisred > 128:
+        if abs(lastred - thisred)>32 and thisred > const.line_exit_threshold:
             possible = True
         lastred = thisred
     return retval
@@ -81,7 +82,7 @@ def find_hline(image,dpi,starting_x_offset,starting_y_offset=150,top=True):
     """ Scan inboard for a sharp drop in avg intensity of center 1/3 inch.
 
     Line detection is a search for a sharp drop in the average intensity
-    of the center 1/3", between offset pixels inboard and one inche inboard.
+    of the center 1/3", between offset pixels inboard and one inch inboard.
     The result of the sharp intensity drop must be below half intensity.
     """
     retval = starting_y_offset
@@ -103,10 +104,10 @@ def find_hline(image,dpi,starting_x_offset,starting_y_offset=150,top=True):
         crop = image.crop(croplist)
         stat = ImageStat.Stat(crop)
         thisred = int(stat.mean[0])
-        # a line must be in the bottom half of intensity and should
+        # a line must be below a threshold and should
         # be substantially darker than the area just before; how substantial
         # will be a tuned value, trying 32 for starters
-        if abs(thisred-lastred)>32 and thisred < 128:
+        if abs(thisred-lastred)>32 and thisred <= const.line_darkness_threshold:
             retval = y
             break
         lastred = thisred
@@ -140,7 +141,7 @@ def lines_connect(image,a,b,allowed_misses=1):
         y = int(round(((y1*(h_dist-walked))+(y2*walked))/float(h_dist)))
         walked += 1
         p = image.getpixel((x,y))
-        if p[0] > 128:
+        if p[0] >= const.line_exit_threshold:
             problem_count += 1
             if problem_count > allowed_misses: 
                 break
@@ -162,32 +163,36 @@ def scan_strips_for_horiz_line_y(image,dpi,starting_x_offset, starting_y_offset=
     onesixtieth = dpi/60
     if top:
         starty = starting_y_offset
-        endy = starty+dpi
+        endy = starty+height_to_scan
+        if endy >= image.size[1]: endy = image.size[1]-1
         incr = 1
     else:
         starty = image.size[1] - starting_y_offset
-        endy = image.size[1] - starting_y_offset - dpi
+        endy = image.size[1] - starting_y_offset - height_to_scan
+        if endy < 0: endy = 0
         incr = -1
 
     #pretest for one pixel (confirm this gives speedup or remove)
     adj_start = starty
     for y in range(starty,endy,incr):
         p = image.getpixel((starting_x_offset,y))
-        if p[0] < 128:
+        if p[0] <= const.line_darkness_threshold:
             adj_start = y - incr
             break
     starty = adj_start
 
     #main test
     for y in range(starty,endy,incr):
+        y1 = min(y,y+incr+incr)
+        y2 = max(y,y+incr+incr)
         croplist1 = (starting_x_offset - 2*onesixth,
-                    y,
+                    y1,
                     starting_x_offset - onesixth,
-                    y + 1)
+                    y2)
         croplist2 = (starting_x_offset + onesixth,
-                    y,
+                    y1,
                     starting_x_offset + 2*onesixth,
-                    y + 1)
+                    y2)
         crop1 = image.crop(croplist1)
         stat1 = ImageStat.Stat(crop1)
         crop2 = image.crop(croplist2)
@@ -197,10 +202,12 @@ def scan_strips_for_horiz_line_y(image,dpi,starting_x_offset, starting_y_offset=
         # a line must be in the bottom half of intensity and should
         # be substantially darker than the area just before; how substantial
         # will be a tuned value, trying 32 for starters
-        if abs(thisred1-lastred1)>32 and thisred1 < 128:
+        if (abs(thisred1-lastred1) > 32 
+            and thisred1 < const.line_darkness_threshold):
             potential_lines[0].append(y)
         lastred1 = thisred1
-        if abs(thisred2-lastred2)>32 and thisred2 < 128:
+        if (abs(thisred2-lastred2) > 32 
+            and thisred2 <= const.line_darkness_threshold):
             potential_lines[1].append(y)
         lastred2 = thisred2
     found = False
@@ -219,6 +226,63 @@ def scan_strips_for_horiz_line_y(image,dpi,starting_x_offset, starting_y_offset=
         return 0
     return retval
 
+def scan_strip_for_dash_y(image,dpi,starting_x_offset, starting_y_offset=150,height_to_scan=300,top=True):
+    """ Scan inboard for a sharp drop in avg intensity of center 1/3 inch.
+
+    Dash detection is a search for a sharp drop in the average intensity
+    of a near-center 1/6" by 1/20" region
+    from starting_y_offset pixels inboard for height to scan.
+    The result of the sharp intensity drop must be below half intensity.
+    """
+    retval = starting_y_offset
+    lastred1 = 255
+    onesixth = dpi/6
+    onesixtieth = dpi/60
+    if top:
+        starty = starting_y_offset
+        endy = starty+height_to_scan
+        if endy >= image.size[1]: endy = image.size[1]-1
+        incr = 1
+    else:
+        starty = image.size[1] - starting_y_offset
+        endy = image.size[1] - starting_y_offset - height_to_scan
+        if endy < 0: endy = 0
+        incr = -1
+    # we are checking for dashes and must make sure we don't fall through
+    # an "undashed" part by checking two regions .1" apart
+    #pretest for one pixel (confirm this gives speedup or remove)
+    adj_start = starty
+    ldt = const.line_darkness_threshold
+    for y in range(starty,endy,incr):
+        p1 = image.getpixel((starting_x_offset,y))
+        p2 = image.getpixel((starting_x_offset+(dpi/10),y))
+        if p1[0] <= ldt or p2[0] <= ldt:
+            adj_start = y - incr
+            break
+    starty = adj_start
+
+    #main test; we will span 1/4" which should result in including a full dash
+    test_height = (incr*dpi)/100
+    for y in range(starty,endy,test_height):
+        y1 = min(y,y+test_height)
+        y2 = max(y,y+test_height)
+        croplist1 = (starting_x_offset,
+                    y1,
+                    starting_x_offset + (dpi/4),
+                    y2)
+        crop1 = image.crop(croplist1)
+        stat1 = ImageStat.Stat(crop1)
+        thisred1 = int(stat1.mean[0])
+        # a dash must be in the bottom half of intensity and should
+        # be substantially darker than the area just before; how substantial
+        # will be a tuned value, trying 32 for starters
+        if (abs(thisred1-lastred1) > 32 
+            and thisred1 <= const.line_darkness_threshold):
+            retval = y
+            break
+        lastred1 = thisred1
+    return retval
+
 def find_all_horiz_lines(image,dpi):
     """ Find all horizontal lines spanning image from 1" down to 1/2" from bot 
 
@@ -230,6 +294,8 @@ def find_all_horiz_lines(image,dpi):
     half_inch = dpi/2
     lastred = 255
     skip = 0
+    ldt = const.line_darkness_threshold
+    let = const.line_exit_threshold
     for y in range((dpi/2),image.size[1]-(dpi/2),1):
         if skip > 0: 
             skip -= 1
@@ -237,7 +303,7 @@ def find_all_horiz_lines(image,dpi):
         crop = image.crop((image.size[0]-dpi, y, image.size[0], y+1))
         stat = ImageStat.Stat(crop)
         red = stat.mean[0]
-        if red < 128 and lastred > 128 and (lastred-red)>32:
+        if red <= ldt and lastred >= let and (lastred-red)>32:
             pot_hlines.append(y)
             # count on lines being separated by at least 1/36"
             skip = dpi/36
