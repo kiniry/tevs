@@ -52,7 +52,7 @@ def follow_hline_to_corner(image,dpi,startx,hline,left=True):
             crop = image.crop(croplist)
             stat = ImageStat.Stat(crop)
             thisred = stat.extrema[0][0]
-            if thisred > 100:
+            if thisred >= const.line_exit_threshold:
                 retval = (x,hline)
                 break
         else:
@@ -73,7 +73,8 @@ def follow_hline_to_corner(image,dpi,startx,hline,left=True):
         # if you find a big change in intensity
         # and the darkest red in your crop is above a threshold,
         # you may have reached the end; test next time
-        if abs(lastred - thisred)>32 and thisred > const.line_exit_threshold:
+        #if abs(lastred - thisred)>32 and thisred > const.line_exit_threshold:
+        if thisred > const.line_exit_threshold:
             possible = True
         lastred = thisred
     return retval
@@ -327,8 +328,6 @@ if __name__ == "__main__":
         tiltinfo.append(follow_hline_to_corner(image, dpi, 6*dpi, hline, False))
         hline=scan_strips_for_horiz_line_y(image, dpi, 2*dpi, dpi/2, dpi/2, False)
         tiltinfo.append(follow_hline_to_corner(image, dpi, 2*dpi, hline, True))
-    print tiltinfo
-    print "Starting 5 x hline"
     for x in range(5):
         tiltinfo = []
         hline = find_hline(image, dpi, 2*dpi, dpi/2, True)
@@ -339,7 +338,5 @@ if __name__ == "__main__":
         tiltinfo.append(follow_hline_to_corner(image, dpi, hline, False))
         hline=find_hline(image, dpi, 6*dpi, dpi/2, False)
         tiltinfo.append(follow_hline_to_corner(image, dpi, hline, True))
-    print tiltinfo
     pot_hlines = find_all_horiz_lines(image,dpi)
-    print pot_hlines
     sys.exit(0)
