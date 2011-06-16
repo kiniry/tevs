@@ -27,6 +27,9 @@ Speed up by using lines_connect only if the y offsets are not within 1 pix,
 instead using stat test for darkness for the low tilt case.
 
 """
+class LineUtilException(Exception):
+    "Raised if analysis of a line cannot continue"
+    pass
 
 def follow_hline_to_corner(image,dpi,startx,hline,left=True):
     """Follow a dark line in a direction until it's not dark.
@@ -88,7 +91,7 @@ def find_hline(image,dpi,starting_x_offset,starting_y_offset=150,top=True):
     """
     retval = starting_y_offset
     lastred = 255
-    onesixth = dpi/6
+    one_sixth = dpi/6
     if top:
         starty = starting_y_offset
         endy = dpi
@@ -98,9 +101,9 @@ def find_hline(image,dpi,starting_x_offset,starting_y_offset=150,top=True):
         endy = image.size[1] - dpi
         incr = -1
     for y in range(starty,endy,incr):
-        croplist = ((image.size[0]/2) - onesixth,
+        croplist = ((image.size[0]/2) - one_sixth,
                     y,
-                    (image.size[0]/2) + onesixth,
+                    (image.size[0]/2) + one_sixth,
                     y + 1)
         crop = image.crop(croplist)
         stat = ImageStat.Stat(crop)
@@ -160,8 +163,8 @@ def scan_strips_for_horiz_line_y(image,dpi,starting_x_offset, starting_y_offset=
     retval = starting_y_offset
     lastred1 = 255
     lastred2 = 255
-    onesixth = dpi/6
-    onesixtieth = dpi/60
+    one_sixth = dpi/6
+    one_sixtieth = dpi/60
     if top:
         starty = starting_y_offset
         endy = starty+height_to_scan
@@ -172,7 +175,6 @@ def scan_strips_for_horiz_line_y(image,dpi,starting_x_offset, starting_y_offset=
         endy = image.size[1] - starting_y_offset - height_to_scan
         if endy < 0: endy = 0
         incr = -1
-
     #pretest for one pixel (confirm this gives speedup or remove)
     adj_start = starty
     for y in range(starty,endy,incr):
@@ -182,17 +184,22 @@ def scan_strips_for_horiz_line_y(image,dpi,starting_x_offset, starting_y_offset=
             break
     starty = adj_start
 
+    if (
+        starting_x_offset < (2*one_sixth) 
+        or starting_x_offset > (image.size[0] - (2*one_sixth))
+        ):
+        raise LineUtilException("Starting x offset for line following is too close to edge of image.")
     #main test
     for y in range(starty,endy,incr):
         y1 = min(y,y+incr+incr)
         y2 = max(y,y+incr+incr)
-        croplist1 = (starting_x_offset - 2*onesixth,
+        croplist1 = (starting_x_offset - 2*one_sixth,
                     y1,
-                    starting_x_offset - onesixth,
+                    starting_x_offset - one_sixth,
                     y2)
-        croplist2 = (starting_x_offset + onesixth,
+        croplist2 = (starting_x_offset + one_sixth,
                     y1,
-                    starting_x_offset + 2*onesixth,
+                    starting_x_offset + 2*one_sixth,
                     y2)
         crop1 = image.crop(croplist1)
         stat1 = ImageStat.Stat(crop1)
@@ -214,10 +221,10 @@ def scan_strips_for_horiz_line_y(image,dpi,starting_x_offset, starting_y_offset=
     found = False
     for a in potential_lines[0]:
         for b in potential_lines[1]:
-            if abs(a-b) <= onesixtieth:
+            if abs(a-b) <= one_sixtieth:
                 if(lines_connect( image,
-                                  (starting_x_offset - onesixth,a),
-                                  (starting_x_offset + onesixth,b)
+                                  (starting_x_offset - one_sixth,a),
+                                  (starting_x_offset + one_sixth,b)
                                   )):
                     retval = (a+b)/2
                     found = True
@@ -237,8 +244,8 @@ def scan_strip_for_dash_y(image,dpi,starting_x_offset, starting_y_offset=150,hei
     """
     retval = starting_y_offset
     lastred1 = 255
-    onesixth = dpi/6
-    onesixtieth = dpi/60
+    one_sixth = dpi/6
+    one_sixtieth = dpi/60
     if top:
         starty = starting_y_offset
         endy = starty+height_to_scan

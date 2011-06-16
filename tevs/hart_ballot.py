@@ -88,47 +88,56 @@ class HartBallot(Ballot.Ballot):
         #tiltinfo, from upperleft clockwise:
         #[(x,y),(x,y),(x,y),(x,y)] or None
         tiltinfo = []
+        left_starting_x_offset = 2 * const.dpi
+        right_starting_x_offset = page.image.size[0] - int(2.5 * const.dpi)
+        if right_starting_x_offset <= int(const.dpi * .34):
+            raise Ballot.BallotException(
+                "Image width of %d pixels at %d dpi unexpectedly narrow." % (
+                    page.image.size[0],
+                    const.dpi)
+                )
+
         hline = scan_strips_for_horiz_line_y(page.image, 
                                              const.dpi, 
-                                             2*const.dpi, 
+                                             left_starting_x_offset, 
                                              const.dpi/2, const.dpi/2,
                                              TOP)
         tiltinfo.append(follow_hline_to_corner(page.image, 
                                                const.dpi, 
-                                               2*const.dpi, 
+                                               left_starting_x_offset, 
                                                hline, LEFT))
         hline = scan_strips_for_horiz_line_y(page.image, 
                                              const.dpi, 
-                                             6*const.dpi, 
+                                             right_starting_x_offset, 
                                              const.dpi/2, const.dpi/2, 
                                              TOP)
         tiltinfo.append(follow_hline_to_corner(page.image, 
                                                const.dpi, 
-                                               6*const.dpi,
+                                               right_starting_x_offset,
                                                hline, RIGHT))
         hline=scan_strips_for_horiz_line_y(page.image, 
                                            const.dpi, 
-                                           6*const.dpi, 
+                                           right_starting_x_offset, 
                                            const.dpi/2, const.dpi/2, 
                                            BOT)
         tiltinfo.append(follow_hline_to_corner(page.image, 
                                                const.dpi, 
-                                               6*const.dpi,
+                                               right_starting_x_offset,
                                                hline, RIGHT))
         hline=scan_strips_for_horiz_line_y(page.image, 
                                            const.dpi, 
-                                           2*const.dpi, 
+                                           left_starting_x_offset, 
                                            const.dpi/2, const.dpi/2, 
                                            BOT)
         tiltinfo.append(follow_hline_to_corner(page.image, 
                                                const.dpi, 
-                                               2*const.dpi,
+                                               left_starting_x_offset,
                                                hline, LEFT))
         # removing PILB call
         #tiltinfo = page.image.gethartlandmarks(const.dpi, 0)
         if tiltinfo is None or tiltinfo[0][0] == 0 or tiltinfo[1][0] == 0:
             page.blank = True #needs to ensure it is a page somehow
-            self.log.info("Blank page at %s " % (page,))
+            self.log.info("Nonballot page at %s " % (page,))
             return 0.0, 0, 0, 0
         
         # flunk ballots with more than 
@@ -189,32 +198,37 @@ class HartBallot(Ballot.Ballot):
         if page.yoff < eighth_inch:
             raise Ballot.BallotException("bad yref")
         # pass image, x,y,w,h
-        barcode = hart_barcode(page.image,
-            page.xoff - third_inch,
-            page.yoff - eighth_inch,
-            sixth_inch,
-            eighth_inch + int(round((7.*const.dpi)/3.)) # bar code 2 1/3"
-        )
-
+        try:
+            barcode = hart_barcode(
+                page.image,
+                page.xoff - third_inch,
+                page.yoff - eighth_inch,
+                sixth_inch,
+                eighth_inch + int(round((7.*const.dpi)/3.)) # bar code 2 1/3"
+                )
+        except BarcodeException as e:
+            self.log.info("%s %s" % (page.filename,e))
+            barcode = "NOGOOD"
         if not good_barcode(barcode):
-             # try getting bar code from ocr of region beneath
-             zone = page.image.crop((
-                       page.xoff - third_inch - adj(.05),
-                       page.yoff + adj(2.5),
-                       page.xoff - adj(.04),
-                       page.yoff + adj(4.5)
-             ))
-             zone = zone.rotate(-90) #make it left to right
-             barcode = self.extensions.ocr_engine(zone)
+            # try getting bar code from ocr of region beneath
+            self.log.debug("Barcode no good, trying to get barcode via OCR")
+            zone = page.image.crop((
+                    page.xoff - third_inch - adj(.05),
+                    page.yoff + adj(2.5),
+                    page.xoff - adj(.04),
+                    page.yoff + adj(4.5)
+                    ))
+            zone = zone.rotate(-90) #make it left to right
+            barcode = self.extensions.ocr_engine(zone)
 
-             #remove OCR errors specific to text guranteed numeric
-             for bad, good in (("\n", ""),  (" ", ""),  ("O", "0"), ("o", "0"),
-                               ("l",  "1"), ("I", "1"), ("B", "8"), ("Z", "2"),
-                               ("]",  "1"), ("[", "1"), (".", ""),  (",", "")):
-                 barcode = barcode.replace(bad, good)
+            #remove OCR errors specific to text guranteed numeric
+            for bad, good in (("\n", ""),  (" ", ""),  ("O", "0"), ("o", "0"),
+                              ("l",  "1"), ("I", "1"), ("B", "8"), ("Z", "2"),
+                              ("]",  "1"), ("[", "1"), (".", ""),  (",", "")):
+                barcode = barcode.replace(bad, good)
 
-             if not good_barcode(barcode):
-                 raise Ballot.BallotException("bad bar code")
+            if not good_barcode(barcode):
+                raise Ballot.BallotException("bad bar code")
 
         return barcode
 
