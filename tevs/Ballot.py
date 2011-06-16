@@ -466,7 +466,13 @@ template offsets (%d,%d) margins(%d,%d)" % (
         # provide for calling of further adjustment function, 
         # if one is defined in subclass
         try:
-            x,y = self.vendor_level_adjustment(page,image,x,y)
+            x,y = self.vendor_level_adjustment(
+                page,
+                image,
+                x - margin_width,
+                y - margin_width,
+                ow + (2*margin_width),
+                oh + (2*margin_height))
         except AttributeError:
             pass
         crop = page.image.crop((
