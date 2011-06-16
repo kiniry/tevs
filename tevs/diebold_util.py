@@ -39,8 +39,8 @@ def get_ulc_if_untinted_oval(im, x, y):
     oval_height = int(round(const.target_height_inches * const.dpi))
     oval_width = int(round(const.target_width_inches * const.dpi))
     left_wall = -1
-    exclusion_zone_width = 0.03 * const.dpi
-    mid_oval_y = y - (oval_height/2)
+    exclusion_zone_width = int(round(0.03 * const.dpi))
+    mid_oval_y = int(round(y - (oval_height/2)))
     top_oval_y = y - oval_height
     for test_x in range(x-oval_width,x):
         p = im.getpixel((test_x,mid_oval_y))
@@ -52,7 +52,7 @@ def get_ulc_if_untinted_oval(im, x, y):
                 im,
                 test_x,
                 top_oval_y,
-                test_x + (oval_height/2),
+                test_x + int(round(oval_height/2)),
                 y,
                 dark_threshold)
             if dark_misses > 1:
@@ -307,10 +307,10 @@ def find_untinted_voteops(page,starting_x,starting_y,ending_y,dpi):
         ulc_of_oval = []
         if p[0] < dark_threshold:
             # first check a horizontal line to confirm multiple darks
-            crop = im.crop((starting_x - 10,
-                               y,
-                               starting_x + 10,
-                               y+1))
+            crop = im.crop((int(starting_x - 10),
+                               int(y),
+                               int(starting_x + 10),
+                               int(y+1)))
             mean = ImageStat.Stat(crop).mean[0]
             #print "Croplist",starting_x -10,y,starting_x+10,y+1,"mean red",mean
             if mean > 240:
