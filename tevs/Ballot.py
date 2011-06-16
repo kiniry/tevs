@@ -91,6 +91,7 @@ class Ballot(object):
         self.pages = []
         def add_page(number, fname):
             self.pages.append(Page(
+                ballot=self,
                 dpi=const.dpi,
                 filename=fname,
                 image=iopen(fname),
@@ -442,22 +443,32 @@ AT PAGE
         x, y = choice.coords()
         margin_width = page.margin_width 
         margin_height = page.margin_height 
+        printed_oval_height = adj(const.target_height_inches)
         ow = page.target_width
         oh = page.target_height
         scaled_page_offset_x = page.xoff/scale
         scaled_page_offset_y = page.yoff/scale
         self.log.debug("Incoming coords (%d,%d), \
-page offsets (%d,%d) template offsets (%d,%d) margins(%d,%d)" % (
+page offsets (%d,%d) scaled (%d,%d),\
+template offsets (%d,%d) margins(%d,%d)" % (
                 x,y,
                 page.xoff,page.yoff,
                 scaled_page_offset_x,scaled_page_offset_y,
+                page.template.xoff,page.template.yoff
                 margin_width,margin_height))
         # adjust x and y for the shift of landmark between template and ballot
         x = iround(x + scaled_page_offset_x - page.template.xoff)
         y = iround(y + scaled_page_offset_y - page.template.yoff)
         self.log.debug("Result of transform: (%d,%d)" % (x,y))
         x, y = rotatefunc(x, y, scale)
+        self.log.debug("Result after rotatefunc: (%d,%d)" % (x,y))
         cropx, cropy = x, y 
+        # provide for calling of further adjustment function, 
+        # if one is defined in subclass
+        try:
+            x,y = self.vendor_level_adjustment(page,image,x,y)
+        except AttributeError:
+            pass
         crop = page.image.crop((
             cropx - margin_width,
             cropy - margin_height,
@@ -466,6 +477,19 @@ page offsets (%d,%d) template offsets (%d,%d) margins(%d,%d)" % (
         ))
         stats = IStats(cropstats(crop, x, y))
         voted, ambiguous = self.extensions.IsVoted(crop, stats, choice)
+        writein = self.extensions.IsWriteIn(crop, stats, choice)
+        if writein:
+            cropx = cropx + page.writein_zone_horiz_offset
+            cropy = cropy + page.writein_zone_vert_offset
+            crop = page.image.crop((
+                 cropx,
+                 cropy,
+                 min(cropx + page.writein_zone_width,
+                     page.image.size[0]-1),
+                 min(cropy + page.writein_zone_height,
+                     page.image.size[1]-1)
+            ))
+
         return cropx, cropy, stats, crop, voted, 0, ambiguous
 
     def flip(self, im):
@@ -611,12 +635,14 @@ class DuplexBallot(Ballot):
                 fnames = fnames[::-1]
             self.pages.append((
                 Page(
+                    ballot=self,
                     dpi=const.dpi,
                     filename=fnames[0],
                     image=f,
                     number="%df" % number,
                 ),
                 Page(
+                    ballot=self,
                     dpi=const.dpi,
                     filename=fnames[1],
                     image=b,
@@ -1281,6 +1307,7 @@ class Page(_scannedPage):
     """A ballot page represented by an image and a Template. It is created by
     Ballot.__init__ for each ballot image. Important properties:
     
+       * self.ballot - to allow the page access to its host ballot's info
        * self.filename - the name of the file of the ballot image
        * self.image - the PIL image created from self.filename
        * self.dpi - an integer specifying the DPI of the image
@@ -1296,8 +1323,9 @@ class Page(_scannedPage):
     Note that self.rot is in radians, which is used by python's math library,
     but that the rotate method in PIL uses degrees.
     """
-    def __init__(self, dpi=0, xoff=0, yoff=0, rot=0.0, filename=None, image=None, template=None, number=0, y2y=0):
+    def __init__(self, ballot=None,dpi=0, xoff=0, yoff=0, rot=0.0, filename=None, image=None, template=None, number=0, y2y=0):
         super(Page, self).__init__(dpi, xoff, yoff, rot, image, y2y)
+        self.ballot = ballot
         self.filename = filename
         self.template = template
         self.number = number
@@ -1311,6 +1339,10 @@ class Page(_scannedPage):
             self.target_height = adj(const.target_height_inches)
             self.margin_width = adj(const.margin_width_inches)
             self.margin_height = adj(const.margin_height_inches)
+            self.writein_zone_width = adj(const.writein_zone_width_inches)
+            self.writein_zone_height = adj(const.writein_zone_height_inches)
+            self.writein_zone_horiz_offset = adj(const.writein_zone_horiz_offset_inches)
+            self.writein_zone_vert_offset = adj(const.writein_zone_vert_offset_inches)
         except AttributeError as e:
             self.margin_width = 0
             self.margin_height = 0
