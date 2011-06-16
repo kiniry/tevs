@@ -78,7 +78,7 @@ def mark_error(e, *files):
         try:
             shutil.copy2(file, util.root("errors", os.path.basename(file)))
         except IOError:
-            util.fatal("Could not copy unprocessable file to errors dir")
+            log.error("Could not copy unprocessable file to errors dir")
     return len(files)
 
 def results_to_vop_files(results,resultsfilename):
@@ -108,7 +108,13 @@ def main():
     log = config.logger(util.root("log.txt"))
 
     #create initial top level dirs, if they do not exist
-    for p in ("templates", "results", "proc", "errors"):
+    for p in (
+        "templates", 
+        "template_images", 
+        "composite_images", 
+        "results", 
+        "proc", 
+        "errors"):
         util.mkdirp(util.root(p))
 
     next_ballot = next.File(util.root("nexttoprocess.txt"), const.num_pages)
@@ -145,13 +151,13 @@ def main():
                 if miss_counter > 1000:
                     break
                 continue
-            for i, f in enumerate(unprocs[1:]):
-                if not os.path.exists(f):
-                    log.info(base(f) + " does not exist. Cannot proceed.")
-                    for j in range(i):
-                        log.info(base(unprocs[j]) + " will NOT be processed")
-                    total_unproc += mark_error(None, *unprocs[:i-1])
-                    return
+            #for i, f in enumerate(unprocs[1:]):
+            #    if not os.path.exists(f):
+            #        log.info(base(f) + " does not exist. Cannot proceed.")
+            #        for j in range(i):
+            #            log.info(base(unprocs[j]) + " will NOT be processed")
+            #        total_unproc += mark_error(None, *unprocs[:i-1])
+                    
 
             #Processing
 
@@ -205,15 +211,15 @@ def main():
                 except OSError as e:
                     util.fatal("Could not rename %s", a)
             total_proc += const.num_pages
-            log.info("%d ballot pages processed succesfully", const.num_pages)
+            log.info("%d images processed", const.num_pages)
             #hp.heap().dump('prof.hpy');hp.setref();gc.collect();hp.setref();hp.heap().dump('prof.hpy')
     finally:
         cache.save_all()
         dbc.close()
         next_ballot.save()
-        log.info("%d ballot(s) processed", total_proc)
+        log.info("%d images processed", total_proc)
         if total_unproc > 0:
-            log.warning("%d ballot(s) coult NOT be processed.", total_unproc)
+            log.warning("%d images NOT processed.", total_unproc)
 
 if __name__ == "__main__":
     main()
