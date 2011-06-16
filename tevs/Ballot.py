@@ -13,6 +13,7 @@ import const
 import util
 import ocr
 import adjust
+import pdb
 
 __all__ = [
     'BallotException', 'LoadBallotType', 'Ballot', 'DuplexBallot', 'IStats',
@@ -21,6 +22,8 @@ __all__ = [
     'Template_to_XML', 'Template_from_XML', 'TemplateCache', 'NullCache',
     'IsVoted', 'IsWriteIn', 'Extensions',
 ]
+
+composite_counts_dict = {}
 
 class BallotException(Exception):
     "Raised if analysis of a ballot image cannot continue"
@@ -229,6 +232,91 @@ class Ballot(object):
         code = self.GetLayoutCode(page)
         tmpl = self.extensions.template_cache[code]
         if tmpl is not None:
+            if const.save_composite_images:
+                # need to retrieve composite image if it exists,
+                try:
+                    oldimage = Image.open("%s/%s%d/%s.jpg" % (
+                            util.root(),
+                            "composite_images",os.getpid(),
+                            tmpl.barcode))
+                except:
+                    try:
+                        oldimage = Image.open("%s/%s%d/%s.jpg" % (
+                                util.root(),
+                                "template_images",os.getpid(),
+                                tmpl.barcode))
+                    except:
+                        oldimage = None
+
+                # else retrieve template image
+                # derotate the new image as if you were building a template
+                r2d = 180/3.14
+                #pdb.set_trace()
+                #page.image.save("/tmp/prerotate.jpg")
+                page.image = page.image.rotate(-r2d * page.rot, Image.BILINEAR)
+                #page.image.save("/tmp/postrotate.jpg")
+                if oldimage is None: oldimage = page.image
+                # landmarks will change once image is derotated!
+                try:
+                    self.FindLandmarks(pagenum)
+                except BallotException:
+                    pass
+                # translate the new image to align with composite image
+                delta_x = tmpl.xoff - page.xoff 
+                delta_y = tmpl.yoff - page.yoff
+
+                newimage = page.image.offset(delta_x,delta_y)
+                #newimage.save("/tmp/posttranslate.jpg")
+                # apply darker operation, save result in first argument?
+                oldimage.load()
+                oldr,oldg,oldb = oldimage.split()
+                newr,newg,newb = newimage.split()
+                    # count dark pixels in oldr excluding edges
+                oldr_crop = oldr.crop((const.dpi/4,
+                                       const.dpi/4,
+                                       min(oldr.size[0],newr.size[0]) 
+                                       - (const.dpi/4),
+                                       min(oldr.size[1],newr.size[1]) 
+                                       - (const.dpi/4)))
+                old_total_intensity = 0
+                for p in oldr_crop.getdata():
+                    old_total_intensity += p
+                newr = ImageChops.darker(oldr,newr)
+                newg = ImageChops.darker(oldg,newg)
+                newb = ImageChops.darker(oldb,newb)
+                new_total_intensity = 0
+                    # count dark pixels in newr excluding edges
+                newr_crop = newr.crop((const.dpi/4,
+                                       const.dpi/4,
+                                       min(newr.size[0],oldr.size[0]) 
+                                       - (const.dpi/4),
+                                       min(newr.size[1],oldr.size[1]) 
+                                       - (const.dpi/4)))
+                new_total_intensity = 0
+                for p in newr_crop.getdata():
+                    new_total_intensity += p
+                self.log.info("%s Old %d New %d Diff %d" % (
+                        os.path.basename(page.filename),
+                        old_total_intensity,
+                        new_total_intensity,
+                        old_total_intensity - new_total_intensity))
+                newimage = Image.merge("RGB",(newr,newg,newb))
+                try:
+                    composite_counts_dict[tmpl.barcode] += 1
+                    if 0==(composite_counts_dict[tmpl.barcode]%5):
+                        self.log.info("Composite count for %s now %d \
+(this run only)" % (
+                                tmpl.barcode,
+                                composite_counts_dict[tmpl.barcode]
+                                ))
+                except:
+                    composite_counts_dict[tmpl.barcode] = 1
+                newimage.save("%s/%s%d/%s.jpg" % (
+                            util.root(),
+                            "composite_images",os.getpid(),
+                            tmpl.barcode))
+                # save result as composite
+                pass
             page.template = tmpl
             return tmpl
 
@@ -241,9 +329,9 @@ class Ballot(object):
         # convert to degrees for call to Image.rotate
         r2d = 180/3.14
         page.image = page.image.rotate(-r2d * page.rot, Image.BILINEAR)
+        # landmarks will change once image is derotated!
         try:
             self.FindLandmarks(pagenum)
-
         except BallotException:
             page.blank = True
         tree = self.build_layout(page)
@@ -257,7 +345,12 @@ class Ballot(object):
         party = self.GetPartyId()
 
         tree = self.OCRDescriptions(page, tree)
-        tmpl = page.as_template(code, tree, precinct, party)
+        tmpl = page.as_template(
+            code, 
+            tree, 
+            precinct, 
+            party, 
+            frompage=page.filename)
         self.extensions.template_cache[code] = tmpl
         page.template = tmpl
         return tmpl
@@ -598,6 +691,7 @@ class DuplexBallot(Ballot):
         return (r, x, y, y2y), (r2, x2, y2, y2y2)
 
     def _BuildLayout1(self, page, lc, tree, blank_is_legal = True):
+        pdb.set_trace()
         if not blank_is_legal:
             if len(tree) == 0:
                 raise BallotException('No layout was built')
@@ -613,6 +707,87 @@ class DuplexBallot(Ballot):
         lc = self.GetLayoutCode(page)
         ft = self.extensions.template_cache[lc]
         bt = self.extensions.template_cache["%sback" % (lc,)]
+        if ft is not None:
+            # given that templates exist...
+            pagenum = 0 
+            for t in (ft,bt):
+                try:
+                    t.barcode
+                except:
+                    continue
+                if const.save_composite_images:
+                    # need to retrieve composite image if it exists,
+                    try:
+                        oldimage = Image.open("%s/%s%d/%s.jpg" % (
+                                util.root(),
+                                "composite_images",os.getpid(),
+                                t.barcode))
+                    except:
+                        oldimage = Image.open("%s/%s%d/%s.jpg" % (
+                                util.root(),
+                                "template_images",os.getpid(),
+                                t.barcode))
+                    # else retrieve template image
+                    # derotate the new image as if you were building a template
+                    r2d = 180/3.14
+                    pdb.set_trace()
+                    #page[pagenum].image.save("/tmp/prerotate.jpg")
+                    page[pagenum].image = page[pagenum].image.rotate(
+                        -r2d * page[pagenum].rot, 
+                         Image.BILINEAR)
+                    #page[pagenum].image.save("/tmp/postrotate.jpg")
+                    # landmarks will change once image is derotated!
+                    try:
+                        self.FindLandmarks(page)
+                    except BallotException:
+                        page[pagenum].blank = True
+                    # translate the new image to align with composite image
+                    delta_x = t.xoff - page[pagenum].xoff 
+                    delta_y = t.yoff - page[pagenum].yoff
+
+                    newimage = page[pagenum].image.offset(delta_x,delta_y)
+                    #newimage.save("/tmp/postranslate.jpg")
+                    # apply darker operation, save result in first argument?
+                    oldimage.load()
+                    oldr,oldg,oldb = oldimage.split()
+                    newr,newg,newb = newimage.split()
+                    # count dark pixels in oldr excluding edges
+                    oldr_crop = oldr.crop((const.dpi/4,
+                                           const.dpi/4,
+                                           min(oldr.size[0],newr.size[0]) 
+                                           - (const.dpi/4),
+                                           min(oldr.size[1],newr.size[1]) 
+                                           - (const.dpi/4)))
+                    old_total_intensity = 0
+                    for p in oldr_crop.getdata():
+                        old_total_intensity += p
+                    newr = ImageChops.darker(oldr,newr)
+                    # count dark pixels in newr excluding edges
+                    newr_crop = oldr.crop((const.dpi/4,
+                                           const.dpi/4,
+                                           min(newr.size[0],oldr.size[0]) 
+                                           - (const.dpi/4),
+                                           min(newr.size[1],oldr.size[1]) 
+                                           - (const.dpi/4)))
+                    new_total_intensity = 0
+                    for p in newr_crop.getdata():
+                        new_total_intensity += p
+                    self.log.info("%s Old %d New %d Diff %d" % (
+                            os.path.basename(page[pagenum].filename),
+                            old_total_intensity,
+                            new_total_intensity,
+                            old_total_intensity - new_total_intensity))
+                    newg = ImageChops.darker(oldg,newg)
+                    newb = ImageChops.darker(oldb,newb)
+                    newimage = Image.merge("RGB",(newr,newg,newb))
+                    newimage.save("%s/%s%d/%s.jpg" % (
+                                util.root(),
+                                "composite_images",os.getpid(),
+                                t.barcode))
+                    pagenum += 1
+                    # save result as composite
+                    pass
+
         if ft is not None:
             front.template = ft
         else:
@@ -1144,7 +1319,7 @@ class Page(_scannedPage):
             raise AttributeError(e + " and is required in the tevs.cfg file.")
             print e
 
-    def as_template(self, barcode, contests, precinct=None, party=None):
+    def as_template(self, barcode, contests, precinct=None, party=None, frompage=None):
         """Given the barcode and contests, convert this page into a Template
         and store that objects as its own template. This is handled by
         Ballot.BuildLayout"""
@@ -1177,13 +1352,21 @@ class Template(_scannedPage):
     information of every Page with the same barcode. As an iterator, it yields
     all the top level elements stored in the template in the order they were
     discovered."""
-    def __init__(self, dpi, xoff, yoff, rot, barcode, contests, image=None,y2y=0, precinct=None, party=None):
+    def __init__(self, dpi, xoff, yoff, rot, barcode, contests, image=None,y2y=0, precinct=None, party=None, frompage=None):
+        if image is not None:
+            if const.save_template_images:
+                image.save("%s/%s%d/%s.jpg" % (
+                        util.root(),
+                        "template_images",os.getpid(),
+                        barcode))
+
         # don't save images in templates (causes high memory usage)
         super(Template, self).__init__(dpi, xoff, yoff, rot, None, y2y)
         self.barcode = barcode
         self.precinct = precinct
         self.party = party
         self.contests = contests #TODO should be jurisdictions
+        self.frompage = frompage
 
     def append(self, contest):
         "add a new contest to the template"
@@ -1214,7 +1397,8 @@ def Template_to_XML(template): #XXX needs to be updated for jurisdictions
         rot=template.rot,
         y2y=template.y2y,
         precinct=template.precinct,
-        party=template.party
+        party=template.party,
+        frompage=template.frompage
     )
     ins(">\n")
 
