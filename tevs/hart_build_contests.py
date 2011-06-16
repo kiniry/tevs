@@ -12,6 +12,7 @@ def hart_build_contests(image, pot_hlines, vboxes, column_start, column_width, d
     regionlist = []
     contest_description_zones = []
     last_contest = 0
+    first_above = 0
     for vbox in vboxes:
         vbox_y = vbox[1]
         for hline in pot_hlines:

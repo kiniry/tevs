@@ -4,6 +4,10 @@ import pdb
 import sys
 import logging
 
+class BarcodeException(Exception):
+    "Raised if barcode not properly interpreted"
+    pass
+
 def hart_barcode(image,x,y,w,h):
     """read a vertical barcode on a hart ballot, as in getbarcode in PILB"""
     whites_list = []
@@ -44,7 +48,11 @@ def hart_barcode(image,x,y,w,h):
     avg = 0
     for b in blacks_list:
         bsum += b
-    avg = bsum/len(blacks_list)
+    try:
+        avg = bsum/len(blacks_list)
+    except ZeroDivisionError:
+        raise BarcodeException("No black stripes found in barcode region.")
+
     # convert wide -->True, narrow-->False
     blacks_list = map(lambda el: el >= avg, blacks_list)    
     wsum = 0
@@ -52,7 +60,10 @@ def hart_barcode(image,x,y,w,h):
     whites_list = whites_list[1:]
     for w in whites_list:
         wsum += w
-    avg = wsum/len(whites_list)
+    try:
+        avg = wsum/len(whites_list)
+    except ZeroDivisionError:
+        raise BarcodeException("No white stripes found in barcode region.")
     # after trimming initial white (not part of bar code)
     # first two whites, first two blacks must be narrow 
     # convert wide -->True, narrow-->False
@@ -108,7 +119,12 @@ if __name__ == "__main__":
     image = Image.open(sys.argv[1])
     x,y,w,h = int(sys.argv[2]),int(sys.argv[3]),int(sys.argv[4]),int(sys.argv[5])
     print x,y,w,h
-    barcode = hart_barcode(image,x,y,w,h)
+    try:
+        barcode = hart_barcode(image,x,y,w,h)
+    except BarcodeException as e:
+        print e
+        barcode = "NOBARCODE"
+        pdb.set_trace()
     print "Barcode",barcode
     if barcode == "FLIP?":
         barcode = hart_barcode(image.rotate(180),x,y,w,h)
