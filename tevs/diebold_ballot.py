@@ -57,63 +57,39 @@ class DieboldBallot(Ballot.DuplexBallot):
         self.right_landmarks = []
         super(DieboldBallot, self).__init__(images, extensions)
 
-    def extract_VOP(self, page, rotatefunc, scale, choice):
-        """Extract a single oval, or writein box, from the specified ballot"""
-        iround = lambda x: int(round(float(x)))
-        x, y = choice.coords()
-        margin_width = page.margin_width
-        margin_height = page.margin_height
-        printed_oval_height = adj(const.target_height_inches)
-
-        #BEGIN SHARABLE
-        scaled_page_offset_x = page.xoff/scale
-        scaled_page_offset_y = page.yoff/scale
-        self.log.debug("Incoming coords (%d,%d), \
-page offsets (%d,%d) scaled (%d,%d), \
-template offsets (%d,%d)" % (
-                x,y,
-                page.xoff,page.yoff,
-                scaled_page_offset_x,scaled_page_offset_y,
-                page.template.xoff,
-                page.template.yoff))
-        # adjust x and y for the shift of landmark between template and ballot
-        x = iround(x + scaled_page_offset_x - page.template.xoff)
-        y = iround(y + scaled_page_offset_y - page.template.yoff)
-        self.log.debug("Result of transform: (%d,%d)" % (x,y))
-        
-        x, y = rotatefunc(x, y, scale)
-        self.log.debug("Result after rotatefunc: (%d,%d)" % (x,y))
-        #END SHARABLE
-        cropx, cropy = x, y 
-        crop = page.image.crop((
-            cropx - page.margin_width,
-            cropy - page.margin_height,
-            min(cropx + page.margin_width + page.target_width,
-                page.image.size[0]-1),
-            min(cropy + page.margin_height + page.target_height,
-                page.image.size[1]-1)
-        ))
+    def vendor_level_adjustment(self, page, image, x, y, w, h):
+        """Given prelim xy offsets of target w margins, fine adjust target."""
 
         # check strip at center to look for either filled or empty oval;
         # recenter vertically
-        stripe = crop.crop(((crop.size[0]/2),0,(crop.size[0]/2)+1,crop.size[1]-1))
+        darkened = 245
+        crop = page.image.crop((x,y,w,h))
+        stripe = crop.crop(
+            ((crop.size[0]/2),
+             0,
+             (crop.size[0]/2)+1,
+             crop.size[1]-1)
+            )
         before_oval = 0
         after_oval = 0
         oval = 0
         stripedata = list(stripe.getdata())
         for num,p in enumerate(stripedata):
-            if p[0] > 245:
+            if p[0] > darkened:
                 before_oval += 1
             else:
                 try:
-                    if ((stripedata[before_oval+printed_oval_height-2][0] < 245) or 
-                        (stripedata[before_oval+printed_oval_height-1][0] < 245) or 
-                        (stripedata[before_oval+printed_oval_height][0] < 245) or
-                        (stripedata[before_oval+printed_oval_height+1][0] < 245) or
-                        (stripedata[before_oval+printed_oval_height+2][0] < 245)):
+                    test_offset = before_oval+printed_oval_height
+                    if ((stripedata[test_offset-2][0] < darkened) or 
+                        (stripedata[test_offset-1][0] < darkened) or 
+                        (stripedata[test_offset][0] < darkened) or
+                        (stripedata[test_offset+1][0] < darkened) or
+                        (stripedata[test_offset+2][0] < darkened)):
                         oval_start = num
                         oval_end = num + printed_oval_height
-                        after_oval = stripe.size[1] - (oval_start+printed_oval_height)
+                        after_oval = (
+                            stripe.size[1] 
+                            - (oval_start+printed_oval_height))
                         break
                 except IndexError:
                     break
@@ -131,24 +107,7 @@ template offsets (%d,%d)" % (
                     page.image.size[1]-1)
                 ))
         self.log.debug("Result after final adj: (%d,%d)" % (cropx,cropy))
-        stats = Ballot.IStats(cropstats(crop, x, y))
-
-        voted, ambiguous = self.extensions.IsVoted(crop, stats, choice)
-        writein = self.extensions.IsWriteIn(crop, stats, choice)
-        if writein:
-            crop = page.image.crop((
-                 cropx - page.margin_width,
-                 cropy - page.margin_height,
-                 min(cropx + page.margin_width + self.writein_xoff,
-                     page.image.size[0]-1),
-                 min(cropy + page.margin_height + self.writein_yoff,
-                     page.image.size[1]-1)
-            ))
-
-        return cropx, cropy, stats, crop, voted, writein, ambiguous
-
-
-
+        return cropx, cropy
 
 
     # Extenders do not need to supply even a stub flip
