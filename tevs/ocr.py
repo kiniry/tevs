@@ -7,7 +7,10 @@ import logging
 
 import const
 import util
-import Ballot
+
+class OCRException(Exception):
+    "Raised if OCR fails"
+    pass
 
 log = logging.getLogger('')
 
@@ -35,7 +38,7 @@ def tesseract(zone):
         sts = os.waitpid(p.pid, 0)[1]
         if sts != 0 or len(err) > 100:
             log.error(err)
-            raise BallotException("OCR failed")
+            raise OCRException("OCR failed")
         text = util.readfrom(ft + ".txt")
     finally:
         for p in (".tif", ".txt"):
