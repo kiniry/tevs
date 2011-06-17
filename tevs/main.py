@@ -6,7 +6,7 @@ import shutil
 import errno
 import getopt
 import logging
-
+import gc
 import site; site.addsitedir(os.path.expanduser("~/tevs")) 
 import Image, ImageStat, ImageDraw 
 
@@ -105,15 +105,15 @@ def main():
     # read configuration from tevs.cfg and set constants for this run
     config.get(cfg_file)
     util.mkdirp(const.root)
-    log = config.logger(util.root("log.txt"))
+    log = config.logger(const.logfilename)
 
     #create initial top level dirs, if they do not exist
     for p in (
-        "templates", 
-        "template_images", 
-        "composite_images", 
+        "%s%d" % ("templates",        os.getpid()), 
+        "%s%d" % ("template_images",  os.getpid()), 
+        "%s%d" % ("composite_images", os.getpid()), 
         "results", 
-        "proc", 
+        "proc",
         "errors"):
         util.mkdirp(util.root(p))
 
@@ -124,7 +124,9 @@ def main():
     except KeyError as e:
         util.fatal("No such ballot type: " + const.layout_brand + ": check " + cfg_file)
 
-    cache = Ballot.TemplateCache(util.root("templates"))
+    # allow all instances to share a common template location,
+    # though need per-pid locs for template_images and composite_images
+    cache = Ballot.TemplateCache(util.root("templates%d" % (os.getpid(),)))
     extensions = Ballot.Extensions(template_cache=cache)
    
     # connect to db and open cursor
@@ -144,6 +146,7 @@ def main():
     #from guppy import hpy;hp=hpy();hp.setref();import gc;gc.disable();gc.collect();hp.setref()
     try:
         for n in next_ballot:
+            gc.collect()
             unprocs = [incomingn(n + m) for m in range(const.num_pages)]
             if not os.path.exists(unprocs[0]):
                 miss_counter += 1
