@@ -465,16 +465,30 @@ template offsets (%d,%d) margins(%d,%d)" % (
         cropx, cropy = x, y 
         # provide for calling of further adjustment function, 
         # if one is defined in subclass
+        vla_present = False
         try:
+            self.vendor_level_adjustment
+            vla_present = True
+        except AttributeError:
+            pass
+        if vla_present == True:
+            in_x = x
+            in_y = y
             x,y = self.vendor_level_adjustment(
                 page,
-                image,
+                page.image,
                 x - margin_width,
                 y - margin_width,
                 ow + (2*margin_width),
                 oh + (2*margin_height))
-        except AttributeError:
-            pass
+            if abs(in_x - x) > margin_width or abs(in_y - y) > margin_height:
+                self.log.info(
+                    "LARGE vendor level adjustment; x %d to %d, y %d adjusted to %d" 
+                    % (in_x,x,in_y,y)
+                    )
+            else:
+                self.log.debug("Vendor level adjustment: x %d to %d, y %d adjusted to %d" 
+                    % (in_x,x,in_y,y))
         crop = page.image.crop((
             cropx - margin_width,
             cropy - margin_height,
@@ -1359,7 +1373,7 @@ class Page(_scannedPage):
         """Given the barcode and contests, convert this page into a Template
         and store that objects as its own template. This is handled by
         Ballot.BuildLayout"""
-        t = Template(self.dpi, self.xoff, self.yoff, self.rot, barcode, contests, self.image, self.y2y, precinct, party) #XXX update
+        t = Template(self.dpi, self.xoff, self.yoff, self.rot, barcode, contests, self.image, self.y2y, precinct, party, frompage=self.filename) #XXX update
         self.template = t
         return t
 

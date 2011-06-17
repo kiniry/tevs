@@ -271,6 +271,83 @@ class HartBallot(Ballot.Ballot):
         return contests
 
 
+    def xvendor_level_adjustment(self,page,image,x,y,w,h):
+        """Return precise x,y of ulc of target given crop containing target"""
+        contig_pixels_required = 2
+        # target left wall will occupy leftmost 1/10"
+        # find start of black range 
+        # continuing downwards for 1/2 target height
+        # and rightwards for 1/2 target width
+        crop = image.crop((x,y,x+w,y+h))
+        # start halfway down the crop, move right until dark for wall width
+        # test at three vertical offsets to reduce likelihood of being tricked
+        test_y1 = crop.size[1]/2
+        test_y2 = (crop.size[1]/2) - (const.dpi/50)
+        test_y3 = (crop.size[1]/2) + (const.dpi/50)
+        contig = 0
+        valid_x = -1
+        let = const.line_exit_threshold
+        for test_x in range(0,crop.size[0]/2):
+            if (
+                (crop.getpixel((test_x,test_y1))[0] < let)
+                and (crop.getpixel((test_x,test_y2))[0] < let)
+                and (crop.getpixel((test_x,test_y3))[0] < let)):
+                contig += 1
+            if contig >= contig_pixels_required:
+                valid_x = test_x - (contig - 1)
+                break
+        if valid_x < 0:
+            #problem
+            pass
+        # now move up in wall until end, and if needed down until end
+        contig = 0
+        valid_top_y = -1
+        for test_y in range(crop.size[1]/2,0,-1):
+            ok = False
+            if crop.getpixel((valid_x+1,test_y))[0] >= const.line_exit_threshold:
+                contig += 1
+            if contig > contig_pixels_required:
+                test_top_y = test_y + contig
+                # confirm dark for at least 1/4 crop width pixels
+                # found believable ulc x,y
+                ok = True
+                for test_x in range(valid_x+1,valid_x + (crop.size[0]/4)):
+                    # add 1 pix to get back into black, one for slip
+                    try:
+                        red = crop.getpixel((test_x,test_top_y+2))[0]
+                    except IndexError as e:
+                        self.log.debug("VLA FAILED, returning passed values.")
+                        self.log.debug(
+                            "Xrange %d to %d, test %d, %d, cropsize %d,%d" % (
+                                valid_x+1,
+                                valid_x + (crop.size[0]/2),
+                                test_x,
+                                test_top_y+2,
+                                crop.size))
+                        return x,y
+                    if red > const.line_exit_threshold:
+                        ok = False
+                        break
+                if ok: 
+                    valid_top_y = test_top_y+1
+                    break
+        if valid_top_y < 0:
+            #problem
+            valid_top_y = 0
+        else:
+            return x+valid_x, y+valid_top_y
+        # top of target might be outside crop, check for bottom
+        contig = 0
+        valid_bottom_y = crop.size[1]-1
+        for test_y in range(crop.size[1]/2,crop.size[1],1):
+            if crop.getpixel((valid_x+1,test_y))[0] >= const.line_exit_threshold:
+                contig += 1
+            if contig > contig_pixels_required:
+                valid_bottom_y = test_y - contig
+                break
+        return x + valid_x, y + valid_bottom_y - (const.target_height_inches * const.dpi) 
+
+            
 def good_barcode(code_string):
     """check code for obvious flaws"""
     if code_string is None:
@@ -292,3 +369,4 @@ def good_barcode(code_string):
     except ValueError:
         return False
     return csi <= 4
+
