@@ -12,9 +12,9 @@ __all__ = ['logger', 'get']
 def yesno(cfg, grp, itm):
     so = cfg.get(grp, itm)
     s = so.strip().lower()
-    if s in "yes y true t".split():
+    if s in "yes y true t on".split():
         return True
-    if s in "no n false f".split():
+    if s in "no n false f off".split():
         return False
     raise ValueError("% is not a valid choice for %s in %s" % (so, grp, itm))
 
@@ -55,7 +55,8 @@ def get(cfg_file="tevs.cfg"):
         const.incoming = os.path.join(const.root, "unproc")
 
     # first, get log file name so log can be opened
-    const.logfilename = os.path.join(const.root, "log.txt") #XXX only needed for scancontrol, view
+    const.logfilename = os.path.join(const.root, "log%d.txt" % (os.getpid(),)) 
+    #XXX only needed for scancontrol, view
     # then both log and print other config info for this run
     bwi = config.get("Sizes", "ballot_width_inches")
     bhi = config.get("Sizes", "ballot_height_inches")

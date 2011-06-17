@@ -454,7 +454,7 @@ template offsets (%d,%d) margins(%d,%d)" % (
                 x,y,
                 page.xoff,page.yoff,
                 scaled_page_offset_x,scaled_page_offset_y,
-                page.template.xoff,page.template.yoff
+                page.template.xoff,page.template.yoff,
                 margin_width,margin_height))
         # adjust x and y for the shift of landmark between template and ballot
         x = iround(x + scaled_page_offset_x - page.template.xoff)
@@ -478,23 +478,23 @@ template offsets (%d,%d) margins(%d,%d)" % (
         crop = page.image.crop((
             cropx - margin_width,
             cropy - margin_height,
-            cropx + margin_width + ow,
-            cropy + margin_height + oh
+            cropx + (2*margin_width) + ow,
+            cropy + (2*margin_height) + oh
         ))
         stats = IStats(cropstats(crop, x, y))
         voted, ambiguous = self.extensions.IsVoted(crop, stats, choice)
         writein = self.extensions.IsWriteIn(crop, stats, choice)
-        if writein:
-            cropx = cropx + page.writein_zone_horiz_offset
-            cropy = cropy + page.writein_zone_vert_offset
-            crop = page.image.crop((
-                 cropx,
-                 cropy,
-                 min(cropx + page.writein_zone_width,
-                     page.image.size[0]-1),
-                 min(cropy + page.writein_zone_height,
-                     page.image.size[1]-1)
-            ))
+        #if writein:
+        #    cropx = cropx + page.writein_zone_horiz_offset
+        #    cropy = cropy + page.writein_zone_vert_offset
+        #    crop = page.image.crop((
+        #         cropx,
+        #         cropy,
+        #         min(cropx + page.writein_zone_width,
+        #             page.image.size[0]-1),
+        #         min(cropy + page.writein_zone_height,
+        #             page.image.size[1]-1)
+        #    ))
 
         return cropx, cropy, stats, crop, voted, 0, ambiguous
 
@@ -723,7 +723,6 @@ class DuplexBallot(Ballot):
         return (r, x, y, y2y), (r2, x2, y2, y2y2)
 
     def _BuildLayout1(self, page, lc, tree, blank_is_legal = True):
-        pdb.set_trace()
         if not blank_is_legal:
             if len(tree) == 0:
                 raise BallotException('No layout was built')
@@ -762,7 +761,6 @@ class DuplexBallot(Ballot):
                     # else retrieve template image
                     # derotate the new image as if you were building a template
                     r2d = 180/3.14
-                    pdb.set_trace()
                     #page[pagenum].image.save("/tmp/prerotate.jpg")
                     page[pagenum].image = page[pagenum].image.rotate(
                         -r2d * page[pagenum].rot, 
@@ -1565,6 +1563,8 @@ class TemplateCache(object):
             return
         self.cache[id] = template
         self.log.info("Template %s created", id)
+        # always save template upon creation
+        self.save(id)
 
     def save(self, id):
         id = str(id)
