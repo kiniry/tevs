@@ -258,7 +258,8 @@ class HartBallot(Ballot.Ballot):
                                                   vboxes,
                                                   vline,
                                                   column_width,
-                                                  dpi)
+                                                  dpi,
+                                                  extensions = self.extensions)
             contests.extend(column_contests)
         for contest in contests:
             self.log.debug("%d,%d, %s" % (contest.x,contest.y,contest.description))

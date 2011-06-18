@@ -1655,7 +1655,7 @@ class Extensions(object):
     All extensions must be in the _xpts dict below and must be
     callable"""
     _xpts = {
-        "ocr_engine":     ocr.tesseract, 
+        "ocr_engine":     ocr.tesseract,#_with_prefix_and_postfix, 
         "ocr_cleaner":    ocr.clean_ocr_text,
         "template_cache": NullCache,
         "IsWriteIn":      IsWriteIn,
