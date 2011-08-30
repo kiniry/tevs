@@ -46,6 +46,7 @@ import Ballot
 import const
 from adjust import rotator
 from cropstats import cropstats
+from find_line import find_line
 import Image, ImageStat
 import math
 import ocr
@@ -63,7 +64,42 @@ def elim_halftone(x):
         retval = 0
     return retval
 
-
+def oval_pattern(im,height,width,text_offset):
+    """an empty oval will return True, otherwise False"""
+    left_ok = False
+    right_ok = False
+    center_ok = True
+    beyond_ok = True
+    slip = adj(0.02)
+    
+    try:
+        for x in range(slip):
+            for y in range(height):
+                p = im.getpixel((x,y))
+                if p[0]<192: 
+                    left_ok = True
+                    break
+        for x in range(width-slip,width+slip):
+            for y in range(height):
+                p = im.getpixel((x,y))
+                if p[0]<192: 
+                    right_ok = True
+                    break
+        for x in range(width+slip,text_offset-slip):
+            for y in range(height):
+                p = im.getpixel((x,y))
+                if p[0]<192:
+                    beyond_ok = False
+                    break
+        # assumes oval is at or very near top of im
+        for y in range(height/2-1,height/2+1):
+            p = im.getpixel((width/2,y))
+            if p[0]<192:
+                center_ok = False
+    except IndexError:
+        return False
+    #print left_ok, right_ok, beyond_ok, center_ok
+    return (left_ok and right_ok and beyond_ok and center_ok)
 
 class Ess1Ballot(Ballot.Ballot):
 #class EssBallot(Ballot.DuplexBallot):
@@ -94,7 +130,7 @@ class Ess1Ballot(Ballot.Ballot):
         """Extract a single oval, or writein box, from the specified ballot"""
         iround = lambda x: int(round(x))
         x, y = choice.coords()
-        printed_oval_height = adj(0.097)
+        printed_oval_height = adj(const.target_height_inches)
 
 
         #BEGIN SHARABLE
@@ -113,7 +149,7 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         x, y = rotatefunc(x, y, scale)
         # Below is using the pure python cropstats:
         cropx, cropy = x, y #not adjusted like in PILB cropstats
-        cropy -= adj(0.035)
+        #cropy -= adj(0.035)
         crop = page.image.crop((
             cropx - page.margin_width,
             cropy - page.margin_height,
@@ -140,7 +176,7 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
                         (stripedata[before_oval+printed_oval_height+1][0] < 245) or
                         (stripedata[before_oval+printed_oval_height+2][0] < 245)):
                         oval_start = num
-                        oval_end = num + printed_oval_height
+                        ov_end = num + printed_oval_height
                         after_oval = stripe.size[1] - (oval_start+printed_oval_height)
                         break
                 except IndexError:
@@ -190,14 +226,7 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         return self.find_front_landmarks(page)
 
     def find_front_landmarks(self, page):
-        """ess ballots have circled plus signs at the four corners
-
-        We'll look for them at the following locations allowing 1/4" slip.
-        + target at 134,100 (1/2" x 1/3")
-        + target at 2380,88 (8" x 1/3")
-        + target at 2398,4114 (8" x 13 2/3" (1/3" from bottom)
-        + target at 154,4116 (1/2" x 13 2/3" (1/3" from bottom)
-        """
+        """find the left and right corners of the uppermost line"""
         iround = lambda a: int(round(float(a)))
         width = adj(0.75)
         height = adj(0.75)
@@ -208,89 +237,48 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
             im = page
         # generate ulc, urc, lrc, llc coordinate pairs
         landmarks = []
-        for x,y in zip(
-            # x starting points
-            (adj(0.25),
-             im.size[0]-adj(0.3)-width-1,
-             im.size[0]-adj(0.3)-width-1,
-             adj(0.25)),
-            # y starting points
-            (adj(0.08),
-             adj(0.08),
-             im.size[1]-adj(0.4)-1,
-             im.size[1]-adj(0.4)-1
-             )
-            ):
-            landmark = self.find_landmark_in_region(
-                page.image,
-                [x,y,x+width,y+height]
-            )
-            landmarks.append(landmark)
-        x,y = landmarks[0][0],landmarks[0][1]
+        # use corners of top and bottom lines in preference to circled-plus
+        # as the circled plus are often missed due to clogging, etc...
+        try:
+            a,b,c,d = find_line(im,im.size[0]/2,100)
+            print a,b,c,d
+        except Exception:
+            pass
+        else:
+            landmarks.append([a,b])
+            landmarks.append([c,d])
+        try:
+            # changing search start from 1/3" above bottom to 1/14" above
+            #im.save("/tmp/im.jpg")
+            a,b,c,d = find_line(im,im.size[0]/2,im.size[1]-adj(0.07),-adj(0.75))
+            #print a,b,c,d
+            #pdb.set_trace()
+        except Exception:
+            pass
+        else:
+            landmarks.append([c,d])
+            landmarks.append([a,b])
+
+        try:
+            x,y = landmarks[0][0],landmarks[0][1]
+        except IndexError:
+            # page without landmarks; if this is a back page, it's ok
+            raise Ballot.BallotException
+
         longdiff = landmarks[3][1] - landmarks[0][1]
         shortdiff = landmarks[3][0] - landmarks[0][0]
         hypot = math.sqrt(longdiff*longdiff + shortdiff*shortdiff)
         r = float(shortdiff)/float(longdiff)
+        if r > 0.1: pdb.set_trace()
         # we depend on back landmarks being processed after front
         self.back_upper_right_plus_x = landmarks[1][0]
         self.back_upper_right_plus_y = landmarks[1][1]
         self.log.debug("landmarks %s,rot %f,(%d,%d)" % (landmarks,r,x,y))
+        page.landmarks = landmarks
         return r,x,y,hypot
 
-    def find_landmark_in_region(self, image, croplist, darkthresh=192):
-        """ given an image and a cropbox, find the circled plus """
-        iround = lambda x: int(round(float(x)))
-        dpi = const.dpi
-        full_span_inches = 0.16
-        line_span_inches = 0.01
-        circle_radius_inches = 0.03
-        full_span_pixels = adj(full_span_inches)
-        line_span_pixels = adj(line_span_inches)
-        circle_radius_pixels = adj(circle_radius_inches)
-        croplist[2] = min(croplist[2],image.size[0]-1)
-        croplist[3] = min(croplist[3],image.size[1]-1)
-        image = image.crop(croplist)
-        for y in range(0,image.size[1]-full_span_pixels):
-            for x in range(circle_radius_pixels, image.size[0]-circle_radius_pixels):
-                if (image.getpixel((x,y))[0] < darkthresh 
-                    and image.getpixel((x-1,y))[0] >= darkthresh
-                    and image.getpixel((x+(2*line_span_pixels),y))[0]
-                    >= darkthresh):
-                    if ((image.getpixel((x,y+full_span_pixels-2))[0]<darkthresh
-                        or image.getpixel((x+1,y+full_span_pixels-2))[0]<darkthresh
-                        or image.getpixel((x-1,y+full_span_pixels-2))[0]<darkthresh)
-                        and (image.getpixel((x+(2*line_span_pixels),
-                                             y+full_span_pixels - 2))[0]>=darkthresh)):
-                        try:
-                            hline = image.crop((x-circle_radius_pixels,
-                                                y+(full_span_pixels/2)-2,
-                                                x+circle_radius_pixels,
-                                                y+(full_span_pixels/2)+2))
-                            hlinestat = ImageStat.Stat(hline)
-                            if hlinestat.mean[0]>64 and hlinestat.mean[0]<192:
-                                # we need to see some extremely white pixels nearby
-                                white1 = image.crop((x+line_span_pixels+1,
-                                                    y+ (full_span_pixels/10),
-                                                    x + (2*line_span_pixels),
-                                                    y + (full_span_pixels/5)))
-                                whitestat1 = ImageStat.Stat(white1)
-                                white2 = image.crop((x-(2*line_span_pixels),
-                                                    y+ (full_span_pixels/10),
-                                                    x - 1,
-                                                    y + (full_span_pixels/5)))
-                                whitestat2 = ImageStat.Stat(white2)
-                                if whitestat1.mean[0]>224 and whitestat2.mean[0]>224:
-                                    return (x+croplist[0],
-                                            y+(full_span_pixels/2)+croplist[1])
-                        except:
-                            pass
-        # successful return will have taken place by here
-        raise Ballot.BallotException, "could not locate plus sign landmark at %s" % (croplist,)
-
-
-
     def get_layout_code(self, page):
-        """ Determine the layout code by getting it from the user
+        """ Determine the layout code by inspecting the left edge 
 
         The layout code must be determined on a vendor specific basis;
         it is usually a series of dashes or a bar code at a particular
@@ -300,11 +288,26 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         on the fronts.  If the codes appear only on the front, you can
         file the back layout under a layout code generated from the
         front's layout code.
-        """
+        If using circled plus,
         # if front, starting point is 1/4" before plus horizontal offset,
         # and .36" below plus vertical offset
         front_adj_x = adj(-0.25)
         front_adj_y = adj(0.36)
+        But, we are using left corner of top line
+        """
+        # if we already have a barcode for the front,
+        # we'll prepend back to that and use that as our "back barcode"
+        print page.xoff
+        print page.yoff
+        if len(page.ballot.pages[0].barcode) > len(page.barcode):
+            return "Back%s" % (page.ballot.pages[0].barcode)
+        front_adj_x = adj(-0.86)
+        front_adj_y = adj(0.)
+        # if the upper left corner of the line is so far to the left
+        # that we'd be off the page looking for timing marks on the
+        # left, this is a back and we will not find a bar code
+        if (page.xoff + front_adj_x) < 0:
+            return "Back%s" % (page.ballot.pages[0].barcode)
         barcode,tm = timing_marks(page.image,
                                   page.xoff + front_adj_x,
                                   page.yoff + front_adj_y,
@@ -431,7 +434,7 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
 
     def get_dark_zones(self,crop):
         """ return starting and ending y offsets of dark areas in crop"""
-        half_intensity = 128
+        dark_intensity = 192
         in_dark = False
         dark_zones = []
         dark_start = 0
@@ -442,10 +445,10 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
                                   crop.size[0] - (const.dpi/10),
                                   y+1))
             linestat = ImageStat.Stat(linecrop)
-            if (linestat.extrema[0][0] < half_intensity) and not in_dark:
+            if (linestat.extrema[0][0] < dark_intensity) and not in_dark:
                 in_dark = True
                 dark_start = y
-            elif (linestat.extrema[0][0] >= half_intensity) and in_dark:
+            elif (linestat.extrema[0][0] >= dark_intensity) and in_dark:
                 in_dark = False
                 dark_end = y
                 dark_zones.append([dark_start,dark_end])
@@ -461,12 +464,10 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         line, depending on whether we find a pattern of white indicating
         the line contains only an oval and a single word, YES or NO.
         """
-        oval_offset_into_column = adj(0.14)
-        oval_end_offset_into_column = adj(0.39)
+        ov_off = adj(const.vote_target_horiz_offset_inches)
+        ov_end = ov_off + adj(const.target_width_inches)
 
-        votetext_offset_into_column = oval_end_offset_into_column
-        votetext_offset_into_column += oval_offset_into_column 
-        votetext_offset_into_column += adj(0.02)
+        txt_off = adj(const.candidate_text_horiz_offset_inches)
 
         half_intensity = 128
         contests = []
@@ -476,8 +477,8 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         # finding beginning and end of zones which include dark pixels
         # now check each dark zone to see if it is a vote op 
         # or if it is descriptive text; vote ops will have an oval
-        # in the oval channel beginning at 0.14 and extending for .24,
-        # then text beginning at .38
+        # in the oval channel beginning at ov_off
+        # and extending until ov_end
         dark_zones = self.get_dark_zones(crop)
         contest_created = False
         for dz in dark_zones:
@@ -485,14 +486,14 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
                                     dz[0],
                                     crop.size[0]-(const.dpi/10), 
                                     dz[1]))
-            zonecrop2 = crop.crop((oval_end_offset_into_column,
+            zonecrop2 = crop.crop((ov_end,
                                     dz[0],
-                                    votetext_offset_into_column, 
+                                    txt_off, 
                                     dz[1]))
             zone2stat = ImageStat.Stat(zonecrop2)
-            zonecrop3 = crop.crop((votetext_offset_into_column,
+            zonecrop3 = crop.crop((txt_off,
                                     dz[0],
-                                    votetext_offset_into_column + const.dpi,
+                                    txt_off + const.dpi,
                                     dz[1]))
             zone1text = ocr.tesseract(zonecrop1)
             zone1text = ocr.clean_ocr_text(zone1text)
@@ -522,7 +523,7 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
                 self.log.debug("Adding choice %s" % (choice_string,))
                 regionlist[-1].append(
                     Ballot.Choice(
-                        croplist[0]+oval_offset_into_column,
+                        croplist[0]+ov_off,
                         croplist[1]+ dz[0],
                         choice_string
                         )
@@ -539,7 +540,7 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         return dark_zones
 
     def get_title_and_votes_from(self,image,regionlist,croplist):
-        """ given an area known to contain a contest title and votes, return info
+        """ given an area known to contain contest title and votes, return info
 
         The cropped area will contain a title area at the top, 
         followed by voting areas.  Voting areas will
@@ -548,20 +549,143 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
         the oval.
 
         """
-        oval_offset_into_column = adj(0.14)
-        oval_end_offset_into_column = adj(0.39)
+        ov_off = adj(const.vote_target_horiz_offset_inches)
+        ov_ht = adj(const.target_height_inches)
+        ov_wd = adj(const.target_width_inches)
+        ov_end = ov_off + ov_wd
+        txt_off = adj(const.candidate_text_horiz_offset_inches)
 
-        votetext_offset_into_column = oval_end_offset_into_column
-        votetext_offset_into_column += oval_offset_into_column 
-        votetext_offset_into_column += adj(0.02)
+
         choices = []
         crop = image.crop(croplist)
+        if croplist[2]==0 or croplist[3]==0:
+            return []
+        #crop.save("/tmp/crop.jpg")
         dark_zones = self.get_dark_zones(crop)
+        #print dark_zones
         next_dark_zones = dark_zones[1:]
         next_dark_zones.append([crop.size[1]-2,crop.size[1]-1])
-        # get title from first dark zone exceeding 1/10"
-        contest_instance = None
         skipcount = 0
+
+
+        # for each dark zone, determine the first dark x
+        encountered_oval = False
+        dzstyle = []
+        for dz in dark_zones:
+            # crop each dark strip
+            # losing the area to the left of the possible vote target
+            # and an equivalent area on the right
+            dzcrop = crop.crop((ov_off,
+                                dz[0],
+                                crop.size[0]-ov_off,
+                                dz[1]))
+            #dzcrop.save("/tmp/dzcrop.jpg")
+            firstx = dzcrop.size[0]
+            lastx = 0
+            for y in range(dzcrop.size[1]):
+                for x in range(dzcrop.size[0]):
+                    p0 = dzcrop.getpixel((x,y))
+                    if p0[0] < 192:
+                        firstx = min(firstx,x)
+                        lastx = max(lastx,x)
+            lastxindent = dzcrop.size[0]-lastx
+            #print dz,dzcrop.size,firstx,dzcrop.size[0]-lastx
+            # unfortunately, it is hard to tell a filled oval from a title
+            # that begins about the same x offset as ovals; we will
+            # recognize that titles come first and are symmetric
+            # ovals start at a defined offset and will have a minimum height
+            # and, if empty, will match a particular dark/light pattern
+            symmetric = (abs(firstx-lastxindent) < adj(0.05))
+            tall_enough = (dz[1]-dz[0] >= int(ov_ht * .8))
+            #print "Firstx %d lastxindent %d symmetric %s tall enough %s" % (
+            #    firstx,lastxindent,symmetric,tall_enough)
+            ov_pat = oval_pattern(dzcrop,ov_ht,ov_wd,txt_off-ov_off)
+            #if not encountered_oval and symmetric and firstx > adj(0.01) and not ov_pat:            
+            if not encountered_oval and not ov_pat:
+                dzstyle.append("T")
+                #print "Probable title; y's",dz,"x's",firstx,lastx
+            elif tall_enough and firstx <= adj(0.02):
+                dzstyle.append("V")
+                #print "Probable oval; y's",dz,"x's",firstx,lastx
+                encountered_oval = True
+            elif ((firstx >= (txt_off - ov_off - adj(0.02))) and not tall_enough):
+                #print "Probable write-in line; y's",dz,"x's",firstx,lastx
+                dzstyle.append("W")
+            else:
+                dzstyle.append("-")
+
+        #print dzstyle
+        contest_instance = None
+        choice = None
+        title_array = []
+        for index,style in enumerate(dzstyle):
+            if style=="T":
+                titlezone = crop.crop((adj(0.1),
+                                      dark_zones[index][0],
+                                      crop.size[0]-adj(0.1),
+                                      dark_zones[index][1]))
+                zonetext = ocr.tesseract(titlezone)
+                zonetext = ocr.clean_ocr_text(zonetext)
+                zonetext = zonetext.strip()
+                zonetext = zonetext.replace("\n","//").strip()
+                title_array.append(zonetext)
+            elif style=="V":
+                if title_array is not None:
+                    zonetext = "/".join(title_array)
+                    contest_instance = Ballot.Contest(croplist[0], 
+                                                  croplist[1],
+                                                  croplist[2],
+                                                  croplist[3], 
+                                                  0,
+                                                  zonetext)
+                    regionlist.append(contest_instance)
+                    title_array = None
+                choicezone = crop.crop((txt_off,
+                                      dark_zones[index][0],
+                                      crop.size[0]-adj(0.1),
+                                      dark_zones[index][1]))
+                zonetext = ocr.tesseract(choicezone)
+                zonetext = ocr.clean_ocr_text(zonetext)
+                zonetext = zonetext.strip()
+                zonetext = zonetext.replace("\n","//").strip()
+                #print "Choice",zonetext
+                # find the y at which the actual oval begins 
+                # which may be lower than the dark_zone start
+                choice_y = dark_zones[index][0]
+                # Look up to 0.2 inches beneath beginning of dark zone
+                # for an oval darkening the oval region
+                contig = 0
+                for adj_y in range(adj(0.2)):
+                    ovalcrop = crop.crop((ov_off,
+                                          choice_y+adj_y,
+                                          ov_end,
+                                          choice_y+adj_y+1))
+                    ovalstat = ImageStat.Stat(ovalcrop)
+                    if ovalstat.extrema[0][0] < 240:
+                        contig += 1
+                        if contig > adj(0.03):
+                            #print "Choice_y before adjust",choice_y
+                            choice_y += (adj_y-adj(0.03))
+                            #print "Choice y after adjust",choice_y
+                            found = True
+                            break
+                    else:
+                        contig = 0
+
+                choice = Ballot.Choice(croplist[0]+ov_off, 
+                                       croplist[1]+choice_y, 
+                                       zonetext)
+                contest_instance.append(choice)
+            elif style=="W" and len(dzstyle)>(index+1) and dzstyle[index+1] in "W-":
+                if title_array is not None:
+                    #print "\n".join(title_array)
+                    title_array = None
+                #print "Choice above is writein"
+                try:
+                    choice.description = "Writein"
+                except:
+                    pass
+        """
         for dz,ndz in zip(dark_zones,next_dark_zones):
             skipcount += 1
             # a valid dark zone will be at least .05" tall and will
@@ -589,27 +713,30 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
             
         skip = False
         for dz,ndz in zip(dark_zones,next_dark_zones):
-            # if two dark zones are less than 0.3" apart, merge them and skip
+            # if two dark zones are less than 0.2" apart, merge them and skip
             # this allows two line entries to be handled as single choices
             # !!! check for existence of oval in oval zone instead
+            print " DZ",dz
+            print "NDZ",ndz
+            print
             if skipcount > 0:
                 skipcount -= 1
                 continue
             if skip == True: 
                 skip = False
                 continue
-            if (ndz[0] - dz[0]) < adj(0.3):
+            if (ndz[0] - dz[0]) < adj(0.2):
                 skip = True
             if skip:
                 end = 1
             else: 
                 end = 0
-            blankzone = crop.crop((oval_end_offset_into_column,
+            blankzone = crop.crop((ov_end,
                                    dz[0],
-                                   votetext_offset_into_column, 
+                                   txt_off, 
                                    ndz[end]))
             blankzonestat = ImageStat.Stat(blankzone)
-            zonecrop = crop.crop((votetext_offset_into_column,
+            zonecrop = crop.crop((txt_off,
                                   dz[0],
                                   crop.size[0]-(const.dpi/10),
                                   ndz[end]))
@@ -617,23 +744,28 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
             zonetext = ocr.clean_ocr_text(zonetext)
             zonetext = zonetext.strip()
             zonetext = zonetext.replace("\n","//").strip()
+            if (dz[1] - dz[0]) < int(ov_ht * 0.9):
+                skip = False
+                continue
             if blankzonestat.mean[0]>244: 
-                append_x = croplist[0] + adj(0.14)
+                append_x = croplist[0] + ov_off
                 append_y = croplist[1] + dz[0]
                 # search through oval zone looking for oval, 
                 # adjust y to top of oval, not top of text
                 contig = 0
                 found = False
                 for adj_y in range(adj(0.04),adj(0.2)):
-                    ovalcrop = crop.crop((oval_offset_into_column,
+                    ovalcrop = crop.crop((ov_off,
                                           dz[0]+adj_y,
-                                          oval_end_offset_into_column,
+                                          ov_end,
                                           dz[0]+adj_y+1))
                     ovalstat = ImageStat.Stat(ovalcrop)
                     if ovalstat.extrema[0][0] < 240:
                         contig += 1
                         if contig > 10:
+                            print "Append_y before adjust",append_y
                             append_y += (adj_y-10)
+                            print "Append y after adjust",append_y
                             found = True
                             break
                     else:
@@ -643,8 +775,10 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
                 self.log.debug("Appending choice %d %d %s" % (append_x,
                                                               append_y,
                                                               zonetext))
+                print "Appending choice",zonetext
                 choice = Ballot.Choice(append_x, append_y, zonetext)
                 contest_instance.append(choice)
+        """
         return regionlist
 
     def build_layout(self, page, back=False):
@@ -729,28 +863,29 @@ page offsets (%d,%d) template offsets (%d,%d)" % (
     will be presumed to represent either blank areas or voting locations.
 
         """
-        oval_offset_into_column = adj(0.14)
+        ov_off = adj(0.14)
         self.log.debug( "Entering build_layout.")
 
         regionlist = []
         n = 0
         # column_markers returns a location 0.14" into the column
         ref_pt = [0,0]
-        ref_pt[0] = page.xoff + adj(-0.25)
-        ref_pt[1] = page.yoff + adj(0.36)
+        ref_pt[0] = page.xoff + 2
+        ref_pt[1] = page.yoff - 2
         if back:
-            ref_pt[0] = self.back_upper_right_plus_x
-            ref_pt[1] = self.back_upper_right_plus_y + adj(0.36)
+            ref_pt[0] = page.landmarks[1][0]
+            ref_pt[1] = page.landmarks[1][1] - 2
             self.log.debug( "Building BACK layout" )
         self.log.debug("Reference point: %s" % ( ref_pt,))
-        columns = column_markers(page.image,ref_pt)
+        print "Ref pt",ref_pt
+        columns = column_markers(page)
         try:
             column_width = columns[1][0] - columns[0][0]
         except IndexError:
             column_width = im.size[0] - const.dpi
         regionlist = []
         for cnum, column in enumerate(columns):
-            column_x = column[0] - oval_offset_into_column
+            column_x = column[0] - ov_off
             # determine the zones at two offsets into the column
             left_edge_zones = self.get_left_edge_zones(page,column_x)
             middle_zones = self.get_middle_zones(page,column_x+(column_width/2))
@@ -808,7 +943,8 @@ def adjust_ulc(image,left_x,top_y,max_adjust=5):
     return (left_x,top_y)
 
 def timing_marks(image,x,y,dpi=300):
-    """locate timing marks and code, starting from closest to ulc symbol"""
+    """locate timing marks and code, starting from closest to line edge"""
+    #"""locate timing marks and code, starting from closest to ulc symbol"""
     # go out from + towards left edge by 1/8", whichever is closer
     # down from + target to first dark, then left to first white
     # and right to last white, allowing a pixel of "tilt"
@@ -823,15 +959,19 @@ def timing_marks(image,x,y,dpi=300):
     twelfth = adj(0.083)
     gray50pct = 128
 
+
     left_x = x
     top_y = y
     retlist.append( (left_x,top_y) )
     # now go down 1/2" and find next ulc, checking for drift
     top_y += half
     for n in range(adj(0.1)):
-        pix = image.getpixel((left_x+adj(0.1),top_y + n))
+        #print left_x+adj(0.1),top_y
+        pix = image.getpixel((left_x+adj(0.1),top_y))
         if pix[0] > 128:
             top_y = top_y + 1
+
+    #print top_y
     code_string = ""
     zero_block_count = 0
     while True:
@@ -876,10 +1016,10 @@ def block_type(image,pixtocheck,x,y):
     return retval
 
 
-def column_markers(image,ref_pt,min_runlength_inches=.2,zonelength_inches=.25):
-    """given first timing mark, find column x offsets by inspecting boxes
+def column_markers(page,min_runlength_inches=.2,zonelength_inches=.25):
+    """given top line landmarks, find column x offsets by inspecting boxes
 
-    The uppermost timing mark is vertically aligned with a box containing
+    The uppermost line forms the top of a box containing
     column headers.  This column header box is approximately 1/6" tall.
     
     We go halfway down into the column header box, looking for .24" 
@@ -889,13 +1029,11 @@ def column_markers(image,ref_pt,min_runlength_inches=.2,zonelength_inches=.25):
     The actual test is for runs of pixels of red intensity < 128.  
     The run must have only one miss for min_runlength_inches
     in a horizontal strip one pixel high.
-
-    If the timing mark is in the left ballot half, we search rightwards;
-    else, we search leftwards.
     """
     columns = []
-    top_y = ref_pt[1]
-    first_x = ref_pt[0]
+    image = page.image
+    first_x = page.landmarks[0][0]
+    top_y = page.landmarks[0][1]
 
     twelfth = adj(0.083)
     min_runlength = adj(min_runlength_inches)
@@ -904,19 +1042,13 @@ def column_markers(image,ref_pt,min_runlength_inches=.2,zonelength_inches=.25):
     # follow top line across, adjusting y as necessary, 
     black_run_misses = 0
     black_runlength = 0
-    if first_x > (image.size[0]/2):
-        run_backwards = True
-        startx = first_x - const.dpi
-        endx = const.dpi/4
-        incrementx = -1
-    else:
-        run_backwards = False
-        startx = first_x + const.dpi
-        endx = image.size[0] - const.dpi
-        incrementx = 1
+    startx = first_x + 2
+    endx = image.size[0] - const.dpi
+    incrementx = 1
 
     # start by scanning downwards until you pick up the line
     counter = 0
+    #print "Looking for line"
     while True:
         pix = image.getpixel((startx,top_y))
         if pix[0]<64: break
@@ -936,13 +1068,7 @@ def column_markers(image,ref_pt,min_runlength_inches=.2,zonelength_inches=.25):
         if image.getpixel((x,top_y+twelfth))[0] < 128:
             black_runlength += 1
             if black_runlength >= min_runlength:
-                if run_backwards:
-                    # instead of subtracting min_runlength
-                    # subtract true_pixel_width_of_votezone
-                    # to establish actual minimum x of votezone
-                    columns.append((x+min_runlength-true_pixel_width_of_votezone,top_y))
-                else:
-                    columns.append((x-black_runlength,top_y))
+                columns.append((x-black_runlength,top_y))
                 black_runlength = 0
                 black_run_misses = 0
         else:
@@ -951,8 +1077,6 @@ def column_markers(image,ref_pt,min_runlength_inches=.2,zonelength_inches=.25):
                 black_runlength = 0    
                 black_run_misses = 0
 
-    if run_backwards:
-        columns.reverse()
     return columns
     # looking 1/12" down for quarter inches of black
 
