@@ -27,9 +27,13 @@ import next
 # Note that when scanning in duplex, you have to start, snap(no cancel), 
 # then start, snap to get the second side
 
+class ScanningException(Exception):
+    pass
+
 class Scanner(object):
     def __init__(self, duplex, height_in_mm, resolution):
         sane.init()
+        errstring = ""
         s = sane.open(sane.get_devices()[0][0])
         if duplex:
             s.source = 'ADF Duplex'
@@ -56,29 +60,29 @@ class Scanner(object):
 
     def _scan(self, i):
         if i > 10:
-            raise Error("Scanner not responding")
+            raise ScanningException(self.errstring)
         try:
             self.s.start()
         except sane.error:
-            # CHANGE THIS TO EXIT, IF YOU DON'T WANT 
-            # AUTOMATIC RESTARTING (perhaps the 5900 tray should stay down) 
-            # when start fails, you've either run out of paper
-            # or encountered another problem, so you should
-            # treat the next scan as a "first scan", which means
-            # you number it in mode "number first scan only"
-            # Note that we can read button state, possibly state of doublefeed 
+            self.errstring = sane.error
+            self.s.cancel()
+            #print "Will wait two seconds"
             time.sleep(2)
             self._scan(i+1)
 
     def scan(self, counter):
-        self.s.endorser_val = counter
-        self._scan(1)
-        imgs = []
-        if self.duplex:
-            imgs.append(self.s.snap(no_cancel=True))
+        try:
+            self.s.endorser_val = counter
             self._scan(1)
-        imgs.append(self.s.snap())
-        return imgs
+            imgs = []
+            if self.duplex:
+                imgs.append(self.s.snap(no_cancel=True))
+                self._scan(1)
+            imgs.append(self.s.snap())
+            return imgs
+        except ScanningException,e:
+            print e
+            raise
 
 def args():
     counter = 0
@@ -124,14 +128,10 @@ def main(counter, duplex, comment, inches, resolution):
     log = config.logger(util.root("scan.log"))
 
     inches_to_mm = 25.4
-    print counter
     inc = 1
     if duplex:
         inc = 2
-    num = next.Simple(counter, inc)
-    if counter < 0:
-        num = next.File(util.root("nexttoscan.txt"), inc)
-            
+    num = next.IncrementingFile(util.root("nexttoscan.txt"), inc)
     try:
         scanner = Scanner(
             duplex,
@@ -139,7 +139,9 @@ def main(counter, duplex, comment, inches, resolution):
             resolution
         )
 
-        for counter in num:
+        while True:
+            counter = num.value()
+            print "Scanning",counter
             stamp = datetime.now().isoformat()
             for i, img in enumerate(scanner.scan(counter)):
                 #get path
@@ -148,11 +150,15 @@ def main(counter, duplex, comment, inches, resolution):
                 f = "%06d" % n
                 dir = util.root(const.incoming, p)
                 util.mkdirp(dir)
-                file = os.path.join(dir, f + ".jpg")
-                img.save(file)
-                log.info("Saving %s at %s\n%s", file, stamp, comment)
-
-            num.save()
+                filename = os.path.join(dir, f + ".jpg")
+                img.save(filename)
+                print "Saved",filename
+                log.info("Saved %s at %s\n%s", filename, stamp, comment)
+            num.increment_and_save()
+    except ScanningException:
+        print "Empty feeder?"
+        log.info("Scan aborted due to empty feeder for 20 seconds.")
+        sys.exit(2)
     except KeyboardInterrupt:
         log.info("Scan aborted by user")
         sys.exit(1)

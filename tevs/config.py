@@ -120,7 +120,7 @@ def get(cfg_file="tevs.cfg"):
 
     tdpi = config.get("Scanner", "template_dpi")
     bdpi = config.get("Scanner", "ballot_dpi")
-
+    duplex = config.get("Scanner","duplex")
 
     const.ballot_width_inches = float(bwi)
     const.ballot_height_inches = float(bhi)
@@ -145,7 +145,7 @@ def get(cfg_file="tevs.cfg"):
     const.ballot_dpi = int(bdpi)
     const.dpi = const.ballot_dpi 
     const.template_dpi = int(tdpi)
-
+    const.duplex = config.get("Scanner","duplex")
     const.num_pages = int(config.get("Mode", "images_per_ballot"))
     const.layout_brand = config.get("Layout", "brand")
     const.on_new_layout = config.get("Mode", "on_new_layout")
