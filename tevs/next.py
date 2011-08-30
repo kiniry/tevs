@@ -50,3 +50,16 @@ class Simple(object):
 
     def save(self):
         pass
+
+if __name__ == "__main__":
+    a = File("testnext.txt",2)
+    passcount = 1
+    for counter in a:
+        if passcount > 3: 
+            a.save()
+            break
+        else:
+            print "Pass %d doing something with number %d" % (passcount,counter)
+        a.save()
+        passcount += 1
+    # file has stored last used value
