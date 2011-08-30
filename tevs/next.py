@@ -35,6 +35,28 @@ class File(object):
             self.next += self.inc
             yield self.next
 
+    def __repr__(self):
+        return "%s with inc %d and value %d" % (self.next_file,self.inc,self.next)
+
+    def save(self):
+        util.writeto(self.next_file, str(self.next))
+
+class IncrementingFile(object):
+    def __init__(self, next_file, inc):
+        self.inc = inc
+        self.next_file = next_file
+        self.next = int(util.readfrom(next_file, 1))
+
+    def value(self):
+        return self.next
+
+    def increment_and_save(self):
+        self.next = self.next + self.inc
+        util.writeto(self.next_file, str(self.next))
+        
+    def __repr__(self):
+        return "%s with inc %d and value %d" % (self.next_file,self.inc,self.next)
+
     def save(self):
         util.writeto(self.next_file, str(self.next))
 
