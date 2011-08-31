@@ -109,7 +109,7 @@ def main():
 
     #create initial top level dirs, if they do not exist
     for p in (
-        "%s%d" % ("templates",        os.getpid()), 
+        "%s" % ("templates"), 
         "%s%d" % ("template_images",  os.getpid()), 
         "%s%d" % ("composite_images", os.getpid()), 
         "results", 
@@ -126,7 +126,7 @@ def main():
 
     # allow all instances to share a common template location,
     # though need per-pid locs for template_images and composite_images
-    cache = Ballot.TemplateCache(util.root("templates%d" % (os.getpid(),)))
+    cache = Ballot.TemplateCache(util.root("templates"))
     extensions = Ballot.Extensions(template_cache=cache)
    
     # connect to db and open cursor
@@ -151,7 +151,7 @@ def main():
             if not os.path.exists(unprocs[0]):
                 miss_counter += 1
                 log.info(base(unprocs[0]) + " does not exist. No more records to process")
-                if miss_counter > 1000:
+                if miss_counter > 10:
                     break
                 continue
             #for i, f in enumerate(unprocs[1:]):
