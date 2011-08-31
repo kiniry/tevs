@@ -158,7 +158,7 @@ def timeout_func(app,spinner):
     app.timeout = gobject.timeout_add(vai*1000,timeout_func,app,app.spinbutton)
     return False
 
-
+INDEX_CONTEST = 3
 INDEX_CHOICE = 4
 INDEX_XCOORD = 22
 INDEX_YCOORD = 23
@@ -168,6 +168,7 @@ class Vote(object):
         # split the str into fields, and set values based on field contents
         try:
             fields = str.split(",")
+            self.contest = fields[INDEX_CONTEST]
             self.choice = fields[INDEX_CHOICE]
             self.xcoord = int(float(fields[INDEX_XCOORD]))
             self.ycoord = int(float(fields[INDEX_YCOORD]))
@@ -218,6 +219,11 @@ class BallotVotes(object):
             box_width += 1
             #print "draw_rect at %d %d %d %d" % (scaledx,scaledy,scaledx+box_width,scaledy+box_height)
             #print "pango draw_string %s at %d %d" % (v.choice, scaledx+box_width,scaledy)
+            cmap = drawable.get_colormap()
+            if v.intensity < const.vote_intensity_threshold:
+                gc.set_foreground(App.red)
+            else:
+                gc.set_foreground(App.green)
             drawable.draw_rectangle(gc,False,scaledx,scaledy,box_width,box_height)
             if not App.show_vote_overlay:
                 continue
@@ -228,7 +234,19 @@ class BallotVotes(object):
             #    markup_color = "yellow"
             else:
                 markup_color="blue"
-            text = v.choice.split("/")[0].replace("dquot",'"').replace("squot","'")
+
+            if App.show_choice_overlay:
+                choicetext = v.choice.replace("dquot",'"').replace("squot","'")[:25]
+            else:
+                choicetext = "c"
+            if App.show_contest_overlay:
+                contesttext = v.contest.replace("dquot",'"').replace("squot","'")[:25]
+            else:
+                contesttext = "C"
+            if App.show_choice_overlay and App.show_contest_overlay:
+                text = "%s\n%s" % (contesttext,choicetext)
+            else:
+                text = "%s%s" % (contesttext,choicetext)
             if text.startswith("v"):text=text[1:]
             markup.set_markup(
                 """<span size="%s" foreground="%s" background="white">%s</span>""" % (
@@ -328,6 +346,11 @@ class App():
     last_votes = []
     last_ballots = []
     show_vote_overlay = True
+    show_contest_overlay = True
+    show_choice_overlay = True
+    red = None
+    green = None
+    blue = None
     def displayNextFile(self,
 			filename
 			):
@@ -346,8 +369,16 @@ class App():
 
     def show_vote_cb(self,ta):
         App.show_vote_overlay = not App.show_vote_overlay
-        #self.statusbar.push(self.contextid,
-        #                    "Vote overlay set to %s" % (self.show_vote_overlay,))
+	self.expose_cb(self.i1,None,(1,None))
+	self.expose_cb(self.i2,None,(2,None))
+
+    def show_contest_cb(self,ta):
+        App.show_contest_overlay = not App.show_contest_overlay
+	self.expose_cb(self.i1,None,(1,None))
+	self.expose_cb(self.i2,None,(2,None))
+
+    def show_choice_cb(self,ta):
+        App.show_choice_overlay = not App.show_choice_overlay
 	self.expose_cb(self.i1,None,(1,None))
 	self.expose_cb(self.i2,None,(2,None))
 
@@ -478,7 +509,11 @@ class App():
             image = self.rightimage
         if gc is None:
             cmap = da.window.get_colormap()
-            gc = da.window.new_gc(foreground=cmap.alloc_color("green"))
+            App.green = cmap.alloc_color("green")
+            App.red = cmap.alloc_color("red")
+            App.blue = cmap.alloc_color("blue")
+            gc = da.window.new_gc(foreground=App.green)
+            
             gc.set_line_attributes(line_width,
                                    gtk.gdk.LINE_SOLID,
                                    gtk.gdk.CAP_BUTT,
@@ -1545,6 +1580,8 @@ before advancing to the next""","Enter delay:",self.delay_seconds)
 
 	self.number_dir = "." 
         self.show_vote_overlay = True
+        self.show_contest_overlay = True
+        self.show_choice_overlay = True
 	self.count_all = False
         self.delay_seconds = 3
         self.contbutton = None
@@ -1588,7 +1625,8 @@ before advancing to the next""","Enter delay:",self.delay_seconds)
         <menuitem action="Quit"/>
       </menu>
       <menu action="Preferences">
-        <menuitem action="Show vote overlay"/>
+        <menuitem action="Toggle contest overlay"/>
+        <menuitem action="Toggle choice overlay"/>
       </menu>
     </menubar>
     </ui>'''
@@ -1640,9 +1678,12 @@ False)])
  ('Delay each ballot', None, 
   '_Delay each ballot by...', None,
   'Set number of seconds to delay ballot', self.set_delay_seconds),
- ('Show vote overlay', None, 
-  '_Show candidate names...', None,
-  'Show candidate names', self.show_vote_cb),
+ ('Toggle contest overlay', None, 
+  '_Toggle contest names...', None,
+  'Toggle contest names', self.show_contest_cb),
+ ('Toggle choice overlay', None, 
+  '_Toggle candidate names...', None,
+  'Toggle candidate names', self.show_choice_cb),
  ('Quit', gtk.STOCK_QUIT, 
   '_Quit', None,
   'Quit the Program', self.quitplease),
