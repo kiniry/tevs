@@ -5,6 +5,7 @@ except ImportError:
     DatabaseError = Exception
     pass
 
+import pdb
 class NullDB(object):
     def __init__(self, *_):
         pass
@@ -46,13 +47,20 @@ class PostgresDB(object):
 
         #XXX we should not have to chop it off to an arbitary and small length
         if type(ballot.pages[0]) != tuple:
-            search_key = "$".join(p.template.barcode for p in ballot.pages)[:14]
+            try:
+                search_key = ballot.pages[0].template.precinct[:14]
+            except TypeError, IndexError:
+                search_key = "$".join(p.template.barcode for p in ballot.pages)[:14]
+                
             name1 = ballot.pages[0].filename
             name2 = "<No such file>"
             if len(ballot.pages) > 1:
                 name2 = ballot.pages[1].filename
         else:
-            search_key = "$".join(p[0].template.barcode for p in ballot.pages)[:14]
+            try:
+                search_key = ballot.pages[0].template.precinct[:14]
+            except TypeError, IndexError:
+                search_key = "$".join(p[0].template.precinct for p in ballot.pages)[:14]
             b = ballot.pages[0]
             name1, name2 = b[0].filename, b[1].filename
 
