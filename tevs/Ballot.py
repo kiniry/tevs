@@ -208,8 +208,12 @@ class Ballot(object):
         If no landmarks can be found, raises BallotException.
         """
         page = self._page(page)
-        r, x, y, y2y = self.find_landmarks(page)
-        page.rot, page.xoff, page.yoff, page.y2y = r, x, y, y2y
+        try:
+            r, x, y, y2y = self.find_landmarks(page)
+            page.rot, page.xoff, page.yoff, page.y2y = r, x, y, y2y
+        except BallotException:
+            page.blank = True
+            r, x, y, y2y = 0,0,0,1
         return r, x, y, y2y
 
     def BuildLayout(self, page=0):
@@ -232,6 +236,7 @@ class Ballot(object):
         page = self._page(page)
         code = self.GetLayoutCode(page)
         tmpl = self.extensions.template_cache[code]
+
         if tmpl is not None:
             if const.save_composite_images:
                 # need to retrieve composite image if it exists,
@@ -254,9 +259,9 @@ class Ballot(object):
                 r2d = 180/3.14
                 #pdb.set_trace()
                 #page.image.save("/tmp/prerotate.jpg")
-                page.image = page.image.rotate(-r2d * page.rot, Image.BILINEAR)
+                newimage = page.image.rotate(-r2d * page.rot, Image.BILINEAR)
                 #page.image.save("/tmp/postrotate.jpg")
-                if oldimage is None: oldimage = page.image
+                if oldimage is None: oldimage = newimage
                 # landmarks will change once image is derotated!
                 try:
                     self.FindLandmarks(pagenum)
@@ -266,7 +271,7 @@ class Ballot(object):
                 delta_x = tmpl.xoff - page.xoff 
                 delta_y = tmpl.yoff - page.yoff
 
-                newimage = page.image.offset(delta_x,delta_y)
+                newimage = newimage.offset(delta_x,delta_y)
                 #newimage.save("/tmp/posttranslate.jpg")
                 # apply darker operation, save result in first argument?
                 oldimage.load()
@@ -416,6 +421,9 @@ AT PAGE
                 "barcode":  page.template.barcode,
                 "number":   page.number
             }) 
+            # have a natural language precinct? use it in reports.
+            if page.template.precinct is not None and len(page.template.precinct)>0: 
+                kw["barcode"]=page.template.precinct
             results.append(VoteData(**kw))
         for contest in page.template.contests:
             if int(contest.y2) - int(contest.y) < self.min_contest_height: #XXX only defined insubclass!!!!!!
