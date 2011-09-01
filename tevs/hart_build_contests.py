@@ -7,7 +7,7 @@ import logging
 from line_util import *
 from hart_util import *
 
-def hart_build_contests(image, pot_hlines, vboxes, column_start, column_width, dpi=300):
+def hart_build_contests(image, pot_hlines, vboxes, column_start, column_width, dpi=300,extensions=None):
     """Merge horiz lines and vote boxes to get contests and choice offsets."""
     regionlist = []
     contest_description_zones = []
