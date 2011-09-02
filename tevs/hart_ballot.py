@@ -14,6 +14,7 @@ import math
 
 import site; site.addsitedir(os.path.expanduser("~/tevs")) #XXX
 import Image, ImageStat
+from find_line import find_line
 from line_util import *
 from hart_util import *
 from hart_build_contests import *
@@ -50,6 +51,7 @@ class HartBallot(Ballot.Ballot):
         # UL and UR run from y = .8" to beyond 1.5"
         # (try relying on only first two)
         # U/LL from 1/3" to 2/3", U/LR 1/3" to 2/3" inch in from right
+        # note humboldt 2011 8.5 x 11 barcode channels less than 2/3"
         # ballot is rightside up if the missing bar code
         # is the upper right, upside down if the missing
         # barcode is lower left.
@@ -63,16 +65,20 @@ class HartBallot(Ballot.Ballot):
         box = lambda a, b, c, d: \
             mean(im.crop((adj(a), adj(b), adj(c), adj(d))))
 
-        uls = box(.4, .8, .6, 1.5)
+        uls = box(.4, .8, .5, 1.5)
         ul2s = box(.3, .8, .5, 1.5)        
         urs = mean(im.crop((
-            im.size[0] - adj(0.6), adj(0.8),
+            im.size[0] - adj(0.45), adj(0.8),
             im.size[0] - adj(0.4), adj(1.5)
         )))
-    
         bar_cutoff = 224 #XXX should be in config
         if uls < bar_cutoff or ul2s < bar_cutoff:
             if urs < bar_cutoff:
+                try:
+                    print "FLIPPED IMAGE"
+                    self.log.info("FLIPPED IMAGE")
+                except Exception:
+                    pass
                 im = im.rotate(180)
         return im
 
@@ -139,7 +145,7 @@ class HartBallot(Ballot.Ballot):
             page.blank = True #needs to ensure it is a page somehow
             self.log.info("Nonballot page at %s " % (page,))
             return 0.0, 0, 0, 0
-        
+
         # flunk ballots with more than 
         # allowed_corner_black_inches of black in corner
         # to avoid dealing with severely skewed ballots
@@ -182,6 +188,7 @@ class HartBallot(Ballot.Ballot):
             raise Ballot.BallotException(
                 "Tilt %f of %s exceeds %f" % (rot, page.filename, const.allowed_tangent)
             )
+        self.log.debug("tiltinfo/landmarks: %s" % (tiltinfo,))
         page.tiltinfo = tiltinfo
         return rot, xoff, yoff, hypot
 
@@ -191,7 +198,7 @@ class HartBallot(Ballot.Ballot):
         # and from 1/8" above ulc down to 2 5/8" below ulc.
 
         third_inch, sixth_inch, eighth_inch = adj(.3333), adj(.1667), adj(.125)
-
+        half_inch = adj(.5)
         # don't pass negative x,y into getbarcode
         if page.xoff < third_inch:
             raise Ballot.BallotException("bad xref")
@@ -204,7 +211,7 @@ class HartBallot(Ballot.Ballot):
                 page.xoff - third_inch,
                 page.yoff - eighth_inch,
                 sixth_inch,
-                eighth_inch + int(round((7.*const.dpi)/3.)) # bar code 2 1/3"
+                eighth_inch + int(round((15.*const.dpi)/6.)) # bar code 2 1/3"
                 )
         except BarcodeException as e:
             self.log.info("%s %s" % (page.filename,e))
@@ -243,8 +250,29 @@ class HartBallot(Ballot.Ballot):
         second_third = first_line + (2*width)/3
         print "Warning: assuming three columns"
         print first_line,first_third,second_third,last_line
-        vlines = [first_line,first_third,second_third,last_line]
-        column_width = width/3
+        rot90 = image.rotate(-90.)
+        rot90.save("/tmp/rot90.jpg")
+        pot_line = [0,0,0,0]
+        search_start_y = dpi/3
+        vlines = []
+        while pot_line is not None:
+            try:
+                pot_line = find_line(rot90,
+                                     rot90.size[0]/2,
+                                     search_start_y,
+                                     search_npixels = (rot90.size[1]/2),
+                                     threshold=64, 
+                                     black_sufficient=True)
+                if pot_line is not None:
+                    search_start_y = pot_line[1]+(const.dpi/16)
+                print pot_line
+                vlines.append((pot_line[1]+pot_line[3])/2)
+            except Exception, e:
+                print e
+                pdb.set_trace()
+        #vlines = [first_line,first_third,second_third,last_line]
+        #column_width = width/3
+        column_width = vlines[2] - vlines[1]
         vthop = int(round(const.vote_target_horiz_offset_inches * const.dpi))
         contests = []
         for vline in vlines[:-1]:
