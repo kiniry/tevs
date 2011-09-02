@@ -163,6 +163,8 @@ INDEX_CHOICE = 4
 INDEX_XCOORD = 22
 INDEX_YCOORD = 23
 INDEX_INTENSITY = 7
+INDEX_WAS_VOTED = 26
+INDEX_AMBIGUOUS = 27
 class Vote(object):
     def __init__(self,str):
         # split the str into fields, and set values based on field contents
@@ -173,6 +175,8 @@ class Vote(object):
             self.xcoord = int(float(fields[INDEX_XCOORD]))
             self.ycoord = int(float(fields[INDEX_YCOORD]))
             self.intensity = int(float(fields[INDEX_INTENSITY]))
+            self.was_voted = fields[INDEX_WAS_VOTED]=="True"
+            self.ambiguous = fields[INDEX_AMBIGUOUS]=="True"
         except:
             print fields
     def xcoord(self):
@@ -220,21 +224,25 @@ class BallotVotes(object):
             #print "draw_rect at %d %d %d %d" % (scaledx,scaledy,scaledx+box_width,scaledy+box_height)
             #print "pango draw_string %s at %d %d" % (v.choice, scaledx+box_width,scaledy)
             cmap = drawable.get_colormap()
-            if v.intensity < const.vote_intensity_threshold:
+            if v.was_voted:
                 gc.set_foreground(App.red)
             else:
                 gc.set_foreground(App.green)
+            if v.ambiguous:
+                gc.set_foreground(App.purple)
             drawable.draw_rectangle(gc,False,scaledx,scaledy,box_width,box_height)
             if not App.show_vote_overlay:
                 continue
-
-            if v.intensity < const.vote_intensity_threshold:
+            bg_markup_color="white"
+            if v.was_voted:
                 markup_color="red"
             #elif v.intensity < (const.vote_intensity_threshold+4):
             #    markup_color = "yellow"
             else:
                 markup_color="blue"
-
+            if v.ambiguous:
+                markup_color="yellow"
+                bg_markup_color="black"
             if App.show_choice_overlay:
                 choicetext = v.choice.replace("dquot",'"').replace("squot","'")[:25]
             else:
@@ -249,8 +257,8 @@ class BallotVotes(object):
                 text = "%s%s" % (contesttext,choicetext)
             if text.startswith("v"):text=text[1:]
             markup.set_markup(
-                """<span size="%s" foreground="%s" background="white">%s</span>""" % (
-                    text_size,markup_color,text
+                """<span size="%s" foreground="%s" background="%s">%s</span>""" % (
+                    text_size,markup_color,bg_markup_color,text
                     )
                 )
             # draw markup at lower right of vote oval, offset by 5 pix 
@@ -512,6 +520,7 @@ class App():
             App.green = cmap.alloc_color("green")
             App.red = cmap.alloc_color("red")
             App.blue = cmap.alloc_color("blue")
+            App.purple = cmap.alloc_color("purple")
             gc = da.window.new_gc(foreground=App.green)
             
             gc.set_line_attributes(line_width,
