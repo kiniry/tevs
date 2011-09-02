@@ -213,6 +213,8 @@ class Ballot(object):
             page.rot, page.xoff, page.yoff, page.y2y = r, x, y, y2y
         except BallotException:
             page.blank = True
+            if len(self.pages)==1:
+                raise
             r, x, y, y2y = 0,0,0,1
         return r, x, y, y2y
 
