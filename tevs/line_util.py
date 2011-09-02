@@ -78,6 +78,8 @@ def follow_hline_to_corner(image,dpi,startx,hline,left=True):
         # you may have reached the end; test next time
         #if abs(lastred - thisred)>32 and thisred > const.line_exit_threshold:
         if thisred > const.line_exit_threshold:
+            #print "Possible line end at",x
+            #pdb.set_trace()
             possible = True
         lastred = thisred
     return retval
@@ -138,14 +140,19 @@ def lines_connect(image,a,b,allowed_misses=1):
     """    
     
     # walk from x1 to x2, interpolating y between y1 and y2, 
-    # failing if cannot confirm all pixels are dark
+    # failing if cannot confirm all pixels have dark pixels 
+    # within one above or below
     walked = 0
     problem_count = 0
     for x in range(x1,x2,1):
         y = int(round(((y1*(h_dist-walked))+(y2*walked))/float(h_dist)))
         walked += 1
         p = image.getpixel((x,y))
-        if p[0] >= const.line_exit_threshold:
+        p_above = image.getpixel((x,y-1))
+        p_below = image.getpixel((x,y+1))
+        if ((p[0] >= const.line_exit_threshold)
+            and (p_above[0] >= const.line_exit_threshold)
+            and (p_below[0] >= const.line_exit_threshold)): 
             problem_count += 1
             if problem_count > allowed_misses: 
                 break
@@ -165,6 +172,7 @@ def scan_strips_for_horiz_line_y(image,dpi,starting_x_offset, starting_y_offset=
     lastred2 = 255
     one_sixth = dpi/6
     one_sixtieth = dpi/60
+    one_fiftieth = dpi/50
     if top:
         starty = starting_y_offset
         endy = starty+height_to_scan
@@ -221,14 +229,16 @@ def scan_strips_for_horiz_line_y(image,dpi,starting_x_offset, starting_y_offset=
     found = False
     for a in potential_lines[0]:
         for b in potential_lines[1]:
-            if abs(a-b) <= one_sixtieth:
+            if abs(a-b) <= one_fiftieth:
                 if(lines_connect( image,
                                   (starting_x_offset - one_sixth,a),
                                   (starting_x_offset + one_sixth,b)
                                   )):
                     retval = (a+b)/2
+                    #print "Found line btn ",a,b
                     found = True
                     break
+            #print a,b,found
         if found: break
     if not found:
         return 0
