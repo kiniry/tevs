@@ -188,7 +188,7 @@ page offsets (%d,%d) scaled page offsets (%d,%d), template offsets (%d,%d)" % (
                     break
         afterlessbefore = int(round((after_oval - before_oval)/2))
         if abs(afterlessbefore)>2:
-            cropy -= afterlessbefore
+            cropy += afterlessbefore
             self.log.debug("Result of afterlessbefore %d: (%d,%d)" % (
                     afterlessbefore,x,cropy))
             crop = page.image.crop((
