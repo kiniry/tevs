@@ -162,8 +162,15 @@ page offsets (%d,%d) scaled page offsets (%d,%d), template offsets (%d,%d)" % (
             min(cropy + page.margin_height + page.target_height,
                 page.image.size[1]-1)
         ))
+
+        # Commenting out material below as regardless of adding or subtracting
+        # based upon it, it makes things worse in some situations (?)
+        # The rotation is working well to capture the correct area.
+        
+        """
         # check strip at center to look for either filled or empty oval;
         # recenter vertically
+
         stripe = crop.crop(((crop.size[0]/2),0,(crop.size[0]/2)+1,crop.size[1]-1))
         before_oval = 0
         after_oval = 0
@@ -199,6 +206,7 @@ page offsets (%d,%d) scaled page offsets (%d,%d), template offsets (%d,%d)" % (
                 min(cropy + page.margin_height + page.target_height,
                     page.image.size[1]-1)
                 ))
+        """
         stats = Ballot.IStats(cropstats(crop, x, y))
 
         voted, ambiguous = self.extensions.IsVoted(crop, stats, choice)
