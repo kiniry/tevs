@@ -269,18 +269,28 @@ page offsets (%d,%d) scaled page offsets (%d,%d), template offsets (%d,%d)" % (
 
         try:
             x,y = landmarks[0][0],landmarks[0][1]
+            longdiff_a = landmarks[3][1] - landmarks[0][1]
+            shortdiff_a = landmarks[3][0] - landmarks[0][0]
+            hypot = math.sqrt(longdiff_a*longdiff_a + shortdiff_a*shortdiff_a)
+            r_a = float(shortdiff_a)/float(longdiff_a)
+            longdiff_b = landmarks[1][0] - landmarks[0][0]
+            shortdiff_b = landmarks[0][1] - landmarks[1][1]
+            hypot = math.sqrt(longdiff_b*longdiff_b + shortdiff_b*shortdiff_b)
+            r_b = float(shortdiff_b)/float(longdiff_b)
+            magnitude_r = min(abs(r_a),abs(r_b))
+            if r_a < 0. and r_b < 0.:
+                sign_r = -1
+            else:
+                sign_r = 1
+            r = magnitude_r * sign_r
         except IndexError:
             # page without landmarks; if this is a back page, it's ok
             raise Ballot.BallotException
 
-        longdiff = landmarks[3][1] - landmarks[0][1]
-        shortdiff = landmarks[3][0] - landmarks[0][0]
-        hypot = math.sqrt(longdiff*longdiff + shortdiff*shortdiff)
-        r = float(shortdiff)/float(longdiff)
-        if r > 0.1: 
+        if abs(r) > 0.1: 
             self.log.debug("Tangent is unreasonably high, at %f." % (r,))
             print "Tangent is unreasonably high, at %f." % (r,)
-            pdb.set_trace()
+            #pdb.set_trace()
         # we depend on back landmarks being processed after front
         self.back_upper_right_plus_x = landmarks[1][0]
         self.back_upper_right_plus_y = landmarks[1][1]
@@ -695,7 +705,7 @@ page offsets (%d,%d) scaled page offsets (%d,%d), template offsets (%d,%d)" % (
                                                   croplist[2],
                                                   croplist[3], 
                                                   0,
-                                                  zonetext)
+                                                  zonetext[:80])
                     contest_created = True
                     regionlist.append(contest_instance)
                 if not contest_created:
