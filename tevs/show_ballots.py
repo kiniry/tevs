@@ -81,7 +81,7 @@ import db
 # in a paned window.  The display is overlaid with boxes around vote ops
 # whose results indicate the presence of a vote.
 
-version = "20101015"
+version = "20110910"
 debug = False
 fileextension = ".jpg"
 window = None
@@ -178,8 +178,20 @@ class Vote(object):
             self.intensity = int(float(fields[INDEX_INTENSITY]))
             self.was_voted = fields[INDEX_WAS_VOTED]=="True"
             self.ambiguous = fields[INDEX_AMBIGUOUS]=="True"
-        except:
+        except Exception,e:
+            print Exception,e
             print fields
+    def xcoord(self):
+        return self._xcoord
+
+    def ycoord(self):
+        return self._ycoord
+
+class DBVote(Vote):
+    def __init__(self):
+        # split the str into fields, and set values based on field contents
+        pass
+
     def xcoord(self):
         return self._xcoord
 
@@ -193,7 +205,7 @@ class BallotVotes(object):
             dbfileroot = const.root+"/unproc"
             dbfilename = "%s/%03d/%06d.jpg" % (
                 dbfileroot,imagenumber/1000,imagenumber)
-            print dbfilename
+            #print dbfilename
             # perform query
 
             results = App.dbc.query("select contest_text,choice_text,adjusted_x,adjusted_y,red_mean_intensity, was_voted, suspicious, filename from voteops join ballots on voteops.ballot_id = ballots.ballot_id where filename like '%s'" % (dbfilename,) )
@@ -208,9 +220,8 @@ class BallotVotes(object):
             self.votelist = []
 
             if results is not None and len(results)>0:
-                print results[0]
                 for fields in results:
-                    v = Vote(",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,")
+                    v = DBVote()
                     v.contest = fields[0]
                     v.choice = fields[1]
                     v.xcoord = int(float(fields[2]))
@@ -258,8 +269,6 @@ class BallotVotes(object):
             box_width = int(round(oval_width * xscalefactor))
             box_height += 1
             box_width += 1
-            #print "draw_rect at %d %d %d %d" % (scaledx,scaledy,scaledx+box_width,scaledy+box_height)
-            #print "pango draw_string %s at %d %d" % (v.choice, scaledx+box_width,scaledy)
             cmap = drawable.get_colormap()
             if v.was_voted:
                 gc.set_foreground(App.red)
@@ -282,11 +291,11 @@ class BallotVotes(object):
             if App.show_choice_overlay:
                 choicetext = v.choice.replace("dquot",'"').replace("squot","'")[:25]
             else:
-                choicetext = "c"
+                choicetext = ""
             if App.show_contest_overlay:
                 contesttext = v.contest.replace("dquot",'"').replace("squot","'")[:25]
             else:
-                contesttext = "C"
+                contesttext = ""
             if App.show_choice_overlay and App.show_contest_overlay:
                 text = "%s\n%s" % (contesttext,choicetext)
             else:
@@ -427,10 +436,6 @@ class App():
 	self.expose_cb(self.i2,None,(2,None))
 
     def zoom_update_cb( self, adj, hscale ):
-        #print "zoom update self",self
-        #print "zoom update adj",adj
-        #global pixelwidth
-        #global pixelheight
         v = adj.get_adjustment().get_value()
         #print v
         (w,h) = self.leftimage.size
@@ -493,14 +498,9 @@ class App():
             try:
                 self.leftfilename = const.procformatstring % ((self.leftnumber+inc)/1000,self.leftnumber+inc)
                 self.rightfilename = const.procformatstring % ((self.rightnumber+inc)/1000,self.rightnumber+inc)
-                print self.leftfilename, self.rightfilename
                 self.leftimage = Image.open(self.leftfilename)
                 self.rightimage =Image.open(self.rightfilename)
 
-                #print "increment_file_number %d plus %d gives %d" % (
-                #    self.leftnumber,
-                #    inc,
-                #    self.leftnumber+inc)
                 self.leftnumber += inc
                 self.rightnumber += inc
             except:
@@ -533,8 +533,6 @@ class App():
 
     def expose_cb(self, da, event, data2):
         global gc
-        #print "Expose getting PIL image"
-        #print self
         i = data2[0]
         markup = self.leftmarkup
         bv = self.leftbv
@@ -542,12 +540,10 @@ class App():
         #xscalefactor = 0.25
         #yscalefactor = 0.2
         if i == 1:
-            #print "expose_event on LEFT"
             bv = self.leftbv
             markup = self.leftmarkup
             image = self.leftimage
         elif i==2:
-            #print "expose_event on RIGHT"
             bv = self.rightbv
             markup = self.rightmarkup
             image = self.rightimage
@@ -573,27 +569,26 @@ class App():
         try:
             w = da.width
             h = da.height
-            imagewidth, imageheight = image.size
-            imagedpi = int(round(image.size[0]/const.ballot_width_inches))
-            xscalefactor = float(w)/imagewidth
-            yscalefactor = float(h)/imageheight
-            image = image.resize((w,h)).convert("RGB")
-            imagestr = image.tostring()
-            #print "Length of imagestr",len(imagestr)
-            da.window.draw_rgb_image(
-                gc, 
-                0, 0, 
-                w, h, 
-                gtk.gdk.RGB_DITHER_NONE, 
-                imagestr, 
-                w*3
-                )
-            bv.paint(da.window,gc,markup,xscalefactor,yscalefactor,imagedpi)
-
-                
+            if image is None:
+                pass
+            else:
+                imagewidth, imageheight = image.size
+                imagedpi = int(round(image.size[0]/const.ballot_width_inches))
+                xscalefactor = float(w)/imagewidth
+                yscalefactor = float(h)/imageheight
+                image = image.resize((w,h)).convert("RGB")
+                imagestr = image.tostring()
+                da.window.draw_rgb_image(
+                    gc, 
+                    0, 0, 
+                    w, h, 
+                    gtk.gdk.RGB_DITHER_NONE, 
+                    imagestr, 
+                    w*3
+                    )
+                bv.paint(da.window,gc,markup,xscalefactor,yscalefactor,imagedpi)
         except Exception, e:
             print e
-            pass
 		    
         return False
 
@@ -618,7 +613,7 @@ class App():
 	da.height = event.height
 
     def motion_notify_cb(self, da, event):
-        pass#print "Motion",self,da
+        pass
 
     def button_press_cb1(self, da, event):
         self.button_press_cb(da,event,1)
@@ -626,7 +621,6 @@ class App():
         self.button_press_cb(da,event,2)
 
     def button_press_cb(self, da, event,da_number):
-        print "Button Press Callback"
         width = da.width
         height = da.height
         try:
@@ -654,7 +648,7 @@ class App():
     def configure_cb(self, da, event, data):
         # from pygtk tutorial
         x,y,width,height = da.get_allocation()
-        print x, y, width, height
+        #print x, y, width, height
         self.leftpixmap = gtk.gdk.Pixmap(da.window,da.width,da.height) 
 	# call expose callback to clean up
 	self.expose_cb(da,event,data)
@@ -2000,10 +1994,6 @@ if __name__ == '__main__':
     const.procformatstring = proc + "/%03d/%06d" + const.filename_extension
     const.unprocformatstring = const.incoming + "/%03d/%06d" + const.filename_extension
     const.resultsformatstring = results + "/%03d/%06d" + ".txt"
-    print const.unprocformatstring
-    print const.unprocformatstring % (123456/1000,123456)
-    print const.resultsformatstring
-    print const.resultsformatstring % (123456/1000,123456)
     window = gtk.Window(gtk.WINDOW_TOPLEVEL)
     window.connect("delete-event",on_delete_event)
     window.set_title("TEVS Ballot Browser, version %s" % (version,))
