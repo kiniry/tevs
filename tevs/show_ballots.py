@@ -293,8 +293,8 @@ class BallotVotes(object):
                 text = "%s%s" % (contesttext,choicetext)
             if text.startswith("v"):text=text[1:]
             markup.set_markup(
-                """<span size="%s" foreground="%s" background="white">%s</span>""" % (
-                    text_size,markup_color,text
+                """<span size="%s" foreground="%s" background="%s">%s</span>""" % (
+                    text_size,markup_color,bg_markup_color,text
                     )
                 )
             # draw markup at lower right of vote oval, offset by 5 pix 
