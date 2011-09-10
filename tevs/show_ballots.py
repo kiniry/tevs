@@ -40,7 +40,7 @@ import string
 import sys
 import time
 import pango
-
+import db
 
 # globals
 # unprocessed images are in ~/unproc
@@ -165,6 +165,7 @@ INDEX_YCOORD = 23
 INDEX_INTENSITY = 7
 INDEX_WAS_VOTED = 26
 INDEX_AMBIGUOUS = 27
+
 class Vote(object):
     def __init__(self,str):
         # split the str into fields, and set values based on field contents
@@ -187,24 +188,60 @@ class Vote(object):
 
 class BallotVotes(object):
     def __init__(self,filename,imagenumber):
-        # open and read the data file, line by line
-        imagenumberstr = "%06d." % imagenumber
-        datafilename = const.resultsformatstring % (imagenumber/1000,imagenumber)
-        df = None
-        try:
-            df = open(datafilename,"r")
-        except:
-            #print "Could not open",datafilename, "trying one lower"
+        if const.use_db:
+            # query the database for the voteops matching file number
+            dbfileroot = const.root+"/unproc"
+            dbfilename = "%s/%03d/%06d.jpg" % (
+                dbfileroot,imagenumber/1000,imagenumber)
+            print dbfilename
+            # perform query
+
+            results = App.dbc.query("select contest_text,choice_text,adjusted_x,adjusted_y,red_mean_intensity, was_voted, suspicious, filename from voteops join ballots on voteops.ballot_id = ballots.ballot_id where filename like '%s'" % (dbfilename,) )
+            # unpack results
+            #INDEX_CONTEST = 3
+            #INDEX_CHOICE = 4
+            #INDEX_XCOORD = 22
+            #INDEX_YCOORD = 23
+            #INDEX_INTENSITY = 7
+            #INDEX_WAS_VOTED = 26
+            #INDEX_AMBIGUOUS = 27
+            self.votelist = []
+
+            if results is not None and len(results)>0:
+                print results[0]
+                for fields in results:
+                    v = Vote(",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,")
+                    v.contest = fields[0]
+                    v.choice = fields[1]
+                    v.xcoord = int(float(fields[2]))
+                    v.ycoord = int(float(fields[3]))
+                    v.intensity = int(float(fields[4]))
+                    v.was_voted = fields[5]
+                    v.ambiguous = fields[6]
+                    v.filename = fields[7]
+                    self.votelist.append(v)    
+
+        else:
+            # open and read the data file, line by line
+
+            imagenumberstr = "%06d." % imagenumber
+            datafilename = const.resultsformatstring % (imagenumber/1000,imagenumber)
+            df = None
             try:
-                datafilename = const.resultsformatstring % ((imagenumber-1)/1000,imagenumber-1)
                 df = open(datafilename,"r")
             except:
-                print "Could not open",datafilename,"either"
-        self.votelist = []
-        for line in df.readlines():
-            if (line.find(imagenumberstr)>-1):
-                self.votelist.append(Vote(line))
-        df.close()
+                #print "Could not open",datafilename, "trying one lower"
+                try:
+                    datafilename = const.resultsformatstring % ((imagenumber-1)/1000,imagenumber-1)
+                    df = open(datafilename,"r")
+                except:
+                    print "Could not open",datafilename,"either"
+            self.votelist = []
+            for line in df.readlines():
+                if (line.find(imagenumberstr)>-1):
+                    self.votelist.append(Vote(line))
+            df.close()
+
 
     def paint(self,drawable,gc,markup,xscalefactor,yscalefactor,imagedpi):
         for v in self.votelist:
@@ -236,13 +273,12 @@ class BallotVotes(object):
             bg_markup_color="white"
             if v.was_voted:
                 markup_color="red"
-            #elif v.intensity < (const.vote_intensity_threshold+4):
-            #    markup_color = "yellow"
             else:
                 markup_color="blue"
             if v.ambiguous:
                 markup_color="yellow"
                 bg_markup_color="black"
+
             if App.show_choice_overlay:
                 choicetext = v.choice.replace("dquot",'"').replace("squot","'")[:25]
             else:
@@ -257,8 +293,8 @@ class BallotVotes(object):
                 text = "%s%s" % (contesttext,choicetext)
             if text.startswith("v"):text=text[1:]
             markup.set_markup(
-                """<span size="%s" foreground="%s" background="%s">%s</span>""" % (
-                    text_size,markup_color,bg_markup_color,text
+                """<span size="%s" foreground="%s" background="white">%s</span>""" % (
+                    text_size,markup_color,text
                     )
                 )
             # draw markup at lower right of vote oval, offset by 5 pix 
@@ -584,9 +620,31 @@ class App():
     def motion_notify_cb(self, da, event):
         pass#print "Motion",self,da
 
-    def button_press_cb(self, event, data):
-        #print "Button",self,event, data
-        pass
+    def button_press_cb1(self, da, event):
+        self.button_press_cb(da,event,1)
+    def button_press_cb2(self, da, event):
+        self.button_press_cb(da,event,2)
+
+    def button_press_cb(self, da, event,da_number):
+        print "Button Press Callback"
+        width = da.width
+        height = da.height
+        try:
+            first_image = int(self.nowentry.get_text())
+            second_image = first_image+1
+        except Exception, e:
+            print e
+        if da_number == 1:
+            image_number = first_image
+        else:
+            image_number = second_image
+        pct_of_width = 100.*float(event.x)/width
+        pct_of_height = 100*float(event.y)/height
+        print "Image: %d; pct_of_width %d%%; pct_of_height %d%%, button %d" % (
+            image_number,
+            pct_of_width,
+            pct_of_height,
+            event.button)
 
     def key_press_cb(self, window, event):
         #print "Key",self,event
@@ -1611,7 +1669,14 @@ before advancing to the next""","Enter delay:",self.delay_seconds)
 
 
         App.root = topwindow
-	App.root.connect("delete_event", self.quitfromdelete, None)
+	#App.root.connect("delete_event", self.quitfromdelete, None)
+
+        if const.use_db:
+            try:
+                App.dbc = db.PostgresDB(const.dbname, const.dbuser)
+            except db.DatabaseError:
+                util.fatal("Could not connect to database")
+
 
         self.rownum = 1
         self.canvas = None
@@ -1897,10 +1962,10 @@ False)])
         self.i2.connect("expose_event",self.expose_cb,(2,self.rightimage))
         self.i2.connect("configure-event",self.configure_cb, (2,self.rightimage))
         #self.i1.connect("motion_notify_event", self.motion_notify_cb)
-        self.i1.connect("button_press_event", self.button_press_cb)
+        self.i1.connect("button_press_event", self.button_press_cb1)
         self.i1.connect("key_press_event", self.key_press_cb)
         #self.i2.connect("motion_notify_event", self.motion_notify_cb)
-        self.i2.connect("button_press_event", self.button_press_cb)
+        self.i2.connect("button_press_event", self.button_press_cb2)
 
         self.i1.add_events(gtk.gdk.EXPOSURE_MASK
                             | gtk.gdk.LEAVE_NOTIFY_MASK
