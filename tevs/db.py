@@ -48,9 +48,9 @@ class PostgresDB(object):
         #XXX we should not have to chop it off to an arbitary and small length
         if type(ballot.pages[0]) != tuple:
             try:
-                search_key = ballot.pages[0].template.precinct[:14]
+                search_key = ballot.pages[0].template.barcode
             except TypeError, IndexError:
-                search_key = "$".join(p.template.barcode for p in ballot.pages)[:14]
+                search_key = "$".join(p.template.barcode for p in ballot.pages)
                 
             name1 = ballot.pages[0].filename
             name2 = "<No such file>"
@@ -58,9 +58,9 @@ class PostgresDB(object):
                 name2 = ballot.pages[1].filename
         else:
             try:
-                search_key = ballot.pages[0].template.precinct[:14]
+                search_key = ballot.pages[0].template.barcode
             except TypeError, IndexError:
-                search_key = "$".join(p[0].template.precinct for p in ballot.pages)[:14]
+                search_key = "$".join(p[0].template.barcode for p in ballot.pages)
             b = ballot.pages[0]
             name1, name2 = b[0].filename, b[1].filename
 
@@ -109,7 +109,9 @@ class PostgresDB(object):
                         vd.stats.blue.third_fourth,
                         vd.stats.blue.lightest_fourth,
 
-                        vd.was_voted, vd.ambiguous 
+                        vd.was_voted, 
+                        vd.ambiguous,
+                        vd.filename
                     )
                 )
             except:
@@ -154,12 +156,16 @@ _pg_ins = """INSERT INTO voteops (
             blue_lightish_pixels,
             blue_lightest_pixels,
 
-            was_voted, suspicious
+            was_voted, 
+            suspicious,
+            filename
         ) VALUES (
             %s, %s, %s,  
             %s, %s, %s, %s,
             %s, %s, %s, %s, %s, 
             %s, %s, %s, %s, %s, 
             %s, %s, %s, %s, %s, 
-            %s, %s
+            %s, 
+            %s, 
+            %s
         )"""
