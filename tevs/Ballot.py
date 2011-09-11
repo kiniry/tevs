@@ -213,8 +213,6 @@ class Ballot(object):
             page.rot, page.xoff, page.yoff, page.y2y = r, x, y, y2y
         except BallotException:
             page.blank = True
-            if len(self.pages)==1:
-                raise
             r, x, y, y2y = 0,0,0,1
         return r, x, y, y2y
 
@@ -951,14 +949,21 @@ class IStats(object): #TODO move to cropstats or new pilb module
             ))
         return self._mean_intensity
 
-    def mean_darkness(self):
-       """compute mean darkness over each channel using first
-       two quartiles."""
+    def mean_darkness(self): 
+       """compute mean darkness over each channel using lowest
+       three quartiles."""
+       # Note: changed to include third fourth 
+       # because very light pencil may not set pixels into lower half.
+       # This will require adjustment to default values in config files
+       # to account for typical load of third fourth pixels in unvoted targets.
        if self._mean_darkness is None:
            self._mean_darkness = int(round(
                (self.red.darkest_fourth   + self.red.second_fourth   +
+                self.red.third_fourth +
                 self.blue.darkest_fourth  + self.blue.second_fourth  +
+                self.blue.third_fourth +
                 self.green.darkest_fourth + self.green.second_fourth
+                self.green.third_fourth +
                )/3.0
            ))
        return self._mean_darkness
