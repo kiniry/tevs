@@ -81,7 +81,7 @@ import db
 # in a paned window.  The display is overlaid with boxes around vote ops
 # whose results indicate the presence of a vote.
 
-version = "20110910"
+version = "20110911"
 debug = False
 fileextension = ".jpg"
 window = None
@@ -150,6 +150,21 @@ def import_code(code):
 
 #m = import_code(code)
 #m.testFunc(2,"yabba")
+
+def beep():
+    audio = file('/dev/audio', 'wb')
+    count=0
+    while count<25:
+        blip=chr(63)+chr(63)+chr(63)+chr(63)
+        audio.write(blip)
+        blip=chr(0)+chr(0)+chr(0)+chr(0)
+        audio.write(blip)
+        count=count+1
+    audio.close()
+
+
+
+
 
 def timeout_func(app,spinner):
     #print "In timeout",app,spinner
@@ -331,9 +346,11 @@ def help_overview_cb( b):
 
 def destroy_cb(cb, data):
     gtk.main_quit()
+    sys.exit(0)
 
 def quit_cb(cb):
     gtk.main_quit()
+    sys.exit(0)
 
 def all_files_in_folder(root,
                         patterns="*",
@@ -452,15 +469,19 @@ class App():
 
     def contbutton_cb(self,button,data):
         # update numbers forward by 2, reload files, expose
-        print "Contbutton, state %d" % button.get_active()
+
         if button.get_active():
             self.timeout = gobject.timeout_add(2000,
                                                timeout_func,
                                                self,
                                                self.spinbutton)
         else:
-            gobject.source_remove(self.timeout)
-            self.timeout = None
+            try:
+                gobject.source_remove(self.timeout)
+                self.timeout = None
+            except TypeError,e:
+                print e
+                pass
 	self.expose_cb(self.i1,None,(1,None))
 	self.expose_cb(self.i2,None,(2,None))
 
@@ -504,7 +525,8 @@ class App():
                 self.leftnumber += inc
                 self.rightnumber += inc
             except:
-                print "Could not increment, file could not be opened"
+                beep()
+
             self.leftfilename = const.procformatstring % ((self.leftnumber+inc)/1000,self.leftnumber+inc)
             self.rightfilename = const.procformatstring % ((self.rightnumber+inc)/1000,self.rightnumber+inc)
             self.leftdatafilename = const.resultsformatstring % ((self.leftnumber+inc)/1000,self.leftnumber+inc)
@@ -1488,13 +1510,15 @@ class App():
     def donotdelete(self):
         pass
 
-    def quitfromdelete(self,e,d,f):
-	    self.quitplease(d)
+    #def quitfromdelete(self,e,d,f):
+    #    self.quitplease(d)
 
     def quitplease(self,data):
         """Quit"""
-        if do_modal_dialog("Really quit?",App.root) == gtk.RESPONSE_ACCEPT:
-		gtk.main_quit()
+        gtk.main_quit()
+        sys.exit(0)
+        #if do_modal_dialog("Really quit?",App.root) == gtk.RESPONSE_ACCEPT:
+	#	gtk.main_quit()
 
     def show_help_overview(self):
         """Show help overview"""
@@ -1978,7 +2002,8 @@ False)])
 
 
 def on_delete_event(widget, event):
-   return True
+    gtk.main_quit()
+    sys.exit(0)
 
 
 if __name__ == '__main__':
