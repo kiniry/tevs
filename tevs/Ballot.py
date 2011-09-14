@@ -963,7 +963,7 @@ class IStats(object): #TODO move to cropstats or new pilb module
                 self.blue.darkest_fourth  + self.blue.second_fourth  +
                 self.blue.third_fourth +
                 self.green.darkest_fourth + self.green.second_fourth
-                self.green.third_fourth +
+                self.green.third_fourth 
                )/3.0
            ))
        return self._mean_darkness
