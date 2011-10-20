@@ -60,6 +60,10 @@ def get(cfg_file="tevs.cfg"):
     # then both log and print other config info for this run
     bwi = config.get("Sizes", "ballot_width_inches")
     bhi = config.get("Sizes", "ballot_height_inches")
+    try:
+        ioi = config.get("Sizes", "imprint_offset_inches")
+    except ConfigParser.NoOptionError:
+        ioi = "2.0"
     twi = config.get("Sizes", "target_width_inches")
     thi = config.get("Sizes", "target_height_inches")
     mwi = config.get("Sizes", "margin_width_inches")
@@ -120,10 +124,11 @@ def get(cfg_file="tevs.cfg"):
 
     tdpi = config.get("Scanner", "template_dpi")
     bdpi = config.get("Scanner", "ballot_dpi")
-    duplex = config.get("Scanner","duplex")
+
 
     const.ballot_width_inches = float(bwi)
     const.ballot_height_inches = float(bhi)
+    const.imprint_offset_inches = float(ioi)
     const.target_width_inches = float(twi)
     const.target_height_inches = float(thi)
     const.margin_width_inches = float(mwi)
@@ -145,7 +150,7 @@ def get(cfg_file="tevs.cfg"):
     const.ballot_dpi = int(bdpi)
     const.dpi = const.ballot_dpi 
     const.template_dpi = int(tdpi)
-    const.duplex = config.get("Scanner","duplex")
+
     const.num_pages = int(config.get("Mode", "images_per_ballot"))
     const.layout_brand = config.get("Layout", "brand")
     const.on_new_layout = config.get("Mode", "on_new_layout")
@@ -155,6 +160,7 @@ def get(cfg_file="tevs.cfg"):
     const.save_template_images = yesno(config, "Mode", "save_template_images")
     const.save_composite_images = yesno(config, "Mode", "save_composite_images")
     const.use_db = yesno(config, "Database", "use_db")
-    const.dbname = config.get("Database", "name")
+    #const.dbname = config.get("Database", "name")
+    const.dbname = config.get("Database", "database")
     const.dbuser  = config.get("Database", "user")
 
