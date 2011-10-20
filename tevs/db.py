@@ -14,16 +14,117 @@ class NullDB(object):
     def insert(self, _):
         pass
 
+create_ballots_table = """
+create table ballots (
+                ballot_id serial PRIMARY KEY,
+                processed_at timestamp,
+                code_string varchar(80),
+                layout_code bigint,
+                file1 varchar(80),
+                file2 varchar(80),
+		precinct varchar(80)
+               );
+"""
+create_voteops_table = """
+create table voteops (
+       voteop_id serial PRIMARY KEY,
+       ballot_id int REFERENCES ballots (ballot_id),
+       contest_text varchar(80),
+       choice_text varchar(80),
+       original_x smallint,
+       original_y smallint,
+       adjusted_x smallint,
+       adjusted_y smallint,
+       red_mean_intensity smallint,
+       red_darkest_pixels smallint,
+       red_darkish_pixels smallint,
+       red_lightish_pixels smallint,
+       red_lightest_pixels smallint,
+       green_mean_intensity smallint,
+       green_darkest_pixels smallint,
+       green_darkish_pixels smallint,
+       green_lightish_pixels smallint,
+       green_lightest_pixels smallint,
+       blue_mean_intensity smallint,
+       blue_darkest_pixels smallint,
+       blue_darkish_pixels smallint,
+       blue_lightish_pixels smallint,
+       blue_lightest_pixels smallint,
+       was_voted boolean,
+       image bytea,
+       h_span smallint,
+       v_span smallint,
+       suspicious boolean default False,
+       overvoted boolean default False,
+       filename varchar(80),
+       contest_text_id smallint default -1,
+       contest_text_standardized_id smallint default -1,
+       choice_text_id smallint default -1,
+       choice_text_standardized_id smallint default -1
+
+);
+"""
+create_voteops_filename_index = """create index voteops_filename_index on voteops (filename);"""
+
 
 class PostgresDB(object):
-    def __init__(self, name, user):
-        self.conn = DB.connect(database=name, user=user)
+    def __init__(self, database, user):
+        try:
+            self.conn = DB.connect(database=database, user=user)
+        except Exception, e:
+            # try to connect to user's default database
+            try:
+                self.conn = DB.connect(database=user, user=user)
+            except Exception, e:
+                print "Could not connect to database %s specified in tevs.cfg,\nor connect to default database %s for user %s \nin order to create and initialize new database %s" % (database,user,user,database) 
+                print "Do you have permission to create new databases?"
+                print e
+            # try to create new database, close, and reconnect to new database
+            try:
+                # create database requires autocommit (cannot be in transaction)
+                # if this fails, use shell cmd to psql to create db and tables
+                # !!! WARNING, autocommit requires version 2.4.2 of psycopg2, 
+                # not in Ubuntu 10.4.
+                # must build and set symbolic link from pyshared 
+                # to build/lib2.6/psycopg2
+                # as Ubuntu may do something weird with python installations
+                self.conn.autocommit = True
+                # try to create new database
+                self.query_no_returned_values(
+                    "create database %s" % (database,) )
+                self.conn.close()
+                # exit on failure, reconnect to new on success
+                self.conn = DB.connect(database=database, user=user)
+            except Exception, e:
+                print "Could not create or connect to database %s." % (database,)
+                print "Does your version of python psycopg2 include autocommit?"
+                print e
+            try:
+                self.query_no_returned_values(create_ballots_table)
+                self.query_no_returned_values(create_voteops_table)
+                self.query_no_returned_values(create_voteops_filename_index)
+                # create tables in new database
+            except Exception, e:
+                print "Could not initialize database %s \nwith ballots and voteops tables, and voteops filename index." % (database,)
+                print e
 
     def close(self):
         try:
             self.conn.close()
         except DatabaseError: 
             pass
+
+
+    def query_no_returned_values(self, q, *a):
+        "returns a list of all results of q parameterized with a"
+        cur = self.conn.cursor()
+        try:
+            cur.execute(q, *a)
+            self.conn.commit()
+        except DatabaseError, e:
+            print e
+            pdb.set_trace()
+        return 
 
     def query(self, q, *a):
         "returns a list of all results of q parameterized with a"
