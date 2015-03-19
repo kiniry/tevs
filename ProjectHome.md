@@ -1,0 +1,14 @@
+(Note: an incomplete initial user interface version is in non-default repository tevs.gui.  This has been posted because work on it will not continue until after the November election period.  The UI version uses Glade for UI appearance and files prefixed tevsgui for UI behavior.  It adds, at least, the following requirements: VTE to enable certain guided terminal interactions, Postgresql and the ability to create databases in Postgresql, pdfroff for printing of results.  It is completely independent of PILB, which may be ignored.  Screen shots are up at democracycounts.blogspot.com.)
+
+TEVS, the Trachtenberg Election Verification System, is an outgrowth of the Humboldt County Election Transparency Project.  Project members, in collaboration with the Humboldt County Elections Department, scan all cast ballots and make them available to the public.  TEVS is software that enables independent vote counting from the published images.
+
+A nice feature of TEVS is that it does not require per-election customization via "template" or "ballot definition" files.  Given images of sufficient quality (300 dpi), TEVS will generate its own template files by analyzing the ballot's layout and calling upon an external OCR program to read ballot text.
+
+Ballots generally identify their layout with a bar code or dash pattern.  Every time TEVS encounters a bar code or dash pattern for the first time, it determines the contests and choices on the ballot and writes its own template for that bar code or dash pattern.
+This means that the same version of TEVS may be used for a series of elections done on the same type and size of ballot without needing any changes or customization information.
+
+TEVS has an extraction component which records average intensity values along with contest and choice text for every voting opportunity on each ballot; the information is recorded in a Postgresql database and in per-ballot CSV files which can be imported into a spreadsheet.  It also has a display component which overlays ballots with indications of where it finds vote opportunities and which vote ops have been counted as voted.
+
+TEVS is now in the process of being restructured to make it easier to extend to new types of ballots.  Over time, we hope to develop the ability to determine layouts in more and more generic manners, enabling a single implementation of TEVS to count anything that a human could interpret as a ballot.
+
+TEVSystems and the Humboldt County Election Transparency Project are grateful for funding from the Grace Institute for Democracy and Election Integrity, which has made continued development possible.
